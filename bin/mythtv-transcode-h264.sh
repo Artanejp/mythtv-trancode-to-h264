@@ -284,10 +284,10 @@ case "$x" in
    "LIVE1" )
    VIDEO_QUANT=22
    VIDEO_MINQ=14
-   VIDEO_MAXQ=32
+   VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH="1.1"
-   VIDEO_QCOMP="0.55"
-   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.5:chroma_spatial=3.4:luma_tmp=4.4:chroma_tmp=4.0"
+   VIDEO_QCOMP="0.67"
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=23
@@ -307,9 +307,32 @@ case "$x" in
    ;;
 esac
 
-X264_PRESETS="--profile high"
+X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30"
 X264_QUANT="-q $VIDEO_QUANT"
-X264_AQPARAM="--aq-mode 2 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
+X264_AQPARAM="--aq-mode 2 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 8 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
+
+# Modify encoding parameter(s) on ANIME/ANIME_HIGH
+X264_DIRECT="--direct auto "
+X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
+x=$ENCMODE
+case "$x" in
+   ANIME )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 3 --b-bias -1 --b-adapt 2"
+   ;;
+   LIVE1 )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+   ;;
+   ANIME_HIGH )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 3 --b-bias -2 --b-adapt 2"
+   ;;
+   LIVE_MID | LIVE_LOW )
+     X264_DIRECT="--direct auto"
+     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
+   ;;
+esac
 
 if test $USEOPENCL -ne 0; then
    USECL="--opencl"
@@ -322,7 +345,8 @@ else
   X264_FASTENC="--no-fast-pskip"
 fi
 
-x264 --sar 4:3 $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC $X264_AQPARAM $X264_ENCPARAM $X264_FILTPARAM \
+x264 --sar 4:3 $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
+    $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
    --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
 ENC_VIDEO_PID=$!
 
