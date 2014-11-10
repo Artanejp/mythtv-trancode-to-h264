@@ -144,6 +144,11 @@ for x in "$@" ; do
     shift
     ENCMODE="LIVE1"
     ;;
+    --live_high)
+    # for Live, middle quality.
+    shift
+    ENCMODE="LIVE_HIGH"
+    ;;
     --live_low | --live_low)
     # for Live, middle quality.
     shift
@@ -188,6 +193,7 @@ for x in "$@" ; do
     echo " "
     echo " --anime : Set encode parameters for Anime (standard)."
     echo " --live1 | --live : Set encode parameters for Live movies (standard)."
+    echo " --live_high      : Set encode parameters for Live movies (higher than standard)."
     echo " --live_mid       : Set encode parameters for Live movies (lower than standard)."
     echo " --live_low : Set encode parameters for Live movies (low-bitrate, low-quality)."
     echo " --encmode MODE : Set encode parameters to preset named MODE."
@@ -238,7 +244,17 @@ echo "DELETE FROM recordedmarkup WHERE chanid='$I_CHANID' AND starttime='$I_STAR
 mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
 
 
-
+x=$ENCMODE
+case "$x" in
+#   "ANIME" | "LIVE_MID")
+#   AUDIOBITRATE=192
+#   AUDIOCUTOFF=20000
+#   ;;
+   "ANIME_HIGH" | "LIVE_HIGH" )
+   AUDIOBITRATE=224
+   AUDIOCUTOFF=22050
+   ;;
+esac
 # convert audio track to aac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
@@ -268,7 +284,7 @@ case "$x" in
    VIDEO_MINQ=14
    VIDEO_MAXQ=24
    VIDEO_AQSTRENGTH="0.85"
-   VIDEO_QCOMP="0.88"
+   VIDEO_QCOMP="0.85"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
@@ -284,15 +300,23 @@ case "$x" in
    "LIVE1" )
    VIDEO_QUANT=22
    VIDEO_MINQ=14
-   VIDEO_MAXQ=30
+   VIDEO_MAXQ=31
    VIDEO_AQSTRENGTH="1.1"
    VIDEO_QCOMP="0.67"
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
+   ;;
+   "LIVE_HIGH" )
+   VIDEO_QUANT=22
+   VIDEO_MINQ=14
+   VIDEO_MAXQ=28
+   VIDEO_AQSTRENGTH="1.1"
+   VIDEO_QCOMP="0.75"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=23
    VIDEO_MINQ=14
-   VIDEO_MAXQ=33
+   VIDEO_MAXQ=34
    VIDEO_AQSTRENGTH="1.2"
    VIDEO_QCOMP="0.53"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
@@ -320,7 +344,7 @@ case "$x" in
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 3 --b-bias -1 --b-adapt 2"
    ;;
-   LIVE1 )
+   LIVE1 | LIVE_HIGH )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
    ;;
@@ -328,9 +352,15 @@ case "$x" in
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 3 --b-bias -2 --b-adapt 2"
    ;;
-   LIVE_MID | LIVE_LOW )
+   LIVE_MID )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 35"
+   ;;
+   LIVE_LOW )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40"
    ;;
 esac
 
