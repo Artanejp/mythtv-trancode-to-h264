@@ -394,5 +394,5 @@ if test $REMOVE_SOURCE -ne 0; then
 fi
 # cleanup temp files
 cd ../..
-#rm -rf $TEMPDIR
+rm -rf $TEMPDIR
 exit 0
