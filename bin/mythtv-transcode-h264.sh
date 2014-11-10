@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # MythTV multi-pass auto-transcode to H.264, remove commercials, delete original recording, and
 # make database entry point to transcoded file. 
@@ -24,7 +24,6 @@
 # MySQL database login information (for mythconverg database)
 DATABASEUSER="mythtv"
 DATABASEPASSWORD="yourpasswordhere"
-
 
 # MythTV Install Prefix (make sure this matches with the directory where MythTV is installed)
 INSTALLPREFIX="/usr/bin"
@@ -192,6 +191,7 @@ for x in "$@" ; do
     echo "Note:"
     echo " - Transcoded file is MP4 container, H.264 AVC + AAC." 
     echo " - You can put configuration file to ~/.mythtv-transcode-x264 ."
+    echo "   To use MythTV's user's job, put this config file to /home/mythtv etc..."
     echo " "
     echo "Usage:"
     echo " -i | --src | --i Input-File (Full path)  : Set input file."
@@ -206,7 +206,8 @@ for x in "$@" ; do
     echo " --opencl    : Use OpenCL on video encoding."
     echo " --no-opencl : DO NOT Use OpenCL on video encoding.(Default)"
     echo " "
-    echo " --anime : Set encode parameters for Anime (standard)."
+    echo " --anime          : Set encode parameters for Anime (standard)."
+    echo " --anime_high     : Set encode parameters for Anime (high quality a little)."
     echo " --live1 | --live : Set encode parameters for Live movies (standard)."
     echo " --live_high      : Set encode parameters for Live movies (higher than standard)."
     echo " --live_mid       : Set encode parameters for Live movies (lower than standard)."
