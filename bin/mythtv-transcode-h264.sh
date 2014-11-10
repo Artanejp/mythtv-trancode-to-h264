@@ -185,11 +185,11 @@ for x in "$@" ; do
     echo " -o | --dst | --o Output-File (Full path) : Set output file. You must set to MP4 File."
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
-    echo " --cmcut : Perform CM CUT. (Default)"
-    echo " --no-cmcut : DO NOT Perform CM CUT."
+    echo " --cmcut : Perform CM CUT."
+    echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --threads threads : Set threads for x264 video encoder. (Default = 4)"
     echo " --opencl    : Use OpenCL on video encoding."
-    echo " --no-opencl : DO NOT Use OpenCL on video encoding."
+    echo " --no-opencl : DO NOT Use OpenCL on video encoding.(Default)"
     echo " "
     echo " --anime : Set encode parameters for Anime (standard)."
     echo " --live1 | --live : Set encode parameters for Live movies (standard)."
@@ -283,8 +283,8 @@ case "$x" in
    VIDEO_QUANT=21
    VIDEO_MINQ=14
    VIDEO_MAXQ=24
-   VIDEO_AQSTRENGTH="0.85"
-   VIDEO_QCOMP="0.85"
+   VIDEO_AQSTRENGTH="1.0"
+   VIDEO_QCOMP="0.84"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
@@ -293,7 +293,7 @@ case "$x" in
    VIDEO_MINQ=14
    VIDEO_MAXQ=24
    VIDEO_AQSTRENGTH="0.75"
-   VIDEO_QCOMP="0.93"
+   VIDEO_QCOMP="0.92"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
