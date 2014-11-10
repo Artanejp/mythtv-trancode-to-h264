@@ -52,6 +52,7 @@ F_CHANID=0
 F_STARTTIME=0
 I_CHANID=$3
 I_STARTTIME=$4
+USE_DATABASE=1
 ENCMODE="DEFAULT"
 
 # Parse ARGS
@@ -84,6 +85,14 @@ for x in "$@" ; do
     shift
     ENCTHREADS=$1
     shift
+    ;;
+    --db | --use-db | --with-db )
+    shift
+    USE_DATABASE=1
+    ;;
+    --nodb | --not-use-db | --without-db )
+    shift
+    USE_DATABASE=0
     ;;
     --opencl | --OpenCL | --OPENCL)
     shift
@@ -186,6 +195,8 @@ for x in "$@" ; do
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
     echo " --cmcut : Perform CM CUT."
+    echo " --db    : Use MythTV's database to manage trancoded video.(Default)"
+    echo " --nodb  : Don't use MythTV's database and not manage trancoded video.(not default, useful for manual transcoding)"
     echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --threads threads : Set threads for x264 video encoder. (Default = 4)"
     echo " --opencl    : Use OpenCL on video encoding."
@@ -217,6 +228,7 @@ TEMPDIR=`mktemp -d`
 DIRNAME=`dirname "$DST"`
 
 BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
+#BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/:/：/g' | sed 's/?/？/g' | sed s/"'"/"’"/g`
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
 
 
@@ -229,20 +241,21 @@ ionice -c 3 -p $MYPID
 mkdir $TEMPDIR/mythtmp-$MYPID
 cd $TEMPDIR/mythtmp-$MYPID
 
-# remove commercials
-if test $CMCUT -ne 0; then
-  $INSTALLPREFIX/mythcommflag -c "$I_CHANID" -s "$I_STARTTIME" --gencutlist
-  $INSTALLPREFIX/mythtranscode --chanid "$I_CHANID" --starttime "$I_STARTTIME" --mpeg2 --honorcutlist
-  echo "UPDATE recorded SET basename='$BASENAME2.tmp' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
+
+if test $USE_DATABASE -ne 0 ; then
+  # remove commercials
+  if test $CMCUT -ne 0; then
+    $INSTALLPREFIX/mythcommflag -c "$I_CHANID" -s "$I_STARTTIME" --gencutlist
+    $INSTALLPREFIX/mythtranscode --chanid "$I_CHANID" --starttime "$I_STARTTIME" --mpeg2 --honorcutlist
+    echo "UPDATE recorded SET basename='$BASENAME2.tmp' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
+    mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+  fi
+  # fix seeking and bookmarking by removing stale db info
+  echo "DELETE FROM recordedseek WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
+  mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+  echo "DELETE FROM recordedmarkup WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
   mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
 fi
-
-# fix seeking and bookmarking by removing stale db info
-echo "DELETE FROM recordedseek WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
-echo "DELETE FROM recordedmarkup WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
-
 
 x=$ENCMODE
 case "$x" in
@@ -435,8 +448,11 @@ fi
 
 # update the database to point to the transcoded file and delete the original recorded show.
 NEWFILESIZE=`du -b "$DIRNAME/$BASENAME" | cut -f1`
-echo "UPDATE recorded SET basename='$BASENAME',filesize='$NEWFILESIZE',transcoded='1' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+
+if test $USE_DATABASE -ne 0 ; then
+  echo "UPDATE recorded SET basename='$BASENAME',filesize='$NEWFILESIZE',transcoded='1' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
+  mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+fi
 
 # Remove 
 if test $REMOVE_SOURCE -ne 0; then
