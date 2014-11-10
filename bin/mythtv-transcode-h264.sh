@@ -6,13 +6,16 @@
 #
 # Written by Defcronyke Webmaster, copyright 2012.
 # Version 0.8
-
+# https://code.google.com/p/mythtv-scripts/source/browse/trunk/test/mythtv-transcode-h264.sh
+#
+# Modified by K.Ohta <whatisthis.sowhat _at_ gmail.com>
 # Arguments
 # 
 # -i path      : Path must be the directory/file to be transcoded.
 # -o path      : Path must be the output directory / file name. The directory must be writeable by the mythtv user
 # -c chanid    : Chanid must be chanid written in database.
 # -t starttime : Starttime  must be starttime written in database.
+# Etc.
 # Place local configuration file, 
 # the full userjob command in mythtv-setup should look like this:
 # /path/to/this-script/mythtv-transcode-h264.sh -i "%DIR%/%FILE%" -o "%DIR%/%TITLE% - %PROGSTART%.mp4" -c "%CHANID%" -t "%STARTTIME%"
@@ -184,6 +187,7 @@ for x in "$@" ; do
     -h | --help )
     echo "Auto transcode script for MythTV."
     echo "  Written by Defcronyke Webmaster, copyright 2012."
+    echo "    See, https://code.google.com/p/mythtv-scripts/source/browse/trunk/test/mythtv-transcode-h264.sh ."
     echo "  Modified from v0.8: K.Ohta <whatsithis.sowhat@gmail.com>"
     echo "Note:"
     echo " - Transcoded file is MP4 container, H.264 AVC + AAC." 
