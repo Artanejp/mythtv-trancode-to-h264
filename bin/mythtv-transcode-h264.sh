@@ -208,7 +208,7 @@ MYPID=$$
 # a temporary working directory (must be writable by mythtv user)
 TEMPDIR=`mktemp -d`
 
-DIRNAME=`dirname "$2"`
+DIRNAME=`dirname "$DST"`
 
 BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
@@ -394,5 +394,5 @@ if test $REMOVE_SOURCE -ne 0; then
 fi
 # cleanup temp files
 cd ../..
-rm -rf $TEMPDIR
+#rm -rf $TEMPDIR
 exit 0
