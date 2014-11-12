@@ -175,11 +175,11 @@ for x in "$@" ; do
     ENCMODE="$1"
     shift
     ;;
-    --remove-source | --REMOVE-SOURCE )
+    --remove | --remove-source | --REMOVE-SOURCE )
     shift
     REMOVE_SOURCE=1
     ;;
-    --no-remove-source | --NO-REMOVE-SOURCE )
+    --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
     shift
     REMOVE_SOURCE=0
     ;;
@@ -198,10 +198,10 @@ for x in "$@" ; do
     echo " -o | --dst | --o Output-File (Full path) : Set output file. You must set to MP4 File."
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
-    echo " --cmcut : Perform CM CUT."
+    echo " --cmcut : Perform CM CUT.(DANGER!) Seems to be imcomplete audio(s) at ISDB/Japan"
+    echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --db    : Use MythTV's database to manage trancoded video.(Default)"
     echo " --nodb  : Don't use MythTV's database and not manage trancoded video.(not default, useful for manual transcoding)"
-    echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --threads threads : Set threads for x264 video encoder. (Default = 4)"
     echo " --opencl    : Use OpenCL on video encoding."
     echo " --no-opencl : DO NOT Use OpenCL on video encoding.(Default)"
@@ -213,8 +213,8 @@ for x in "$@" ; do
     echo " --live_mid       : Set encode parameters for Live movies (lower than standard)."
     echo " --live_low : Set encode parameters for Live movies (low-bitrate, low-quality)."
     echo " --encmode MODE : Set encode parameters to preset named MODE."
-    echo " --remove-source : Remove source after if transcoding is succeeded. (CAUTION!)"
-    echo " --no-remove-source : NOT remove source after if transcoding is succeeded. (CAUTION!)"
+    echo " --remove-source | --remove       : Remove source after if transcoding is succeeded. (CAUTION!)"
+    echo " --no-remove-source | --no-remove : DO NOT remove source after if transcoding is succeeded. (CAUTION!)"
     echo " --encpreset <std | fast | faster | slow> : Set x264's preset mode."
     echo "    std    = --preset slower"
     echo "    fast   = --preset slow"
@@ -231,6 +231,7 @@ MYPID=$$
 TEMPDIR=`mktemp -d`
 
 DIRNAME=`dirname "$DST"`
+DIRNAME2=`dirname "$SRC"`
 
 BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
 #BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/:/：/g' | sed 's/?/？/g' | sed s/"'"/"’"/g`
@@ -246,14 +247,15 @@ ionice -c 3 -p $MYPID
 mkdir $TEMPDIR/mythtmp-$MYPID
 cd $TEMPDIR/mythtmp-$MYPID
 
-
+SRC2="$BASENAME2"
 if test $USE_DATABASE -ne 0 ; then
   # remove commercials
   if test $CMCUT -ne 0; then
-    $INSTALLPREFIX/mythcommflag -c "$I_CHANID" -s "$I_STARTTIME" --gencutlist
+    $INSTALLPREFIX/mythcommflag  --chanid "$I_CHANID" --starttime "$I_STARTTIME"
     $INSTALLPREFIX/mythtranscode --chanid "$I_CHANID" --starttime "$I_STARTTIME" --mpeg2 --honorcutlist
     echo "UPDATE recorded SET basename='$BASENAME2.tmp' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
     mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+    SRC2="$BASENAME2.tmp"
   fi
   # fix seeking and bookmarking by removing stale db info
   echo "DELETE FROM recordedseek WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
@@ -273,11 +275,12 @@ case "$x" in
    AUDIOCUTOFF=22050
    ;;
 esac
+
 # convert audio track to aac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
 
-ffmpeg -i $SRC  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+ffmpeg -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
 DEC_AUDIO_PID=$!
 
 faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null &
@@ -300,9 +303,9 @@ case "$x" in
    "ANIME" )
    VIDEO_QUANT=21
    VIDEO_MINQ=14
-   VIDEO_MAXQ=24
-   VIDEO_AQSTRENGTH="1.0"
-   VIDEO_QCOMP="0.84"
+   VIDEO_MAXQ=25
+   VIDEO_AQSTRENGTH="0.85"
+   VIDEO_QCOMP="0.88"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
@@ -327,15 +330,15 @@ case "$x" in
    VIDEO_QUANT=22
    VIDEO_MINQ=14
    VIDEO_MAXQ=28
-   VIDEO_AQSTRENGTH="1.1"
+   VIDEO_AQSTRENGTH="0.95"
    VIDEO_QCOMP="0.75"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=23
    VIDEO_MINQ=14
-   VIDEO_MAXQ=34
-   VIDEO_AQSTRENGTH="1.2"
+   VIDEO_MAXQ=32
+   VIDEO_AQSTRENGTH="1.1"
    VIDEO_QCOMP="0.53"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
@@ -360,20 +363,24 @@ x=$ENCMODE
 case "$x" in
    ANIME )
      X264_DIRECT="--direct temporal"
-     X264_BFRAMES="--bframes 3 --b-bias -1 --b-adapt 2"
-   ;;
-   LIVE1 | LIVE_HIGH )
-     X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
    ;;
    ANIME_HIGH )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 3 --b-bias -2 --b-adapt 2"
    ;;
+   LIVE_HIGH )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+   ;;
+   LIVE1 )
+     X264_DIRECT="--direct temporal"
+     X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
+   ;;
    LIVE_MID )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 35"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 33"
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto"
@@ -401,7 +408,7 @@ ENC_VIDEO_PID=$!
 
 VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX"
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
-ffmpeg -i $SRC -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
+ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
 DEC_VIDEO_PID=$!
 
 wait $DEC_AUDIO_PID
