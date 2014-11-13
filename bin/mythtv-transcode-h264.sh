@@ -16,9 +16,10 @@
 # -c chanid    : Chanid must be chanid written in database.
 # -t starttime : Starttime  must be starttime written in database.
 # Etc.
+# And set User Job of MythTV:
 # Place local configuration file, 
 # the full userjob command in mythtv-setup should look like this:
-# /path/to/this-script/mythtv-transcode-h264.sh -i "%DIR%/%FILE%" -o "%DIR%/%TITLE% - %PROGSTART%.mp4" -c "%CHANID%" -t "%STARTTIME%"
+# /usr/local/bin/mythtv-transcode-h264.sh -i "%DIR%/%FILE%" -o "%DIR%/%TITLE% %SUBTITLE% - %CHANID% %STARTTIME%.mp4" -c "%CHANID%" -t "%STARTTIMEISOUTC%" --otheroptions
 
 
 # MySQL database login information (for mythconverg database)
@@ -56,6 +57,7 @@ I_CHANID=$3
 I_STARTTIME=$4
 USE_DATABASE=1
 ENCMODE="DEFAULT"
+NOENCODE=0
 
 # Parse ARGS
 for x in "$@" ; do
@@ -95,6 +97,10 @@ for x in "$@" ; do
     --nodb | --not-use-db | --without-db )
     shift
     USE_DATABASE=0
+    ;;
+    --noenc | --noencode )
+    shift
+    NOENCODE=1
     ;;
     --opencl | --OpenCL | --OPENCL)
     shift
@@ -233,7 +239,7 @@ TEMPDIR=`mktemp -d`
 DIRNAME=`dirname "$DST"`
 DIRNAME2=`dirname "$SRC"`
 
-BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
+BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!//g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
 #BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/:/：/g' | sed 's/?/？/g' | sed s/"'"/"’"/g`
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
 
@@ -264,6 +270,7 @@ if test $USE_DATABASE -ne 0 ; then
   mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
 fi
 
+if test $NOENCODE -eq 0; then
 x=$ENCMODE
 case "$x" in
 #   "ANIME" | "LIVE_MID")
@@ -457,6 +464,8 @@ if test $RESULT_DEMUX -ne 0; then
   rm -rf $TEMPDIR
   exit 3
 fi
+fi
+
 
 # update the database to point to the transcoded file and delete the original recorded show.
 NEWFILESIZE=`du -b "$DIRNAME/$BASENAME" | cut -f1`
