@@ -44,10 +44,11 @@ REMOVE_SOURCE=0
 FASTENC=0
 X264_ENCPRESET="--preset slower --8x8dct --partitions all"
 
-if [ -e ~/.mythtv-transcode-x264 ]; then
-   . ~/.mythtv-transcode-x264
+if [ -e $HOME/.mythtv-transcode-x264 ]; then
+   . $HOME/.mythtv-transcode-x264
 fi
 
+#echo $DATABASEUSER $DATABASEPASSWORD
 SRC=$1
 DST=$2
 
@@ -59,6 +60,7 @@ USE_DATABASE=1
 ENCMODE="DEFAULT"
 NOENCODE=0
 
+echo "$@" | logger -i -t "MYTHTV.TRANSCODE" 
 # Parse ARGS
 for x in "$@" ; do
     SS="$1"
@@ -239,11 +241,10 @@ TEMPDIR=`mktemp -d`
 DIRNAME=`dirname "$DST"`
 DIRNAME2=`dirname "$SRC"`
 
-BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!//g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/""/g`
+BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g`
 #BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/ /_/g' | sed 's/:/：/g' | sed 's/?/？/g' | sed s/"'"/"’"/g`
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
-
-
+printf "BASENAME=%s STARTTIME=%s" $BASENAME $I_STARTTIME | logger -i -t "MYTHTV.TRANSCODE" 
 
 # play nice with other processes
 renice 19 $MYPID
@@ -260,14 +261,14 @@ if test $USE_DATABASE -ne 0 ; then
     $INSTALLPREFIX/mythcommflag  --chanid "$I_CHANID" --starttime "$I_STARTTIME"
     $INSTALLPREFIX/mythtranscode --chanid "$I_CHANID" --starttime "$I_STARTTIME" --mpeg2 --honorcutlist
     echo "UPDATE recorded SET basename='$BASENAME2.tmp' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-    mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+    mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
     SRC2="$BASENAME2.tmp"
   fi
   # fix seeking and bookmarking by removing stale db info
   echo "DELETE FROM recordedseek WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-  mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
   echo "DELETE FROM recordedmarkup WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-  mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
 fi
 
 if test $NOENCODE -eq 0; then
@@ -310,8 +311,8 @@ case "$x" in
    "ANIME" )
    VIDEO_QUANT=21
    VIDEO_MINQ=14
-   VIDEO_MAXQ=25
-   VIDEO_AQSTRENGTH="0.85"
+   VIDEO_MAXQ=24
+   VIDEO_AQSTRENGTH="0.88"
    VIDEO_QCOMP="0.88"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
@@ -457,22 +458,26 @@ fi
 
 MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.m4a -new "$DIRNAME/$BASENAME"
 RESULT_DEMUX=$?
-
-if test $RESULT_DEMUX -ne 0; then
-  echo "Errror on DEMUXing."
-  cd ../..
-  rm -rf $TEMPDIR
-  exit 3
-fi
+#/if test $RESULT_DEMUX -ne 0; then
+#  echo "Errror on DEMUXing."
+#  cd ../..
+#  rm -rf $TEMPDIR
+#  exit 3
+#fi
 fi
 
 
 # update the database to point to the transcoded file and delete the original recorded show.
 NEWFILESIZE=`du -b "$DIRNAME/$BASENAME" | cut -f1`
+if test $NEWFILESIZE -le 0 ; then
+  echo "Unknown Error"
+  exit 4
+fi
 
 if test $USE_DATABASE -ne 0 ; then
   echo "UPDATE recorded SET basename='$BASENAME',filesize='$NEWFILESIZE',transcoded='1' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-  mysql --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
+  cat update-database_$MYPID.sql | logger -i -t "MYTHTV.TRANSCODE" 
+  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql | logger -i -t "MYTHTV.TRANSCODE" 
 fi
 
 # Remove 
@@ -484,6 +489,8 @@ if test $REMOVE_SOURCE -ne 0; then
  rm -f $SRC.tmp
 fi
 # cleanup temp files
-cd ../..
+sync
+sleep 2
+cd $TEMPDIR/..
 rm -rf $TEMPDIR
 exit 0
