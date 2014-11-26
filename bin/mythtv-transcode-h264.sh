@@ -44,6 +44,11 @@ REMOVE_SOURCE=0
 FASTENC=0
 X264_ENCPRESET="--preset slower --8x8dct --partitions all"
 
+if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
+   . /etc/mythtv/mythtv-transcode-x264
+fi
+
+
 if [ -e $HOME/.mythtv-transcode-x264 ]; then
    . $HOME/.mythtv-transcode-x264
 fi
@@ -96,7 +101,7 @@ for x in "$@" ; do
     shift
     USE_DATABASE=1
     ;;
-    --nodb | --not-use-db | --without-db )
+    --no-database | --nodb | --not-use-db | --without-db )
     shift
     USE_DATABASE=0
     ;;
@@ -153,7 +158,7 @@ for x in "$@" ; do
     ENCMODE="ANIME"
     echo "anime"
     ;;
-    --anime-high )
+    --anime_high | --anime-high )
     # Optimize for anime
     shift
     ENCMODE="ANIME_HIGH"
@@ -163,17 +168,17 @@ for x in "$@" ; do
     shift
     ENCMODE="LIVE1"
     ;;
-    --live_high)
+    --live_high | --live-high )
     # for Live, middle quality.
     shift
     ENCMODE="LIVE_HIGH"
     ;;
-    --live_low | --live_low)
+    --live_low | --live-low)
     # for Live, middle quality.
     shift
     ENCMODE="LIVE_LOW"
     ;;
-    --live_mid | --live_mid)
+    --live_mid | --live-mid)
     # for Live, middle quality.
     shift
     ENCMODE="LIVE_MID"
