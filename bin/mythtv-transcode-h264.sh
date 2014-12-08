@@ -94,7 +94,7 @@ for x in "$@" ; do
     ;;
     --threads )
     shift
-    ENCTHREADS=$1
+    ENCTHREADS="$1"
     shift
     ;;
     --db | --use-db | --with-db )
@@ -192,7 +192,7 @@ for x in "$@" ; do
     shift
     REMOVE_SOURCE=1
     ;;
-    --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
+    --norm | --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
     shift
     REMOVE_SOURCE=0
     ;;
