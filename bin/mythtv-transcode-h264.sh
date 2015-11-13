@@ -31,8 +31,8 @@ INSTALLPREFIX="/usr/bin"
 
 # Number of threads to use (default uses all threads)
 USEOPENCL=0
-AUDIOBITRATE=192
-AUDIOCUTOFF=20000
+AUDIOBITRATE=224
+AUDIOCUTOFF=22050
 ENCTHREADS=4
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
@@ -317,7 +317,7 @@ case "$x" in
    VIDEO_QUANT=21
    VIDEO_MINQ=14
    VIDEO_MAXQ=24
-   VIDEO_AQSTRENGTH="0.88"
+   VIDEO_AQSTRENGTH="0.75"
    VIDEO_QCOMP="0.88"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
@@ -326,7 +326,7 @@ case "$x" in
    VIDEO_QUANT=21
    VIDEO_MINQ=14
    VIDEO_MAXQ=24
-   VIDEO_AQSTRENGTH="0.75"
+   VIDEO_AQSTRENGTH="0.88"
    VIDEO_QCOMP="0.92"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
    X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
@@ -334,7 +334,7 @@ case "$x" in
    "LIVE1" )
    VIDEO_QUANT=22
    VIDEO_MINQ=14
-   VIDEO_MAXQ=31
+   VIDEO_MAXQ=32
    VIDEO_AQSTRENGTH="1.1"
    VIDEO_QCOMP="0.67"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
@@ -343,23 +343,23 @@ case "$x" in
    VIDEO_QUANT=22
    VIDEO_MINQ=14
    VIDEO_MAXQ=28
-   VIDEO_AQSTRENGTH="0.95"
+   VIDEO_AQSTRENGTH="1.1"
    VIDEO_QCOMP="0.75"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=23
-   VIDEO_MINQ=14
-   VIDEO_MAXQ=32
-   VIDEO_AQSTRENGTH="1.1"
-   VIDEO_QCOMP="0.53"
+   VIDEO_MINQ=15
+   VIDEO_MAXQ=35
+   VIDEO_AQSTRENGTH="1.3"
+   VIDEO_QCOMP="0.55"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
    "LIVE_LOW" )
    VIDEO_QUANT=25
    VIDEO_MINQ=14
    VIDEO_MAXQ=40
-   VIDEO_AQSTRENGTH="1.3"
+   VIDEO_AQSTRENGTH="1.5"
    VIDEO_QCOMP="0.50"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    ;;
@@ -367,7 +367,7 @@ esac
 
 X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30"
 X264_QUANT="-q $VIDEO_QUANT"
-X264_AQPARAM="--aq-mode 2 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 8 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
+X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 8 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
 
 # Modify encoding parameter(s) on ANIME/ANIME_HIGH
 X264_DIRECT="--direct auto "
@@ -377,14 +377,17 @@ case "$x" in
    ANIME )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30"
    ;;
    ANIME_HIGH )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 3 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 26"
    ;;
    LIVE_HIGH )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 32"
    ;;
    LIVE1 )
      X264_DIRECT="--direct temporal"
@@ -393,12 +396,14 @@ case "$x" in
    LIVE_MID )
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 33"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 37"
+     X264_ENCPRESET="--preset slow ---subme 8 -8x8dct --partitions p8x8,b8x8,i8x8"
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 43"
+     X264_ENCPRESET="--preset medium --8x8dct --partitions p8x8,b8x8,i8x8"
    ;;
 esac
 
