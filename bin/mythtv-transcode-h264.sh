@@ -397,13 +397,13 @@ case "$x" in
      X264_DIRECT="--direct temporal"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 37"
-     X264_ENCPRESET="--preset slow ---subme 8 -8x8dct --partitions p8x8,b8x8,i8x8"
+     X264_ENCPRESET="--preset slow --subme 8 --8x8dct --partitions all"
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 43"
-     X264_ENCPRESET="--preset medium --8x8dct --partitions p8x8,b8x8,i8x8"
+     X264_ENCPRESET="--preset medium --8x8dct --8x8dct --partitions all"
    ;;
 esac
 
