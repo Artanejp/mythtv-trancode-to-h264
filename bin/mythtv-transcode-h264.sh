@@ -43,6 +43,7 @@ CMCUT=0
 REMOVE_SOURCE=0
 FASTENC=0
 X264_ENCPRESET="--preset slower --8x8dct --partitions all"
+X264_BITRATE="2000"
 
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
@@ -293,10 +294,10 @@ esac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
 
-ffmpeg -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+ffmpeg -loglevel panic -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
 DEC_AUDIO_PID=$!
 
-faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null &
+faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
 ENC_AUDIO_PID=$!
 
 # first video pass
@@ -306,67 +307,77 @@ mkfifo $VIDEOTMP
 # if set encode mode ($ENCMODE), override defaults.
 VIDEO_FILTERCHAIN0="crop=out_w=1440:out_h=1080:y=1080:keep_aspect=1"
 VIDEO_FILTERCHAINX="kerndeint,hqdn3d=luma_spatial=4.5:chroma_spatial=3.4:luma_tmp=4.4:chroma_tmp=4.0"
-
-X264_FILTPARAM="--vf resize:width=1280,height=720,method=lanczos"
+VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=lanczos"
+#X264_FILTPARAM="--vf resize:width=1280,height=720,method=lanczos"
+X264_FILTPARAM=""
 # Live video (low motion)
 
 #Determine override presets when set to mode
 x=$ENCMODE
 case "$x" in
    "ANIME" )
-   VIDEO_QUANT=22
+   VIDEO_QUANT=24
    VIDEO_MINQ=15
-   VIDEO_MAXQ=25
-   VIDEO_AQSTRENGTH="0.75"
-   VIDEO_QCOMP="0.88"
+   VIDEO_MAXQ=28
+   VIDEO_AQSTRENGTH="1.10"
+   VIDEO_QCOMP="0.70"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
-   X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
+   VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
+   X264_BITRATE="2500"
+   #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" )
-   VIDEO_QUANT=21
-   VIDEO_MINQ=15
-   VIDEO_MAXQ=24
-   VIDEO_AQSTRENGTH="0.88"
-   VIDEO_QCOMP="0.92"
+   VIDEO_QUANT=22
+   VIDEO_MINQ=12
+   VIDEO_MAXQ=26
+   VIDEO_AQSTRENGTH="1.10"
+   VIDEO_QCOMP="0.60"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
-   X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
+   VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
+   X264_BITRATE="3200"
+   #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "LIVE1" )
    VIDEO_QUANT=22
    VIDEO_MINQ=17
-   VIDEO_MAXQ=32
+   VIDEO_MAXQ=37
    VIDEO_AQSTRENGTH="1.05"
-   VIDEO_QCOMP="0.75"
+   VIDEO_QCOMP="0.60"
+   X264_BITRATE="2500"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_HIGH" )
-   VIDEO_QUANT=22
-   VIDEO_MINQ=16
-   VIDEO_MAXQ=29
-   VIDEO_AQSTRENGTH="1.2"
-   VIDEO_QCOMP="0.75"
+   VIDEO_QUANT=24
+   VIDEO_MINQ=15
+   VIDEO_MAXQ=34
+   VIDEO_AQSTRENGTH="1.4"
+   VIDEO_QCOMP="0.60"
+   X264_BITRATE="3400"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=25
    VIDEO_MINQ=17
-   VIDEO_MAXQ=37
-   VIDEO_AQSTRENGTH="1.4"
-   VIDEO_QCOMP="0.65"
+   VIDEO_MAXQ=39
+   VIDEO_AQSTRENGTH="1.7"
+   VIDEO_QCOMP="0.40"
+   X264_BITRATE="2000"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
    "LIVE_LOW" )
    VIDEO_QUANT=28
    VIDEO_MINQ=17
    VIDEO_MAXQ=45
-   VIDEO_AQSTRENGTH="1.5"
-   VIDEO_QCOMP="0.55"
+   VIDEO_AQSTRENGTH="1.8"
+   VIDEO_QCOMP="0.40"
+   X264_BITRATE="1500"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    ;;
 esac
 
-X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30"
-X264_QUANT="-q $VIDEO_QUANT"
+X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
+#X264_QUANT="--crf $VIDEO_QUANT"
+X264_QUANT=""
 X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 8 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
 
 # Modify encoding parameter(s) on ANIME/ANIME_HIGH
@@ -376,21 +387,21 @@ x=$ENCMODE
 case "$x" in
    ANIME )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    ANIME_HIGH )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 3 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --8x8dct --keyint 300 --min-keyint 24 --scenecut 28"
+     X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --8x8dct --keyint 300 --min-keyint 24 --scenecut 60"
      X264_ENCPRESET="--preset slow --ref 5 --partitions all"
    ;;
    LIVE_HIGH )
      X264_DIRECT="--direct spatial"
-     X264_BFRAMES="--bframes 4 --b-bias -1 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 35 --8x8dct"
-     X264_ENCPRESET="--preset slow --ref 8 --8x8dct --partitions all"
+     X264_BFRAMES="--bframes 8 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 50"
+     X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    LIVE1 )
      X264_DIRECT="--direct auto"
@@ -398,14 +409,14 @@ case "$x" in
    ;;
    LIVE_MID )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 6 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42"
-     X264_ENCPRESET="--preset slow --8x8dct --partitions all"
+     X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 45"
+     X264_ENCPRESET="--preset medium --8x8dct --partitions all"
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 48"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40"
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
    ;;
 esac
@@ -421,16 +432,20 @@ else
   X264_FASTENC="--no-fast-pskip"
 fi
 
-x264 --sar 4:3 $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
+#x264 --sar 4:3 $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
+#    $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
+#   --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
+x264 --sar 1:1 --bitrate $X264_BITRATE \
+    $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
     $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
    --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
 ENC_VIDEO_PID=$!
 
 
-VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX"
+VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX","$VIDEO_FILTERCHAIN_SCALE"
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
 #ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
-ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
+ffmpeg -loglevel panic -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
 DEC_VIDEO_PID=$!
 
 wait $DEC_AUDIO_PID
