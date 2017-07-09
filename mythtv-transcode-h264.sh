@@ -354,7 +354,7 @@ case "$x" in
    VIDEO_MINQ=12
    VIDEO_MAXQ=26
    VIDEO_AQSTRENGTH="0.8"
-   VIDEO_QCOMP="0.60"
+   VIDEO_QCOMP="0.85"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    #X264_BITRATE=2900
