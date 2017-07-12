@@ -350,11 +350,11 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" )
-   VIDEO_QUANT=22
+   VIDEO_QUANT=21
    VIDEO_MINQ=12
    VIDEO_MAXQ=26
-   VIDEO_AQSTRENGTH="0.8"
-   VIDEO_QCOMP="0.85"
+   VIDEO_AQSTRENGTH=0.75
+   VIDEO_QCOMP=0.85
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    #X264_BITRATE=2900
@@ -372,18 +372,18 @@ case "$x" in
    "LIVE_HIGH" )
    VIDEO_QUANT=24
    VIDEO_MINQ=12
-   VIDEO_MAXQ=34
-   VIDEO_AQSTRENGTH=0.8
-   VIDEO_QCOMP=0.60
+   VIDEO_MAXQ=31
+   VIDEO_AQSTRENGTH=0.90
+   VIDEO_QCOMP=0.80
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=26
    VIDEO_MINQ=16
-   VIDEO_MAXQ=40
-   VIDEO_AQSTRENGTH=1.5
-   VIDEO_QCOMP=0.45
+   VIDEO_MAXQ=44
+   VIDEO_AQSTRENGTH=1.65
+   VIDEO_QCOMP=0.40
    #X264_BITRATE="1800"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
