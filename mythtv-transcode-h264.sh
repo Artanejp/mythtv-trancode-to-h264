@@ -178,6 +178,16 @@ for x in "$@" ; do
     shift
     ENCMODE="ANIME_HIGH"
     ;;
+    --live_hd_high | --live-hd-high)
+    # for Live, HD, high quality.
+    shift
+    ENCMODE="LIVE_HD_HIGH"
+    ;;
+    --live_hd_mid | --live-hd-mid)
+    # for Live, HD, high quality.
+    shift
+    ENCMODE="LIVE_HD_MID"
+    ;;
     --live1 | --live)
     # for Live, middle quality.
     shift
@@ -240,6 +250,8 @@ for x in "$@" ; do
     echo " --anime          : Set encode parameters for Anime (standard)."
     echo " --anime_high     : Set encode parameters for Anime (high quality a little)."
     echo " --live1 | --live : Set encode parameters for Live movies (standard)."
+    echo " --live_hd_high      : Set encode parameters for Live movies (1920x1080 : higher than standard)."
+    echo " --live_hd_mid      : Set encode parameters for Live movies (1920x1080 : standard)."
     echo " --live_high      : Set encode parameters for Live movies (higher than standard)."
     echo " --live_mid       : Set encode parameters for Live movies (lower than standard)."
     echo " --live_low : Set encode parameters for Live movies (low-bitrate, low-quality)."
@@ -305,7 +317,7 @@ case "$x" in
 #   AUDIOBITRATE=192
 #   AUDIOCUTOFF=20000
 #   ;;
-   "ANIME_HIGH" | "LIVE_HIGH" )
+   "ANIME_HIGH" | "LIVE_HIGH" | "LIVE_HD_HIGH"  | "LIVE_HD_MID" )
    AUDIOBITRATE=224
    AUDIOCUTOFF=22050
    ;;
@@ -369,6 +381,26 @@ case "$x" in
    X264_BITRATE=2500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
+   "LIVE_HD_MID" )
+   VIDEO_QUANT=24
+   VIDEO_MINQ=16
+   VIDEO_MAXQ=36
+   VIDEO_AQSTRENGTH=1.22
+   VIDEO_QCOMP=0.58
+   #X264_BITRATE=3500
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.4:chroma_spatial=3.0:luma_tmp=3.2:chroma_tmp=3.4"
+   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+   ;;
+   "LIVE_HD_HIGH" )
+   VIDEO_QUANT=24
+   VIDEO_MINQ=16
+   VIDEO_MAXQ=32
+   VIDEO_AQSTRENGTH=1.10
+   VIDEO_QCOMP=0.75
+   #X264_BITRATE=3500
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.9:chroma_spatial=2.8:luma_tmp=3.4:chroma_tmp=3.3"
+   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+   ;;
    "LIVE_HIGH" )
    VIDEO_QUANT=24
    VIDEO_MINQ=12
@@ -381,7 +413,7 @@ case "$x" in
    "LIVE_MID" )
    VIDEO_QUANT=26
    VIDEO_MINQ=16
-   VIDEO_MAXQ=44
+   VIDEO_MAXQ=42
    VIDEO_AQSTRENGTH=1.65
    VIDEO_QCOMP=0.40
    #X264_BITRATE="1800"
@@ -392,7 +424,7 @@ case "$x" in
    VIDEO_MINQ=17
    VIDEO_MAXQ=45
    VIDEO_AQSTRENGTH=1.8
-   VIDEO_QCOMP=0.40
+   VIDEO_QCOMP=0.35
    X264_BITRATE=1500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    ;;
@@ -426,14 +458,26 @@ case "$x" in
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 50 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
+   LIVE_HD_HIGH )
+     X264_DIRECT="--direct spatial"
+     X264_BFRAMES="--bframes 8 --b-bias -2 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+   ;;
+   LIVE_HD_MID )
+     X264_DIRECT="--direct spatial"
+     X264_BFRAMES="--bframes 10 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 50 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+   ;;
    LIVE1 )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2"
    ;;
    LIVE_MID )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
+     X264_BFRAMES="--bframes 10 --b-bias 0 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
    ;;
    LIVE_LOW )
