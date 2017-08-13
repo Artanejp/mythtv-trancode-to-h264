@@ -354,8 +354,8 @@ case "$x" in
    VIDEO_QUANT=24
    VIDEO_MINQ=15
    VIDEO_MAXQ=28
-   VIDEO_AQSTRENGTH="0.9"
-   VIDEO_QCOMP="0.70"
+   VIDEO_AQSTRENGTH=0.65
+   VIDEO_QCOMP=0.70
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.7:chroma_spatial=2.2:luma_tmp=2.5:chroma_tmp=2.5"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    X264_BITRATE="2500"
@@ -363,11 +363,11 @@ case "$x" in
    ;;
    "ANIME_HIGH" )
    VIDEO_QUANT=21
-   VIDEO_MINQ=12
+   VIDEO_MINQ=14
    VIDEO_MAXQ=26
-   VIDEO_AQSTRENGTH=0.75
+   VIDEO_AQSTRENGTH=0.45
    VIDEO_QCOMP=0.85
-   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.2:luma_tmp=2.2:chroma_tmp=2.2"
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.7:luma_tmp=2.8:chroma_tmp=2.9"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    #X264_BITRATE=2900
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
@@ -376,16 +376,16 @@ case "$x" in
    VIDEO_QUANT=22
    VIDEO_MINQ=17
    VIDEO_MAXQ=37
-   VIDEO_AQSTRENGTH="1.05"
-   VIDEO_QCOMP="0.60"
+   VIDEO_AQSTRENGTH=1.00
+   VIDEO_QCOMP=0.60
    X264_BITRATE=2500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_HD_MID" )
    VIDEO_QUANT=24
-   VIDEO_MINQ=16
-   VIDEO_MAXQ=36
-   VIDEO_AQSTRENGTH=1.22
+   VIDEO_MINQ=14
+   VIDEO_MAXQ=38
+   VIDEO_AQSTRENGTH=1.25
    VIDEO_QCOMP=0.58
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.4:chroma_spatial=3.0:luma_tmp=3.2:chroma_tmp=3.4"
@@ -393,9 +393,9 @@ case "$x" in
    ;;
    "LIVE_HD_HIGH" )
    VIDEO_QUANT=24
-   VIDEO_MINQ=16
-   VIDEO_MAXQ=32
-   VIDEO_AQSTRENGTH=1.10
+   VIDEO_MINQ=14
+   VIDEO_MAXQ=33
+   VIDEO_AQSTRENGTH=0.75
    VIDEO_QCOMP=0.75
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.9:chroma_spatial=2.8:luma_tmp=3.4:chroma_tmp=3.3"
@@ -404,28 +404,28 @@ case "$x" in
    "LIVE_HIGH" )
    VIDEO_QUANT=24
    VIDEO_MINQ=12
-   VIDEO_MAXQ=31
-   VIDEO_AQSTRENGTH=0.90
-   VIDEO_QCOMP=0.80
+   VIDEO_MAXQ=34
+   VIDEO_AQSTRENGTH=0.95
+   VIDEO_QCOMP=0.75
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
    VIDEO_QUANT=26
-   VIDEO_MINQ=16
-   VIDEO_MAXQ=42
+   VIDEO_MINQ=17
+   VIDEO_MAXQ=53
    VIDEO_AQSTRENGTH=1.65
-   VIDEO_QCOMP=0.40
+   VIDEO_QCOMP=0.37
    #X264_BITRATE="1800"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
    "LIVE_LOW" )
    VIDEO_QUANT=28
-   VIDEO_MINQ=17
-   VIDEO_MAXQ=45
-   VIDEO_AQSTRENGTH=1.8
+   VIDEO_MINQ=19
+   VIDEO_MAXQ=59
+   VIDEO_AQSTRENGTH=1.90
    VIDEO_QCOMP=0.35
-   X264_BITRATE=1500
+   X264_BITRATE=1100
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    ;;
 esac
@@ -433,7 +433,7 @@ esac
 X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
 #X264_QUANT="--crf $VIDEO_QUANT"
 X264_QUANT=""
-X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 8 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
+X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 12 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
 
 # Modify encoding parameter(s) on ANIME/ANIME_HIGH
 X264_DIRECT="--direct auto "
@@ -448,40 +448,40 @@ case "$x" in
    ;;
    ANIME_HIGH )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 4 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --8x8dct --keyint 300 --min-keyint 24 --scenecut 60 --trellis 2"
-     X264_ENCPRESET="--preset slow --ref 5 --partitions all"
-   ;;
-   LIVE_HIGH )
-     X264_DIRECT="--direct spatial"
-     X264_BFRAMES="--bframes 8 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 50 --trellis 2"
-     X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+     X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
+     X264_PRESETS="--profile high --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
    ;;
    LIVE_HD_HIGH )
-     X264_DIRECT="--direct spatial"
-     X264_BFRAMES="--bframes 8 --b-bias -2 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_DIRECT="--direct spatial --aq-mode 3"
+     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 1.2:0.4"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    LIVE_HD_MID )
      X264_DIRECT="--direct spatial"
-     X264_BFRAMES="--bframes 10 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 50 --trellis 2"
-     X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
    ;;
    LIVE1 )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2"
    ;;
+   LIVE_HIGH )
+     X264_DIRECT="--direct spatial --aq-mode 3"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
+   ;;
    LIVE_MID )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 10 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
-     X264_ENCPRESET="--preset medium --8x8dct --partitions all"
+     X264_BFRAMES="--bframes 6 --b-bias 0 --b-adapt 2"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
+     X264_ENCPRESET="--preset medium --ref 6 --8x8dct --partitions all"
    ;;
    LIVE_LOW )
-     X264_DIRECT="--direct auto"
+     X264_DIRECT="--direct auto --aq-mode 3"
      X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
