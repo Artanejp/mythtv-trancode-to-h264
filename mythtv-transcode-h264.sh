@@ -383,10 +383,10 @@ case "$x" in
    ;;
    "LIVE_HD_MID" )
    VIDEO_QUANT=24
-   VIDEO_MINQ=14
+   VIDEO_MINQ=12
    VIDEO_MAXQ=38
    VIDEO_AQSTRENGTH=1.25
-   VIDEO_QCOMP=0.58
+   VIDEO_QCOMP=0.56
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.4:chroma_spatial=3.0:luma_tmp=3.2:chroma_tmp=3.4"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
