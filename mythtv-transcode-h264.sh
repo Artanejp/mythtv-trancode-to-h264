@@ -398,7 +398,7 @@ case "$x" in
    VIDEO_AQSTRENGTH=0.75
    VIDEO_QCOMP=0.75
    #X264_BITRATE=3500
-   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.9:chroma_spatial=2.8:luma_tmp=3.4:chroma_tmp=3.3"
+   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.4:luma_tmp=3.1:chroma_tmp=3.0"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
    ;;
    "LIVE_HIGH" )
@@ -459,10 +459,14 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    LIVE_HD_MID )
-     X264_DIRECT="--direct spatial"
-     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
-     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
+#     X264_DIRECT="--direct spatial"
+#    X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+#     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
+#     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
+     X264_DIRECT="--direct auto --aq-mode 3"
+     X264_BFRAMES="--bframes 6 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
+     X264_ENCPRESET="--preset medium --ref 6 --8x8dct --partitions all"
    ;;
    LIVE1 )
      X264_DIRECT="--direct auto"
@@ -507,8 +511,8 @@ fi
 #    $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
 #   --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
 
-x264 --sar 1:1 $X264_OPT_BITRATE \
-    $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
+x264 --sar 1:1 $X264_ENCPRESET  $X264_OPT_BITRATE \
+    $X264_QUANT  $X264_PRESETS $X264_FASTENC \
     $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
    --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
 ENC_VIDEO_PID=$!
