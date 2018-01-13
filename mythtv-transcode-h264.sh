@@ -31,21 +31,28 @@ INSTALLPREFIX="/usr/bin"
 
 # Number of threads to use (default uses all threads)
 USEOPENCL=0
+
 AUDIOBITRATE=224
 AUDIOCUTOFF=22050
+
 ENCTHREADS=4
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
 VIDEO_QUANT=22
+
 VIDEO_AQSTRENGTH="1.1"
 VIDEO_QCOMP="0.55"
+
 CMCUT=0
 REMOVE_SOURCE=0
 FASTENC=0
 HWACCEL_DEC="NONE"
+VIDEO_FILTERCHAIN_NOSCALE=0
 
 X264_ENCPRESET="--preset slower --8x8dct --partitions all"
 X264_BITRATE="2000"
+
+VIDEO_SKIP="-ss 15"
 
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
@@ -93,6 +100,15 @@ for x in "$@" ; do
     shift
     I_STARTTIME="$1"
     F_STARTTIME=1
+    shift
+    ;;
+    --noskip | --no-skip | --no_skip )
+    VIDEO_SKIP=""
+    shift
+    ;;
+    --skip_sec | --skip-sec )
+    shift
+    VIDEO_SKIP="-ss $1"
     shift
     ;;
     --threads )
@@ -281,6 +297,22 @@ BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' 
 #BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g | sed s/"/"/／/g `
 #BASENAME=`echo "$BASENAME0" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g | sed s/"/"/／/g`
 
+if [ ! -e "$DIRNAME2/$SRC2" ] ; then
+   echo "Source file : $DIRNAME2/$SRC2 has not exists."
+   exit 4
+fi
+#if [ -d "$DIRNAME2/$SRC2" ] ; then
+#    echo "Source file is Directory."
+#    exit 4
+#fi
+
+touch "$DIRNAME/test$BASENAME"
+if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
+   echo "Unable to Write output."
+   exit 3
+fi
+rm "$DIRNAME/test$BASENAME"
+
 
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
 printf "BASENAME=%s STARTTIME=%s" $BASENAME $I_STARTTIME | logger -i -t "MYTHTV.TRANSCODE" 
@@ -327,7 +359,7 @@ esac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
 
-ffmpeg -loglevel panic -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
 DEC_AUDIO_PID=$!
 
 faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
@@ -384,12 +416,14 @@ case "$x" in
    "LIVE_HD_MID" )
    VIDEO_QUANT=24
    VIDEO_MINQ=12
-   VIDEO_MAXQ=38
-   VIDEO_AQSTRENGTH=1.25
-   VIDEO_QCOMP=0.56
+   VIDEO_MAXQ=36
+   VIDEO_AQSTRENGTH=1.15
+   VIDEO_QCOMP=0.60
    #X264_BITRATE=3500
-   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.4:chroma_spatial=3.0:luma_tmp=3.2:chroma_tmp=3.4"
-   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+#   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.0:chroma_spatial=3.0:luma_tmp=2.8:chroma_tmp=2.7"
+   VIDEO_FILTERCHAINX="yadif"
+#   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+   VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HD_HIGH" )
    VIDEO_QUANT=24
@@ -399,7 +433,8 @@ case "$x" in
    VIDEO_QCOMP=0.75
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.4:luma_tmp=3.1:chroma_tmp=3.0"
-   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+#   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
+   VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HIGH" )
    VIDEO_QUANT=24
@@ -453,8 +488,8 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
    ;;
    LIVE_HD_HIGH )
-     X264_DIRECT="--direct spatial --aq-mode 3"
-     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_DIRECT="--direct auto --aq-mode 3"
+     X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
@@ -463,10 +498,10 @@ case "$x" in
 #    X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
 #     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
 #     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     X264_DIRECT="--direct auto --aq-mode 3"
-     X264_BFRAMES="--bframes 6 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_DIRECT="--direct auto"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
-     X264_ENCPRESET="--preset medium --ref 6 --8x8dct --partitions all"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
    ;;
    LIVE1 )
      X264_DIRECT="--direct auto"
@@ -480,9 +515,9 @@ case "$x" in
    ;;
    LIVE_MID )
      X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 6 --b-bias 0 --b-adapt 2"
+     X264_BFRAMES="--bframes 5 --b-bias 0 --b-adapt 2"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
-     X264_ENCPRESET="--preset medium --ref 6 --8x8dct --partitions all"
+     X264_ENCPRESET="--preset medium --ref 5 --8x8dct"
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto --aq-mode 3"
@@ -510,15 +545,24 @@ fi
 #x264 --sar 4:3 $X264_QUANT  $X264_PRESETS $X264_ENCPRESET $X264_FASTENC \
 #    $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
 #   --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
-
-x264 --sar 1:1 $X264_ENCPRESET  $X264_OPT_BITRATE \
-    $X264_QUANT  $X264_PRESETS $X264_FASTENC \
-    $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
-   --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
-ENC_VIDEO_PID=$!
-
-
-VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX","$VIDEO_FILTERCHAIN_SCALE"
+if test $VIDEO_FILTERCHAIN_NOSCALE -ne 1; then
+   x264 --sar 1:1 $X264_ENCPRESET  $X264_OPT_BITRATE \
+     $X264_QUANT  $X264_PRESETS $X264_FASTENC \
+     $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
+     --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
+   ENC_VIDEO_PID=$!
+else
+   x264 --sar 4:3 $X264_ENCPRESET  $X264_OPT_BITRATE \
+     $X264_QUANT  $X264_PRESETS $X264_FASTENC \
+     $X264_AQPARAM $X264_ENCPARAM $X264_DIRECT $X264_BFRAMES $X264_FILTPARAM \
+     --threads $ENCTHREADS $USECL -o $TEMPDIR/v1tmp.mp4 $VIDEOTMP  &
+   ENC_VIDEO_PID=$!
+fi
+if test $VIDEO_FILTERCHAIN_NOSCALE -ne 1; then
+  VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX","$VIDEO_FILTERCHAIN_SCALE"
+else
+  VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX"
+fi
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
 
 DECODE_APPEND=""
@@ -534,7 +578,7 @@ case "$HWACCEL_DEC" in
 esac
   
 #ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
-ffmpeg -loglevel panic $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
+ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
 DEC_VIDEO_PID=$!
 
 wait $DEC_AUDIO_PID
@@ -573,8 +617,15 @@ if test $ERRFLAGS -ne 0; then
   exit 2
 fi
 
+touch "$DIRNAME/test$BASENAME"
+if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
+   echo "Unable to Write encoded movie."
+   exit 3
+fi
+rm "$DIRNAME/test$BASENAME"
 
 MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.m4a -new "$DIRNAME/$BASENAME"
+
 RESULT_DEMUX=$?
 #/if test $RESULT_DEMUX -ne 0; then
 #  echo "Errror on DEMUXing."
