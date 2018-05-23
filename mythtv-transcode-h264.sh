@@ -293,7 +293,7 @@ DIRNAME2=`dirname "$SRC"`
 DIRNAME=`dirname "$DST"`
 #DIRNAME=`dirname "$SRC"`
 #BASENAME0=`basename "$DST"`
-BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g `
+BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
 #BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g | sed s/"/"/／/g `
 #BASENAME=`echo "$BASENAME0" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?//g' | sed s/"'"/’/g | sed s/"/"/／/g`
 
@@ -359,11 +359,12 @@ esac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
 
-ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+#ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec aac -ab 224k -ar 48000 -ac 2 -y "$TEMPDIR/a1.aac"  >/dev/null &
 DEC_AUDIO_PID=$!
 
-faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
-ENC_AUDIO_PID=$!
+#faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -B 32 -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
+#ENC_AUDIO_PID=$!
 
 # first video pass
 VIDEOTMP="$TEMPDIR/v1tmp.y4m"
@@ -446,21 +447,22 @@ case "$x" in
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    ;;
    "LIVE_MID" )
-   VIDEO_QUANT=26
-   VIDEO_MINQ=17
+#   VIDEO_QUANT=26
+   VIDEO_QUANT=27
+   VIDEO_MINQ=18
    VIDEO_MAXQ=53
    VIDEO_AQSTRENGTH=1.65
-   VIDEO_QCOMP=0.37
+   VIDEO_QCOMP=0.40
    #X264_BITRATE="1800"
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    ;;
    "LIVE_LOW" )
-   VIDEO_QUANT=28
+   VIDEO_QUANT=30
    VIDEO_MINQ=19
    VIDEO_MAXQ=59
    VIDEO_AQSTRENGTH=1.90
    VIDEO_QCOMP=0.35
-   X264_BITRATE=1100
+#   X264_BITRATE=1100
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    ;;
 esac
@@ -582,10 +584,10 @@ ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/
 DEC_VIDEO_PID=$!
 
 wait $DEC_AUDIO_PID
-RESULT_DEC_AUDIO=$?
+#RESULT_DEC_AUDIO=$?
 
-wait $ENC_AUDIO_PID
-RESULT_ENC_AUDIO=$?
+#wait $ENC_AUDIO_PID
+#RESULT_ENC_AUDIO=$?
 
 wait $DEC_VIDEO_PID
 RESULT_DEC_VIDEO=$?
@@ -624,7 +626,7 @@ if [ ! -w "$DIRNAME/test$BASENAME" ] ; then
 fi
 rm "$DIRNAME/test$BASENAME"
 
-MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.m4a -new "$DIRNAME/$BASENAME"
+MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
 
 RESULT_DEMUX=$?
 #/if test $RESULT_DEMUX -ne 0; then
