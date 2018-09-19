@@ -60,7 +60,7 @@ HWENC=0
 HWDEC=0
 HW_SCALING="No"
 HWACCEL_DEC=""
-
+N_QUERY_ID=0;
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
 fi
@@ -112,6 +112,11 @@ for x in "$@" ; do
     DST="$1"
     shift
     ;;
+    --jobid | --job-id )
+    shift
+    N_QUERY_ID="$1"
+    shift
+    ;;
     --desc | --video-desc )
     shift
     VIDEO_DESC="$1"
@@ -139,6 +144,10 @@ for x in "$@" ; do
     if [ -n "${VIDEO_ONAIR}" ] ; then
       shift
     fi
+    ;;
+    --no-chanid | --nc )
+    F_CHANID=0
+    shift
     ;;
     --chanid | -c )
     shift
@@ -358,10 +367,18 @@ for x in "$@" ; do
     echo "   To use MythTV's user's job, put this config file to /home/mythtv etc..."
     echo " "
     echo "Usage:"
-    echo " -i | --src | --i Input-File (Full path)  : Set input file."
-    echo " -o | --dst | --o Output-File (Full path) : Set output file. You must set to MP4 File."
+    echo " -d | --dir Directory                     : Set Input/Output directory."
+    echo " -i | --src | --i Input-File              : Set input file."
+    echo " -o | --dst | --o Output-File             : Set output file. You must set to MP4 File."
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
+    echo " --noskip   | --no-skip                   : Not skip (mostly 15Sec.) from head of source."
+    echo " --skip_sec | --skip-sec sec              : Skip sec  from head of source."
+    echo " --jobid [MYTHTV's JOBID]                 : Set JOBID from MythTV.Query some metadatas from MythTV's Database."
+    echo " --title 'title'                          : Set title for output movie,"
+    echo " --desc 'DESCRIPTION'                     : Set DESCRIPTION for output movie,"
+    echo " --subtitle 'SUBTITLE'                    : Set SUB TITLE for output movie,"
+    echo " --onair 'TIME'                           : Set on air time  for output movie,"
     echo " --cmcut : Perform CM CUT.(DANGER!) Seems to be imcomplete audio(s) at ISDB/Japan"
     echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --db    : Use MythTV's database to manage trancoded video.(Default)"
@@ -404,9 +421,14 @@ function change_arg_nonpath() {
     # $1 = str
     __tmpv1="$1"
 #    if [ -n "${__tmpv1}" ] ; then
-      __tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed 's/!/！/g' `
+      __tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed 's/\!/！/g' | sed 's/\#/＃/g' `
       __tmpv1=`echo "${__tmpv1}" | sed 's/?/？/g' | sed 's/\//／/g' | sed 's/\"/”/g' | sed "s/'/’/g" `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/=/＝/g' | sed 's/\ /　/g' | sed 's/\`/｀/g' `
+      __tmpv1=`echo "${__tmpv1}" | sed 's/=/＝/g' | sed 's/\ /　/g' | sed 's/\`/｀/g' | sed 's/"|"/｜/g' `
+#      __tmpv1=`echo "${__tmpv1}" | sed 's/\:/：/g' | sed 's/\;/；/g' `
+      __tmpv1=`echo "${__tmpv1}" | sed 's/\;/；/g' `
+      __tmpv1=`echo "${__tmpv1}" | sed 's/\]/］/g' | sed 's/\[/［/g' `
+      __tmpv1=`echo "${__tmpv1}" | sed 's/"\"/＼/g' | sed 's/"¥"/￥/g' | sed 's/\n/_/g' `
+#      __tmpv1=`echo "${__tmpv1}" | cut -c -500 -`
 #      __tmpv1='\"${__tmpv1}\"'
       echo "${__tmpv1}"
 #    fi
@@ -430,21 +452,80 @@ ARG_DESC=""
 ARG_SUBTITLE=""
 ARG_EPISODE=""
 ARG_ONAIR=""
-if [ -n "${VIDEO_DESC}" ] ; then
-   ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
-   ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
-fi
-if [ -n "${VIDEO_EPISODE}" ] ; then
-   ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata episode_id=\"${ARG_EPISODE}\""
-fi
-if [ -n "${VIDEO_SUBTITLE}" ] ; then
-   ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_SUBTITLE}\""
-fi
+    if [ -n "${VIDEO_DESC}" ] ; then
+      ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
+      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+    fi
+    if [ -n "${VIDEO_EPISODE}" ] ; then
+      ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
+      ARG_METADATA="${ARG_METADATA} -metadata episode_id=\"${ARG_EPISODE}\""
+    fi
+    if [ -n "${VIDEO_SUBTITLE}" ] ; then
+      ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
+      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
+    fi
 if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_ONAIR=`change_arg_nonpath "${VIDEO_ONAIR}"`
    ARG_METADATA="${ARG_METADATA} -metadata date=\"${ARG_ONAIR}\""
+fi
+
+
+if test $N_QUERY_ID -gt 0; then
+  echo "QUERY JOBQUEUE id ${N_QUERY_ID}" | logger -i -t "MYTHTV.TRANSCODE"
+  
+  echo "SELECT * from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/jobqueue.query.sql"
+  cat "$TEMPDIR/jobqueue.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/jobqueue.query.sql" | logger -i -t "MYTHTV.TRANSCODE" 
+
+  echo "SELECT chanid from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getchanid.query.sql"
+  cat "$TEMPDIR/getchanid.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -B -N --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" > "$TEMPDIR/chanid.txt" 
+  cat "$TEMPDIR/chanid.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
+
+  echo "SELECT starttime from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getstarttime.query.sql"
+  cat "$TEMPDIR/getstarttime.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getstarttime.query.sql" > "$TEMPDIR/starttime.txt" 
+  cat "$TEMPDIR/starttime.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
+ 
+   __N_CHANID=`cat "$TEMPDIR/chanid.txt"`
+   __N_STARTTIME=`cat "$TEMPDIR/starttime.txt"`
+  
+  echo "SELECT title from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/gettitle.query.sql"
+  cat "$TEMPDIR/gettitle.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
+  cat "$TEMPDIR/title.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
+
+  echo "SELECT subtitle from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
+  cat "$TEMPDIR/getsubtitle.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
+  cat "$TEMPDIR/subtitle.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
+  
+  echo "SELECT description from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getdesc.query.sql"
+  cat "$TEMPDIR/getdesc.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt" 
+  cat "$TEMPDIR/desc.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
+
+    __N_DESC=`cat "$TEMPDIR/desc.txt"`
+    __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
+    __N_TITLE=`cat "$TEMPDIR/title.txt"`
+
+    if [ -n "${__N_TITLE}" ] ; then
+      ARG_TITLE=`change_arg_nonpath "${__N_TITLE}"`
+      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
+    fi
+    if [ -n "${__N_DESC}" ] ; then
+      ARG_DESC=`change_arg_nonpath "${__N_DESC}"`
+      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+    fi
+    if [ -n "${__N_SUBTITLE}" ] ; then
+      ARG_SUBTITLE=`change_arg_nonpath "${__N_SUBTITLE}"`
+      ARG_METADATA="${ARG_METADATA} -metadata description=\"${__N_SUBTITLE}\""
+    fi
+    if [ $F_CHANID -eq 0 ]; then
+       I_CHANID=${__N_CHANID}
+ #  __N_STARTTIME=`cat "$TEMPDIR/chanid.txt"`
+    fi
+
 fi
 
 
