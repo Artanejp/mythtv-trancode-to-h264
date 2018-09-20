@@ -78,6 +78,8 @@ F_CHANID=0
 F_STARTTIME=0
 I_CHANID=$3
 I_STARTTIME=$4
+I_LOCALSTARTTIME=""
+F_LOCALSTARTTIME=0
 USE_DATABASE=1
 ENCMODE="DEFAULT"
 NOENCODE=0
@@ -88,10 +90,20 @@ VIDEO_DESC=""
 VIDEO_SUBTITLE=""
 VIDEO_EPISODE=""
 VIDEO_ONAIR=""
-
+DST=""
+SRC=""
 N_DIRSET=0
 S_DIRSET=""
-echo "$@" | logger -i -t "MYTHTV.TRANSCODE" 
+IS_HELP=0
+
+function logging() {
+   __str="\"[${BASHPID}] $@\""
+   echo ${__str} | logger -t "MYTHTV.TRANSCODE"
+   echo ${__str}
+}
+
+logging "$@"
+
 # Parse ARGS
 for x in "$@" ; do
     SS="$1"
@@ -159,6 +171,12 @@ for x in "$@" ; do
     shift
     I_STARTTIME="$1"
     F_STARTTIME=1
+    shift
+    ;;
+    --local-starttime | --lt | -lt | --local_starttime )
+    shift
+    I_LOCALSTARTTIME="$1"
+    F_LOCALSTARTTIME=1
     shift
     ;;
     --noskip | --no-skip | --no_skip )
@@ -357,6 +375,270 @@ for x in "$@" ; do
     REMOVE_SOURCE=0
     ;;
     -h | --help )
+    IS_HELP=1
+    ;;
+    esac
+done
+# don't change these
+MYPID=$$
+HWDECODE_TAG=TRANSCODE_${MYPID}
+
+# a temporary working directory (must be writable by mythtv user)
+TEMPDIR=`mktemp -d`
+
+function change_arg_nonpath() {
+    # $1 = str
+    __tmpv1="$1"
+    logging "${__tmpv1}"
+#    if [ -n "${__tmpv1}" ] ; then
+cat <<EOF >${TEMPDIR}/__tmpscript0
+s/\"/”/g
+s/'/’/g
+s/!/！/g
+s/?/？/g
+s/\#/＃/g
+s/\//／/g
+s/=/＝/g
+s/ /　/g
+s/"\\"/＼/g
+s/\;/；/g
+s/)/）/g
+s/(/（/g
+s/\[/［/g
+s/"\"/＼/g
+s/\]/］/g
+s/</＜/g
+s/>/＞/g
+s/"\n"/_/g
+EOF
+__tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed -f ${TEMPDIR}/__tmpscript0`
+echo "${__tmpv1}"
+#rm ${TEMPDIR}/__tmpscript0
+}
+
+# Not substitude slash.
+function change_arg_nonpath2() {
+    # $1 = str
+    __tmpv1="$1"
+    logging "${__tmpv1}"
+#    if [ -n "${__tmpv1}" ] ; then
+cat <<EOF >${TEMPDIR}/__tmpscript02
+s/\"/”/g
+s/'/’/g
+s/!/！/g
+s/?/？/g
+s/\#/＃/g
+s/=/＝/g
+s/ /　/g
+s/"\\"/＼/g
+s/\;/；/g
+s/)/）/g
+s/(/（/g
+s/\[/［/g
+s/"\"/＼/g
+s/\]/］/g
+s/</＜/g
+s/>/＞/g
+s/"\n"/_/g
+EOF
+__tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed -f ${TEMPDIR}/__tmpscript02`
+echo "${__tmpv1}"
+#rm ${TEMPDIR}/__tmpscript02
+}
+
+function change_arg_file() {
+# $1 = str
+__SRCFILE="$1"
+__TMPF=${TEMPDIR}/__tmpfile
+
+cat <<EOF >${TEMPDIR}/__tmpscript1
+s/\"/”/g
+s/'/’/g
+s/!/！/g
+s/?/？/g
+s/\#/＃/g
+s/\//／/g
+s/=/＝/g
+s/ /　/g
+s/"\\"/＼/g
+s/:/：/g
+s/\;/；/g
+s/)/）/g
+s/(/（/g
+s/\[/［/g
+s/"\"/＼/g
+s/\]/］/g
+s/</＜/g
+s/>/＞/g
+s/"\n"/_/g
+EOF
+__tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript1"`
+#rm ${TEMPDIR}/__tmpscript1
+echo "${__tmpv1}"
+}
+
+# Not substitude slash.
+function change_arg_file2() {
+# $1 = str
+__SRCFILE="$1"
+__TMPF=${TEMPDIR}/__tmpfile
+
+cat <<EOF >${TEMPDIR}/__tmpscript12
+s/\"/”/g
+s/'/’/g
+s/!/！/g
+s/?/？/g
+s/\#/＃/g
+s/=/＝/g
+s/ /　/g
+s/"\\"/＼/g
+s/\;/；/g
+s/)/）/g
+s/(/（/g
+s/\[/［/g
+s/"\"/＼/g
+s/\]/］/g
+s/</＜/g
+s/>/＞/g
+s/"\n"/_/g
+EOF
+__tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript12"`
+#rm ${TEMPDIR}/__tmpscript12
+echo "${__tmpv1}"
+}
+
+
+ARG_METADATA=""
+
+ARG_DESC=""
+ARG_SUBTITLE=""
+ARG_EPISODE=""
+ARG_ONAIR=""
+
+__N_TITLE=""
+
+if [ -n "${VIDEO_DESC}" ] ; then
+   ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
+   ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+fi
+if [ -n "${VIDEO_EPISODE}" ] ; then
+   ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
+   ARG_METADATA="${ARG_METADATA} -metadata episode_id=\"${ARG_EPISODE}\""
+fi
+if [ -n "${VIDEO_SUBTITLE}" ] ; then
+   ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
+   ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
+fi
+if [ -n "${VIDEO_ONAIR}" ] ; then
+   ARG_ONAIR="${VIDEO_ONAIR}"
+   ARG_METADATA="${ARG_METADATA} -metadata date=\"${ARG_ONAIR}\""
+fi
+if test $N_QUERY_ID -gt 0; then
+  logging "QUERY JOBQUEUE id ${N_QUERY_ID}"
+  
+#  echo "SELECT * from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/jobqueue.query.sql"
+  #logging `cat "$TEMPDIR/jobqueue.query.sql"`
+#  logging `mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/jobqueue.query.sql"`
+
+  echo "SELECT chanid from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getchanid.query.sql"
+  #logging `cat "$TEMPDIR/getchanid.query.sql"`
+  mysql -B -N --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" >"$TEMPDIR/chanid.txt"
+  loggind "SID:"
+  logging `cat "$TEMPDIR/chanid.txt"`
+
+  echo "SELECT starttime from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getstarttime.query.sql"
+  #logging `cat "$TEMPDIR/getstarttime.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getstarttime.query.sql" > "$TEMPDIR/starttime.txt" 
+  logging `cat "$TEMPDIR/starttime.txt"`
+ 
+   __N_CHANID=`cat "$TEMPDIR/chanid.txt"`
+   __N_STARTTIME=`cat "$TEMPDIR/starttime.txt"`
+  
+#  logging "TITLE:"
+  echo "SELECT title from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/gettitle.query.sql"
+#  logging `cat "$TEMPDIR/gettitle.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
+#  logging `cat "$TEMPDIR/title.txt"`
+
+#  logging "DESC:"
+  echo "SELECT subtitle from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
+#  logging `cat "$TEMPDIR/getsubtitle.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
+#  logging `cat "$TEMPDIR/subtitle.txt"`
+  
+#  logging "SUBTITLE:"
+  echo "SELECT description from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getdesc.query.sql"
+#  logging `cat "$TEMPDIR/getdesc.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt"
+#  logging `cat "$TEMPDIR/desc.txt"`
+
+  __N_DESC=`cat "$TEMPDIR/desc.txt"`
+    __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
+    __N_TITLE=`cat "$TEMPDIR/title.txt"`
+#    logging ${__N_TITLE}
+#    if [ -n "${__N_TITLE}" ] ; then
+#      change_arg_file "$TEMPDIR/title.txt"
+      ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
+      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
+#      logging ${ARG_TITLE}
+#    fi
+    if [ -n "${__N_DESC}" ] ; then
+      ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
+      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+#      logging ${ARG_DESC}
+    fi
+    if [ -n "${__N_SUBTITLE}" ] ; then
+      ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
+      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
+#      logging ${ARG_SUBTITLE}
+    fi
+    if [ $F_CHANID -eq 0 ]; then
+       I_CHANID=${__N_CHANID}
+ #  __N_STARTTIME=`cat "$TEMPDIR/chanid.txt"`
+    fi
+    if [ -n "$I_LOCALSTARTTIME" ] ; then
+        ARG_STARTTIME="${I_LOCALSTARTTIME}"
+    else
+        ARG_STARTTIME="${__N_STARTTIME}"
+    fi
+fi
+if [ -z "${ARG_STARTTIME}" ] ; then
+    ARG_STARTTIME="${I_STARTTIME}"
+fi
+logging "TITLE:"
+logging ${ARG_TITLE}
+logging "START:"
+logging ${ARG_STARTTIME}
+logging "SUBTITLE:"
+logging ${ARG_SUBTITLE}
+logging "DESCRIPTION:"
+logging ${ARG_DESC}
+
+BASENAME=""
+if [ $N_DIRSET -ne 0 ] ; then
+   DIRNAME2="${S_DIRSET}"
+   DIRNAME="${S_DIRSET}"
+#   BASENAME=`change_arg_nonpath "${DST}"`
+#  BASENAME=`echo "${DST}" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed "s/'/’/g" | sed 's/"//g' `
+else
+  DIRNAME2=`dirname "$SRC"`
+  DIRNAME=`dirname "$DST"`
+  #DIRNAME=`dirname "$SRC"`
+  #BASENAME0=`basename "$DST"`
+  BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
+fi
+if [ -z "${BASENAME}" ] ; then
+   BASENAME="${ARG_TITLE}_${I_CHANID}_${ARG_STARTTIME}.mp4"
+fi
+  logging "TRY TO ENCODE SRC:DIR=${DIRNAME2} NAME=${SRC} TO DST:DIR=${DIRNAME} NAME=${BASENAME}" 
+
+if [ -n "${BASENAME}" ] ; then
+   echo
+else
+   IS_HELP=1
+fi
+
+if [ ${IS_HELP} -ne 0 ] ; then
     echo "Auto transcode script for MythTV."
     echo "  Written by Defcronyke Webmaster, copyright 2012."
     echo "    See, https://code.google.com/p/mythtv-scripts/source/browse/trunk/test/mythtv-transcode-h264.sh ."
@@ -407,132 +689,13 @@ for x in "$@" ; do
     echo "    fast   = --preset medium"
     echo "    faster = --preset fast"
     exit 1
-    ;;
-    esac
-done
-# don't change these
-MYPID=$$
-HWDECODE_TAG=TRANSCODE_${MYPID}
-
-# a temporary working directory (must be writable by mythtv user)
-TEMPDIR=`mktemp -d`
-
-function change_arg_nonpath() {
-    # $1 = str
-    __tmpv1="$1"
-#    if [ -n "${__tmpv1}" ] ; then
-      __tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed 's/\!/！/g' | sed 's/\#/＃/g' `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/?/？/g' | sed 's/\//／/g' | sed 's/\"/”/g' | sed "s/'/’/g" `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/=/＝/g' | sed 's/\ /　/g' | sed 's/\`/｀/g' | sed 's/"|"/｜/g' `
-#      __tmpv1=`echo "${__tmpv1}" | sed 's/\:/：/g' | sed 's/\;/；/g' `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/\;/；/g' `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/\]/］/g' | sed 's/\[/［/g' `
-      __tmpv1=`echo "${__tmpv1}" | sed 's/"\"/＼/g' | sed 's/"¥"/￥/g' | sed 's/\n/_/g' `
-#      __tmpv1=`echo "${__tmpv1}" | cut -c -500 -`
-#      __tmpv1='\"${__tmpv1}\"'
-      echo "${__tmpv1}"
-#    fi
-}
-
-if [ $N_DIRSET -ne 0 ] ; then
-   DIRNAME2="${S_DIRSET}"
-   DIRNAME="${S_DIRSET}"
-   BASENAME=`change_arg_nonpath "${DST}"`
-else
-  DIRNAME2=`dirname "$SRC"`
-  DIRNAME=`dirname "$DST"`
-  #DIRNAME=`dirname "$SRC"`
-  #BASENAME0=`basename "$DST"`
-  BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
 fi
-
-ARG_METADATA=""
-
-ARG_DESC=""
-ARG_SUBTITLE=""
-ARG_EPISODE=""
-ARG_ONAIR=""
-    if [ -n "${VIDEO_DESC}" ] ; then
-      ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
-      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
-    fi
-    if [ -n "${VIDEO_EPISODE}" ] ; then
-      ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
-      ARG_METADATA="${ARG_METADATA} -metadata episode_id=\"${ARG_EPISODE}\""
-    fi
-    if [ -n "${VIDEO_SUBTITLE}" ] ; then
-      ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
-      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
-    fi
-if [ -n "${VIDEO_ONAIR}" ] ; then
-   ARG_ONAIR=`change_arg_nonpath "${VIDEO_ONAIR}"`
-   ARG_METADATA="${ARG_METADATA} -metadata date=\"${ARG_ONAIR}\""
-fi
-
-
-if test $N_QUERY_ID -gt 0; then
-  echo "QUERY JOBQUEUE id ${N_QUERY_ID}" | logger -i -t "MYTHTV.TRANSCODE"
-  
-  echo "SELECT * from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/jobqueue.query.sql"
-  cat "$TEMPDIR/jobqueue.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/jobqueue.query.sql" | logger -i -t "MYTHTV.TRANSCODE" 
-
-  echo "SELECT chanid from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getchanid.query.sql"
-  cat "$TEMPDIR/getchanid.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -B -N --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" > "$TEMPDIR/chanid.txt" 
-  cat "$TEMPDIR/chanid.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
-
-  echo "SELECT starttime from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getstarttime.query.sql"
-  cat "$TEMPDIR/getstarttime.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getstarttime.query.sql" > "$TEMPDIR/starttime.txt" 
-  cat "$TEMPDIR/starttime.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
- 
-   __N_CHANID=`cat "$TEMPDIR/chanid.txt"`
-   __N_STARTTIME=`cat "$TEMPDIR/starttime.txt"`
-  
-  echo "SELECT title from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/gettitle.query.sql"
-  cat "$TEMPDIR/gettitle.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
-  cat "$TEMPDIR/title.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
-
-  echo "SELECT subtitle from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
-  cat "$TEMPDIR/getsubtitle.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
-  cat "$TEMPDIR/subtitle.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
-  
-  echo "SELECT description from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getdesc.query.sql"
-  cat "$TEMPDIR/getdesc.query.sql" | logger -i -t "MYTHTV.TRANSCODE"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt" 
-  cat "$TEMPDIR/desc.txt"  | logger -i -t "MYTHTV.TRANSCODE" 
-
-    __N_DESC=`cat "$TEMPDIR/desc.txt"`
-    __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
-    __N_TITLE=`cat "$TEMPDIR/title.txt"`
-
-    if [ -n "${__N_TITLE}" ] ; then
-      ARG_TITLE=`change_arg_nonpath "${__N_TITLE}"`
-      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
-    fi
-    if [ -n "${__N_DESC}" ] ; then
-      ARG_DESC=`change_arg_nonpath "${__N_DESC}"`
-      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
-    fi
-    if [ -n "${__N_SUBTITLE}" ] ; then
-      ARG_SUBTITLE=`change_arg_nonpath "${__N_SUBTITLE}"`
-      ARG_METADATA="${ARG_METADATA} -metadata description=\"${__N_SUBTITLE}\""
-    fi
-    if [ $F_CHANID -eq 0 ]; then
-       I_CHANID=${__N_CHANID}
- #  __N_STARTTIME=`cat "$TEMPDIR/chanid.txt"`
-    fi
-
-fi
-
 
 if [ ! -e "$DIRNAME2/$SRC2" ] ; then
-   echo "Source file : $DIRNAME2/$SRC2 has not exists."
+   logging "Source file : $DIRNAME2/$SRC2 has not exists."
    exit 4
 fi
+logging ${TEMPDIR}
 #if [ -d "$DIRNAME2/$SRC2" ] ; then
 #    echo "Source file is Directory."
 #    exit 4
@@ -540,14 +703,14 @@ fi
 
 touch "$DIRNAME/test$BASENAME"
 if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
-   echo "Unable to Write output."
+   logging echo "Unable to Write output."
    exit 3
 fi
 rm "$DIRNAME/test$BASENAME"
 
 
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
-printf "BASENAME=%s STARTTIME=%s" $BASENAME $I_STARTTIME | logger -i -t "MYTHTV.TRANSCODE" 
+logging `printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`
 
 # play nice with other processes
 renice 19 $MYPID
@@ -1235,6 +1398,7 @@ if test $FFMPEG_ENC -ne 0; then
 #    -filter_complex_threads 4 -filter_threads 4 \
 
 elif test $HWENC -ne 0; then
+logging ${ARG_METADATA}
     ffmpeg $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
@@ -1366,8 +1530,8 @@ fi
 
 if test $USE_DATABASE -ne 0 ; then
   echo "UPDATE recorded SET basename='$BASENAME',filesize='$NEWFILESIZE',transcoded='1' WHERE chanid='$I_CHANID' AND starttime='$I_STARTTIME';" > update-database_$MYPID.sql
-  cat update-database_$MYPID.sql | logger -i -t "MYTHTV.TRANSCODE" 
-  mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql | logger -i -t "MYTHTV.TRANSCODE" 
+  logging `cat update-database_$MYPID.sql`
+  logging `mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql`
 fi
 
 # Remove 
