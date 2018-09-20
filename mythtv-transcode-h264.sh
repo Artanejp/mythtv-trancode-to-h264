@@ -97,8 +97,8 @@ S_DIRSET=""
 IS_HELP=0
 
 function logging() {
-   __str="\"[${BASHPID}] $@\""
-   echo ${__str} | logger -t "MYTHTV.TRANSCODE"
+   __str="$@"
+   echo ${__str} | logger -t "MYTHTV.TRANSCODE[${BASHPID}]"
    echo ${__str}
 }
 
@@ -393,6 +393,7 @@ function change_arg_nonpath() {
 #    if [ -n "${__tmpv1}" ] ; then
 cat <<EOF >${TEMPDIR}/__tmpscript0
 s/\"/”/g
+s/&/ ＆/g
 s/'/’/g
 s/!/！/g
 s/?/？/g
@@ -424,6 +425,7 @@ function change_arg_nonpath2() {
 #    if [ -n "${__tmpv1}" ] ; then
 cat <<EOF >${TEMPDIR}/__tmpscript02
 s/\"/”/g
+s/&/ ＆/g
 s/'/’/g
 s/!/！/g
 s/?/？/g
@@ -453,6 +455,7 @@ __TMPF=${TEMPDIR}/__tmpfile
 
 cat <<EOF >${TEMPDIR}/__tmpscript1
 s/\"/”/g
+s/&/ ＆/g
 s/'/’/g
 s/!/！/g
 s/?/？/g
@@ -485,6 +488,7 @@ __TMPF=${TEMPDIR}/__tmpfile
 
 cat <<EOF >${TEMPDIR}/__tmpscript12
 s/\"/”/g
+s/&/ ＆/g
 s/'/’/g
 s/!/！/g
 s/?/？/g
@@ -688,6 +692,7 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo "    fast   = --preset slow"
     echo "    fast   = --preset medium"
     echo "    faster = --preset fast"
+    logging "END."
     exit 1
 fi
 
@@ -703,7 +708,7 @@ logging ${TEMPDIR}
 
 touch "$DIRNAME/test$BASENAME"
 if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
-   logging echo "Unable to Write output."
+   logging "Unable to Write output."
    exit 3
 fi
 rm "$DIRNAME/test$BASENAME"
@@ -1460,25 +1465,25 @@ fi
 
 # Demux files to one video
 ERRFLAGS=0
-if test $HWENC -eq 0; then
-if test $RESULT_DEC_AUDIO -ne 0 ; then
-  echo "Error: Error on decoding AUDIO."
-  ERRFLAGS=1
-fi
-fi
+#if test $HWENC -eq 0; then
+#if test $RESULT_DEC_AUDIO -ne 0 ; then
+#  logging "Error: Error on decoding AUDIO."
+#  ERRFLAGS=1
+#fi
+#fi
 #if test $RESULT_ENC_AUDIO -ne 0 ; then
 #  echo "Error: Error on encoding AUDIO."
 #  ERRFLAGS=1
 #fi
 if test $RESULT_DEC_VIDEO -ne 0 ; then
-  echo "Error: Error on decoding AUDIO."
+  logging "Error: Error on decoding AUDIO."
   ERRFLAGS=1
 fi
 
 if test $FFMPEG_ENC -eq 0; then
 if test $HWENC -eq 0; then 
 if test $RESULT_ENC_VIDEO -ne 0 ; then
-  echo "Error: Error on encoding AUDIO."
+  logging "Error: Error on encoding AUDIO."
   ERRFLAGS=1
 fi
 fi
@@ -1487,19 +1492,20 @@ fi
 if test $ERRFLAGS -ne 0; then
   cd ../..
   rm -rf $TEMPDIR
+  logging "ERROR ${ERRFLAGS}"
   exit 2
 fi
 
 touch "$DIRNAME/test$BASENAME"
 if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
-   echo "Unable to Write encoded movie."
+   logging "Unable to Write encoded movie."
    exit 3
 fi
 rm "$DIRNAME/test$BASENAME"
 
 if test $HWENC -ne 0; then
   #MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
-  cp $TEMPDIR/v1tmp.mp4 "$DIRNAME/$BASENAME"
+  cp "$TEMPDIR/v1tmp.mp4" "$DIRNAME/$BASENAME"
 #  ffmpeg \
 #    -i "$TEMPDIR/v1tmp.mp4" \
 #    -c:a copy -c:v copy \
@@ -1524,8 +1530,8 @@ RESULT_DEMUX=$?
 # update the database to point to the transcoded file and delete the original recorded show.
 NEWFILESIZE=`du -b "$DIRNAME/$BASENAME" | cut -f1`
 if test $NEWFILESIZE -le 0 ; then
-  echo "Unknown Error"
-  exit 4
+  logging "Unknown Errot."
+exit 4
 fi
 
 if test $USE_DATABASE -ne 0 ; then
@@ -1547,4 +1553,5 @@ sync
 sleep 2
 cd $TEMPDIR/..
 rm -rf $TEMPDIR
+logging "JOB COMPLETED."
 exit 0
