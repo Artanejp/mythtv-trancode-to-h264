@@ -523,7 +523,7 @@ __N_TITLE=""
 
 if [ -n "${VIDEO_DESC}" ] ; then
    ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
-   ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+   ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
 fi
 if [ -n "${VIDEO_EPISODE}" ] ; then
    ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
@@ -531,7 +531,7 @@ if [ -n "${VIDEO_EPISODE}" ] ; then
 fi
 if [ -n "${VIDEO_SUBTITLE}" ] ; then
    ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
+   ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_SUBTITLE}\""
 fi
 if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_ONAIR="${VIDEO_ONAIR}"
@@ -588,12 +588,12 @@ if test $N_QUERY_ID -gt 0; then
 #    fi
     if [ -n "${__N_DESC}" ] ; then
       ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_DESC}\""
+      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
 #      logging ${ARG_DESC}
     fi
     if [ -n "${__N_SUBTITLE}" ] ; then
       ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_SUBTITLE}\""
+      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_SUBTITLE}\""
 #      logging ${ARG_SUBTITLE}
     fi
     if [ $F_CHANID -eq 0 ]; then
