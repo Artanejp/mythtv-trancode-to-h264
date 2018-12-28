@@ -1065,7 +1065,7 @@ case "$x" in
    ;;
    LIVE_HD_MID_HW )
      HWENC_PARAM="-profile:v main -level 51 \
-		 -qp 25 -qmin 10 -qmax 40 \
+		 -qp 25 -qmin 10 -qmax 32 \
 		 -maxrate 14500k -minrate 100k \
 		 -sc_threshold 45 -qdiff 8 -qcomp 0.40 \
                  -bufsize 32768 \
@@ -1241,8 +1241,8 @@ case "$x" in
    LIVE_MID_HW )
      HWENC_PARAM="-profile:v main -level 51 \
                  -aud 1 \
-		 -qp 31 -qmin 22 -qmax 59 -qcomp 0.40 \
-		 -maxrate 1400k -minrate 55k -bufsize 32768 \
+		 -qp 30 -qmin 21 -qmax 58 -qcomp 0.40 \
+		 -maxrate 1500k -minrate 55k -bufsize 32768 \
 		 -sc_threshold 65 -qdiff 10 \
 		 -quality 3 \
 		 -aspect 16:9"
