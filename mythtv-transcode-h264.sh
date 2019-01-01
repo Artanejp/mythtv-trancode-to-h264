@@ -95,6 +95,7 @@ SRC=""
 N_DIRSET=0
 S_DIRSET=""
 IS_HELP=0
+IS_HWENC_USE_HEVC=1
 
 function logging() {
    __str="$@"
@@ -291,6 +292,12 @@ for x in "$@" ; do
     shift
     ENCMODE="LIVE_HD_MID_HW"
     ;;
+    --live_hd_mid_hw2 | --live-hd-mid-hw2)
+    # for Live, HD, high quality.
+    shift
+    ENCMODE="LIVE_HD_MID_HW2"
+    IS_HWENC_USE_HEVC=0
+    ;;
     --live_hd_mid_hw_test | --live-hd-mid-hw_test)
     # for Live, HD, high quality.
     shift
@@ -326,6 +333,11 @@ for x in "$@" ; do
     # for Live, middle quality.
     shift
     ENCMODE="LIVE_SD_HIGH_HW"
+    ;;
+    --live_sd_high_hw2 | --live-sd-high-hw2 )
+    # for Live, middle quality.
+    shift
+    ENCMODE="LIVE_SD_HIGH_HW2"
     ;;
     --live_sd_mid | --live-sd-mid )
     # for Live, middle quality.
@@ -753,7 +765,11 @@ case "$x" in
    AUDIOBITRATE=224
    AUDIOCUTOFF=22050
    ;;
-   "ANIME_HIGH_HW" | "LIVE_HIGH_HW" | "LIVE_HD_HIGH_HW"  | "LIVE_HD_MID_HW" | "LIVE_SD_HIGH_HW" )
+   "ANIME_HIGH_HW" | "LIVE_HIGH_HW" | "LIVE_HD_HIGH_HW" )
+   AUDIOBITRATE=224
+   AUDIOCUTOFF=22050
+   ;;
+   "LIVE_HD_MID_HW2" | "LIVE_SD_HIGH_HW2"  | "LIVE_HD_MID_HW" | "LIVE_SD_HIGH_HW" )
    AUDIOBITRATE=224
    AUDIOCUTOFF=22050
    ;;
@@ -829,7 +845,7 @@ case "$x" in
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
-   "LIVE_HD_MID" | "LIVE_HD_MID_HW" )
+   "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
    VIDEO_QUANT=25
    VIDEO_MINQ=12
    VIDEO_MAXQ=37
@@ -886,7 +902,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    #VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload"
    ;;
-   "LIVE_SD_HIGH" | "LIVE_SD_HIGH_HW" )
+   "LIVE_SD_HIGH" | "LIVE_SD_HIGH_HW" | "LIVE_SD_HIGH_HW2" )
    VIDEO_QUANT=22
    VIDEO_MINQ=12
    VIDEO_MAXQ=27
@@ -1022,6 +1038,7 @@ case "$x" in
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
+     IS_HWENC_USE_HEVC=0
      if test $USE_60FPS -ne 0 ; then
         #VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
         VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
@@ -1101,6 +1118,44 @@ case "$x" in
      fi
      fi
    ;;
+   LIVE_HD_MID_HW2 )
+     HWENC_PARAM="-profile:v main -level 51 \
+		 -qp 25 -qmin 10 -qmax 37 \
+		 -sc_threshold 43 -qdiff 8 -qcomp 0.42 \
+                 -bufsize 32768 \
+		 -quality 0 -aspect 16:9"
+#		 -maxrate 14500k -minrate 100k \
+#		 -maxrate 16500k -minrate 100k \
+     HW_SCALING="Yes"
+     HWACCEL_DEC="vaapi"
+     #HW_SCALING="No"
+     #HWACCEL_DEC="NONE"
+     FFMPEG_ENC=0
+     HWENC=1
+     HWDEC=0
+     if test $TESTMODE -ne 0; then
+     if test $USE_60FPS -ne 0 ; then
+#        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,hqdn3d=luma_spatial=2.2:luma_tmp=1.8:chroma_spatial=2.3:chroma_tmp=2.1,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,atadenoise=s=7,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
+     else
+#        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,hqdn3d=luma_spatial=2.3:luma_tmp=2.0:chroma_spatial=2.4:chroma_tmp=2.2,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,atadenoise=s=9,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
+     fi
+     else
+     if test $USE_60FPS -ne 0 ; then
+#        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,hqdn3d=luma_spatial=2.2:luma_tmp=1.8:chroma_spatial=2.3:chroma_tmp=2.1,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
+     else
+#        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,hqdn3d=luma_spatial=2.3:luma_tmp=2.0:chroma_spatial=2.4:chroma_tmp=2.2,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
+     fi
+     fi
+   ;;
+   
    LIVE1 )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2"
@@ -1201,6 +1256,34 @@ case "$x" in
      HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      
+   ;;
+   LIVE_SD_HIGH_HW2 )
+     HWENC_PARAM=" \
+                  -profile:v main -level 51 \
+		  -qmin 15 -qmax 28 \
+		  -qdiff 9 -qcomp 0.70 \
+		  -sc_threshold 40 \
+  		  -bufsize 32768 \
+		  -quality 0 \
+		  -aspect 16:9"
+		  # -qp 22
+#  		  -maxrate 3500k -minrate 70k -bufsize 32768 
+     FFMPEG_ENC=0
+     HWENC=1
+     HWDEC=0
+     VIDEO_FILTERCHAIN_NOSCALE=0
+     if test $USE_60FPS -ne 0 ; then
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=640:h=480"
+     else
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=640:h=480"
+     fi
+     #HW_SCALING="No"
+     #HWACCEL_DEC="NONE"
+     HW_SCALING="Yes"
+     HWACCEL_DEC="vaapi"
+     IS_HWENC_USE_HEVC=0
    ;;
    LIVE_SD_MID_HW )
      HWENC_PARAM=" \
@@ -1403,7 +1486,26 @@ if test $FFMPEG_ENC -ne 0; then
 #    -filter_complex_threads 4 -filter_threads 4 \
 
 elif test $HWENC -ne 0; then
-logging ${ARG_METADATA}
+  if test $IS_HWENC_USE_HEVC -eq 0; then
+    logging ${ARG_METADATA}
+    ffmpeg $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+    -r:v ${FRAMERATE} \
+    $VIDEO_FILTERCHAIN_HWACCEL \
+    -c:v h264_vaapi \
+    -filter_complex_threads 16 -filter_threads 16 \
+    $HWENC_PARAM \
+    -threads:0 8 \
+    -c:a aac \
+    -threads:1 8 \
+    -r:v ${FRAMERATE} \
+    -ab 224k -ar 48000 -ac 2 \
+    -f mp4 \
+    $ARG_METADATA \
+    -y $TEMPDIR/v1tmp.mp4  \
+    &
+#    -c:v hevc_vaapi \
+   else
+    logging ${ARG_METADATA}
     ffmpeg $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
@@ -1420,7 +1522,7 @@ logging ${ARG_METADATA}
     -y $TEMPDIR/v1tmp.mp4  \
     &
 #    -c:v hevc_vaapi \
-
+   fi
 else
 #ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
 case "$HW_SCALING" in
