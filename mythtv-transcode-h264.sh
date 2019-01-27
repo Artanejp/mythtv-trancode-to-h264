@@ -36,12 +36,20 @@ AUDIOBITRATE=224
 AUDIOCUTOFF=22050
 
 ENCTHREADS=4
+LOOKAHEAD_THREADS=6
+FILTER_THREADS=2
+FILTER_COMPLEX_THREADS=4
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
 VIDEO_QUANT=22
 
 VIDEO_AQSTRENGTH="1.1"
 VIDEO_QCOMP="0.55"
+
+VIDEO_SCENECUT=48
+VIDEO_REF_FRAMES=3
+VIDEO_BFRAMES=6
+#X264_BITRATE=2500
 
 CMCUT=0
 REMOVE_SOURCE=0
@@ -55,11 +63,11 @@ X264_BITRATE="2000"
 
 VIDEO_SKIP="-ss 15"
 
-FFMPEG_ENC=0
+FFMPEG_ENC=1
 HWENC=0
 HWDEC=0
 HW_SCALING="No"
-HWACCEL_DEC=""
+
 N_QUERY_ID=0;
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
@@ -189,7 +197,7 @@ for x in "$@" ; do
     VIDEO_SKIP="-ss $1"
     shift
     ;;
-    --threads )
+    --threads | --thread | -thread | -threads )
     shift
     ENCTHREADS="$1"
     shift
@@ -795,8 +803,11 @@ X264_FILTPARAM=""
 # Live video (low motion)
 
 X264_BITRATE=0
+IS_CONSTANT_QUALITY=0
 #Determine override presets when set to mode
 x=$ENCMODE
+
+
 case "$x" in
    "ANIME" | "ANIME_HW" )
    VIDEO_QUANT=24
@@ -818,9 +829,12 @@ case "$x" in
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
    VIDEO_QUANT=23
    VIDEO_MINQ=14
-   VIDEO_MAXQ=26
-   VIDEO_AQSTRENGTH=0.47
-   VIDEO_QCOMP=0.75
+   VIDEO_MAXQ=28
+   VIDEO_AQSTRENGTH=0.36
+   VIDEO_QCOMP=0.88
+   VIDEO_SCENECUT=38
+   VIDEO_REF_FRAMES=3
+   VIDEO_BFRAMES=4
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.7:luma_tmp=2.8:chroma_tmp=2.9"
    VIDEO_FILTERCHAINX="yadif"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
@@ -840,17 +854,25 @@ case "$x" in
    VIDEO_MINQ=17
    VIDEO_MAXQ=37
    VIDEO_AQSTRENGTH=1.00
-   VIDEO_QCOMP=0.60
+   VIDEO_QCOMP=0.65
+   VIDEO_SCENECUT=45
+   VIDEO_REF_FRAMES=3
+   VIDEO_BFRAMES=3
+   
    X264_BITRATE=2500
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=25
+   VIDEO_QUANT=23
    VIDEO_MINQ=12
-   VIDEO_MAXQ=37
-   VIDEO_AQSTRENGTH=1.15
+   VIDEO_MAXQ=35
+   VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
+   VIDEO_SCENECUT=60
+   VIDEO_REF_FRAMES=3
+   VIDEO_BFRAMES=4
+   
    #X264_BITRATE=3500
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=3.0:chroma_spatial=3.0:luma_tmp=2.8:chroma_tmp=2.7"
    VIDEO_FILTERCHAINX="yadif"
@@ -866,11 +888,14 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HD_HIGH" | "LIVE_HD_HIGH_HW" )
-   VIDEO_QUANT=24
+   VIDEO_QUANT=23
    VIDEO_MINQ=14
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.75
-   VIDEO_QCOMP=0.75
+   VIDEO_QCOMP=0.85
+   VIDEO_SCENECUT=45
+   VIDEO_REF_FRAMES=5
+   VIDEO_BFRAMES=4
    #X264_BITRATE=3500
 #   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.4:luma_tmp=3.1:chroma_tmp=3.0"
    VIDEO_FILTERCHAINX="yadif"
@@ -884,11 +909,15 @@ case "$x" in
 
    ;;
    "LIVE_HIGH" | "LIVE_HIGH_HW" )
-   VIDEO_QUANT=24
+   VIDEO_QUANT=23
    VIDEO_MINQ=12
    VIDEO_MAXQ=34
    VIDEO_AQSTRENGTH=1.05
    VIDEO_QCOMP=0.70
+   VIDEO_SCENECUT=42
+   VIDEO_REF_FRAMES=5
+   VIDEO_BFRAMES=5
+   
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX="yadif"
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
@@ -903,13 +932,17 @@ case "$x" in
    #VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload"
    ;;
    "LIVE_SD_HIGH" | "LIVE_SD_HIGH_HW" | "LIVE_SD_HIGH_HW2" )
-   VIDEO_QUANT=22
+   VIDEO_QUANT=21
    VIDEO_MINQ=12
    VIDEO_MAXQ=27
    VIDEO_AQSTRENGTH=0.95
    VIDEO_QCOMP=0.75
-   #X264_BITRATE=3500
-   VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1"
+   VIDEO_SCENECUT=40
+   VIDEO_REF_FRAMES=5
+   VIDEO_BFRAMES=5
+   
+  #X264_BITRATE=3500
+   VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
    VIDEO_FILTERCHAINX="yadif"
    VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
    if test $USE_60FPS -ne 0 ; then
@@ -930,6 +963,18 @@ case "$x" in
    VIDEO_MAXQ=57
    VIDEO_AQSTRENGTH=1.35
    VIDEO_QCOMP=0.45
+   VIDEO_SCENECUT=48
+   VIDEO_REF_FRAMES=3
+   VIDEO_BFRAMES=6
+   
+   HWENC_PARAM="-profile:v main -level 51 \
+          -aud 1 \
+	  -qp 30 -qmin 21 -qmax 58 -qcomp 0.40 \
+	  -maxrate 1500k -minrate 55k -bufsize 32768 \
+	  -sc_threshold 65 -qdiff 10 \
+	  -quality 3 \
+	  -aspect 16:9"
+	  
    #X264_BITRATE="1800"
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    VIDEO_FILTERCHAINX="yadif"
@@ -956,6 +1001,9 @@ case "$x" in
    VIDEO_MAXQ=59
    VIDEO_AQSTRENGTH=1.90
    VIDEO_QCOMP=0.35
+   VIDEO_SCENECUT=48
+   VIDEO_REF_FRAMES=3
+   VIDEO_BFRAMES=6
 #   X264_BITRATE=1100
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    if test $USE_60FPS -ne 0 ; then
@@ -1009,11 +1057,6 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
      
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
-     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -2 -me_method umh -weightp smart"
-     FFMPEG_X264_PARAM2="-x264-params aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
-     FFMPEG_X264_PARAM3="qcomp=${VIDEO_QCOMP}:trellis=2:8x8dct=1:scenecut=40:ref=5:bframes=5:b-adapt=2:qpstep=12:"
-     FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}"
-     FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_PARAM4}
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
      HW_SCALING="Yes"
@@ -1026,11 +1069,13 @@ case "$x" in
    ;;
    ANIME_HIGH_HW )
      HWENC_PARAM="-profile:v main -level 51 \
-		  -qp 24 -qmin 14 -qmax 28 \
-		  -maxrate 12000k -minrate 100k \
-		  -qcomp 0.80  -quality 0 -qdiff 6 \
+		  -quality 0	\
+		  -qp 22 -qmin 10 -qmax 27 \
+		  -qcomp 0.75   -qdiff 8 \
 		  -sc_threshold 38 \
+		  -bufsize 32768 \
 		  -aspect 16:9"
+#		  -maxrate 12000k -minrate 100k \
      HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      #HW_SCALING="No"
@@ -1065,14 +1110,9 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
-     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
-     FFMPEG_X264_PARAM2="-x264-params aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
-     FFMPEG_X264_PARAM3="qcomp=${VIDEO_QCOMP}:8x8dct=1:scenecut=45:ref=5:bframes=5:b-adapt=2:qpstep=12:"
-     FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}"
-     FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_PARAM4}
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
-     HW_SCALING="Yes"
+     HW_SCALING="No"
      HWACCEL_DEC="vaapi"
      #HW_SCALING="No"
      #HWACCEL_DEC="NONE"
@@ -1081,8 +1121,8 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_HD_MID_HW )
-     HWENC_PARAM="-profile:v main -level 51 \
-		 -qp 25 -qmin 10 -qmax 32 \
+      HWENC_PARAM="-profile:v main -level 51 \
+		 -crf 25 -qmin 12 -qmax 35 \
 		 -maxrate 14500k -minrate 100k \
 		 -sc_threshold 45 -qdiff 8 -qcomp 0.40 \
                  -bufsize 32768 \
@@ -1119,11 +1159,15 @@ case "$x" in
      fi
    ;;
    LIVE_HD_MID_HW2 )
+     VIDEO_QCOMP=0.40
      HWENC_PARAM="-profile:v main -level 51 \
-		 -qp 25 -qmin 10 -qmax 37 \
-		 -sc_threshold 43 -qdiff 8 -qcomp 0.42 \
+		 -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ} \
+		 -sc_threshold ${VIDEO_SCENECUT} -qdiff 8 -qcomp ${VIDEO_QCOMP} \
                  -bufsize 32768 \
-		 -quality 0 -aspect 16:9"
+		  -aspect 16:9"
+#		 -quality 0 -aspect 16:9"
+#		 -crf 24 -qmin 10 -qmax 39 \
+#		 -qp 25 -qmin 10 -qmax 36 \
 #		 -maxrate 14500k -minrate 100k \
 #		 -maxrate 16500k -minrate 100k \
      HW_SCALING="Yes"
@@ -1167,10 +1211,6 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
-     FFMPEG_X264_PARAM2="-x264-params aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
-     FFMPEG_X264_PARAM3="qcomp=${VIDEO_QCOMP}:trellis=2:scenecut=40:ref=5:bframes=5:b-adapt=2:qpstep=12:"
-     FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}"
-     FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_PARAM4}
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.2:0.6"
      HWENC_PARAM=" -coder cavlc -qp 23 -quality 2"
      FFMPEG_ENC=1
@@ -1215,12 +1255,8 @@ case "$x" in
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
-     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart -sar 32/27"
-     FFMPEG_X264_PARAM2="-x264-params aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
-     FFMPEG_X264_PARAM3="qcomp=${VIDEO_QCOMP}:trellis=2:scenecut=40:ref=5:bframes=5:b-adapt=2:qpstep=8:"
-     FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}"
-     FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_PARAM4}
+     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
+     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
      HWENC_PARAM=" -coder cavlc -aspect 16:9 -qp 21 -quality 4 "
      FFMPEG_ENC=1
@@ -1234,12 +1270,14 @@ case "$x" in
    LIVE_SD_HIGH_HW )
      HWENC_PARAM=" \
                   -profile:v main -level 51 \
-		  -qp 22 -qmin 15 -qmax 29 \
+		  -qp 22 -qmin 10 -qmax 28 \
 		  -qdiff 9 -qcomp 0.70 \
-		  -sc_threshold 42 \
-  		  -maxrate 3500k -minrate 70k -bufsize 32768 \
+		  -sc_threshold 38 \
 		  -quality 0 \
 		  -aspect 16:9"
+#  		  -maxrate 3500k -minrate 70k -bufsize 32768 \
+		  
+    IS_HWENC_USE_HEVC=0
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1306,11 +1344,6 @@ case "$x" in
      X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
      X264_ENCPRESET="--preset medium --ref 5 --8x8dct"
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
-     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias 0 -me_method hex -weightp smart"
-     FFMPEG_X264_PARAM2="-x264-params aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
-     FFMPEG_X264_PARAM3="qcomp=${VIDEO_QCOMP}:scenecut=48:ref=5:bframes=5:b-adapt=2:"
-     FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}:qpstep=8"
-     FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_PARAM4}
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -1322,13 +1355,6 @@ case "$x" in
      HWACCEL_DEC="vaapi"
    ;;
    LIVE_MID_HW )
-     HWENC_PARAM="-profile:v main -level 51 \
-                 -aud 1 \
-		 -qp 30 -qmin 21 -qmax 58 -qcomp 0.40 \
-		 -maxrate 1500k -minrate 55k -bufsize 32768 \
-		 -sc_threshold 65 -qdiff 10 \
-		 -quality 3 \
-		 -aspect 16:9"
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1360,11 +1386,32 @@ case "$x" in
      ;;
 esac
 
+
+#FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
+
+FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
+FFMPEG_X264_PARAM2="8x8dct=1:aq-mode=3:aq-strength=${VIDEO_AQSTRENGTH}:"
+FFMPEG_X264_PARAM3="trellis=2:scenecut=${VIDEO_SCENECUT}:ref=${VIDEO_REF_FRAMES}:bframes=${VIDEO_BFRAMES}:b-adapt=2:"
+FFMPEG_X264_PARAM4="keyint=300:min-keyint=24:qpmin=${VIDEO_MINQ}:qpmax=${VIDEO_MAXQ}:qcomp=${VIDEO_QCOMP}:qpstep=8"
+
+if test $IS_CONSTANT_QUALITY -ne 0; then
+   FFMPEG_X264_QP_PARAM="qp=${VIDEO_QUANT}:"
+else
+   FFMPEG_X264_QP_PARAM=""
+fi
+
+
 if test $USEOPENCL -ne 0; then
    USECL="--opencl"
+   FFMPEG_X264_USE_OPENCL=":opencl=1:lookahead_threads=${LOOKAHEAD_THREADS}"
 else
    USECL=""
+   FFMPEG_X264_USE_OPENCL=":lookahead_threads=${LOOKAHEAD_THREADS}"
 fi
+
+FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_QP_PARAM}${FFMPEG_X264_PARAM4}${FFMPEG_X264_USE_OPENCL}
+
+
 if test $FASTENC -ne 0; then
   X264_FASTENC="--fast-pskip"
 else
@@ -1376,12 +1423,12 @@ if test $X264_BITRATE -gt 0; then
   X264_OPT_BITRATE=""
 fi  
 #ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
-if test $HWENC -eq 0; then
-ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec aac -ab 224k -ar 48000 -ac 2 -y "$TEMPDIR/a1.aac"  >/dev/null &
-DEC_AUDIO_PID=$!
+#if test $HWENC -eq 0; then
+#ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec aac -ab 224k -ar 48000 -ac 2 -y "$TEMPDIR/a1.aac"  >/dev/null &
+#DEC_AUDIO_PID=$!
 #faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -B 32 -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
 #ENC_AUDIO_PID=$!
-fi
+#fi
 
 if test $FFMPEG_ENC -eq 0; then
 if test $HWENC -eq 0; then 
@@ -1419,7 +1466,7 @@ case "$HWACCEL_DEC" in
    if test $VIDEO_FILTER_NOCROP -ne 0 ; then
       VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAINX}"
    else
-      VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN0},${VIDEO_FILTERCHAINX}"
+      VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN0}${VIDEO_FILTERCHAINX}"
    fi
    if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
       VIDEO_FILTERCHAIN_SCALE_HWACCEL="${VIDEO_FILTERCHAIN_SCALE_HWACCEL},scale=width=1280:height=720:flags=lanczos"
@@ -1457,7 +1504,7 @@ case "$HWACCEL_DEC" in
       if test $VIDEO_FILTER_NOCROP -ne 0 ; then
          VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAINX}"
       else
-         VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN0},${VIDEO_FILTERCHAINX}"
+         VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN0}${VIDEO_FILTERCHAINX}"
 #         VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAINX}"
       fi
       if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0 ; then
@@ -1466,19 +1513,21 @@ case "$HWACCEL_DEC" in
    fi
    ;;
 esac
+
+echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 if test $FFMPEG_ENC -ne 0; then
-    ffmpeg -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 \
+    ffmpeg -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v libx264 \
-    -an \
+    -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
     $FFMPEG_X264_HEAD \
     $FFMPEG_X264_FRAMES1 \
     $FFMPEG_X264_AQ \
-    $FFMPEG_X264_PARAM \
-    -filter_complex_threads 8 \
-    -filter_threads 8 \
+    -x264-params $FFMPEG_X264_PARAM \
     -threads ${ENCTHREADS} \
+    -c:a aac \
+    -ab 224k -ar 48000 -ac 2 \
     -f mp4 \
     $ARG_METADATA \
     -y $TEMPDIR/v1tmp.mp4  &
@@ -1492,7 +1541,8 @@ elif test $HWENC -ne 0; then
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v h264_vaapi \
-    -filter_complex_threads 16 -filter_threads 16 \
+    -filter_threads ${FILTER_THREADS} \
+    -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
     $HWENC_PARAM \
     -threads:0 8 \
     -c:a aac \
@@ -1510,7 +1560,8 @@ elif test $HWENC -ne 0; then
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v hevc_vaapi \
-    -filter_complex_threads 16 -filter_threads 16 \
+    -filter_threads ${FILTER_THREADS} \
+    -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
     $HWENC_PARAM \
     -threads:0 4 \
     -c:a aac \
@@ -1523,33 +1574,33 @@ elif test $HWENC -ne 0; then
     &
 #    -c:v hevc_vaapi \
    fi
-else
+#else
 #ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
-case "$HW_SCALING" in
-  "Yes" | "yes" | "YES" )
-    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 \
-    -filter_complex_threads 16 -filter_threads 16 \
-    -threads 4 \
-    -f yuv4mpegpipe \
-    $VIDEO_FILTERCHAIN_HWACCEL \
-    -y $VIDEOTMP &
-  ;;
-  "No" | "no" | "NO" | "*")
-    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9  \
-    -filter_complex_threads 16 -filter_threads 16 \
-    -threads 4 \
-    -f yuv4mpegpipe \
-    -vf $VIDEO_FILTERCHAIN_HWACCEL \
-    -y $VIDEOTMP &
-;;
-esac
+#case "$HW_SCALING" in
+#  "Yes" | "yes" | "YES" )
+#    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 \
+#    -filter_complex_threads 16 -filter_threads 16 \
+#    -threads 4 \
+#    -f yuv4mpegpipe \
+#    $VIDEO_FILTERCHAIN_HWACCEL \
+#    -y $VIDEOTMP &
+#  ;;
+#  "No" | "no" | "NO" | "*")
+#    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9  \
+#    -filter_complex_threads 16 -filter_threads 16 \
+#    -threads 4 \
+#    -f yuv4mpegpipe \
+#    -vf $VIDEO_FILTERCHAIN_HWACCEL \
+#    -y $VIDEOTMP &
+#;;
+#esac
 fi
 
 DEC_VIDEO_PID=$!
 
-if test $HWENC -eq 0; then 
-wait $DEC_AUDIO_PID
-fi
+#if test $HWENC -eq 0; then 
+#wait $DEC_AUDIO_PID
+#fi
 #RESULT_DEC_AUDIO=$?
 
 #wait $ENC_AUDIO_PID
@@ -1616,7 +1667,8 @@ if test $HWENC -ne 0; then
 #    -y "$DIRNAME/$BASENAME"
 #    echo "$DIRNAME/$BASENAME"
 else
-  MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
+#  MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
+  cp "$TEMPDIR/v1tmp.mp4" "$DIRNAME/$BASENAME"
 fi
 
 RESULT_DEMUX=$?
