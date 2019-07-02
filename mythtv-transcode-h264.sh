@@ -36,9 +36,9 @@ AUDIOBITRATE=224
 AUDIOCUTOFF=22050
 
 ENCTHREADS=4
-LOOKAHEAD_THREADS=6
-FILTER_THREADS=2
-FILTER_COMPLEX_THREADS=4
+LOOKAHEAD_THREADS=8
+FILTER_THREADS=8
+FILTER_COMPLEX_THREADS=8
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
 VIDEO_QUANT=22
@@ -413,7 +413,8 @@ function change_arg_nonpath() {
 #    if [ -n "${__tmpv1}" ] ; then
 cat <<EOF >${TEMPDIR}/__tmpscript0
 s/\"/”/g
-s/&/ ＆/g
+s/&/＆/g
+s/\&/＆/g
 s/'/’/g
 s/!/！/g
 s/?/？/g
@@ -819,9 +820,11 @@ case "$x" in
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    VIDEO_FILTERCHAIN_NOCROP=1
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    fi
    X264_BITRATE="2500"
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
@@ -840,12 +843,12 @@ case "$x" in
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=spline"
    VIDEO_FILTERCHAIN_NOCROP=1
 
-   VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
-   #VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1280:h=720"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    fi
    VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p"
    ;;
@@ -879,9 +882,11 @@ case "$x" in
 #   VIDEO_FILTERCHAIN_SCALE="scale=width=1920:height=1080:flags=lanczos"
    VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1440:h=1080"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1440:h=1080"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
    fi
    VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p"
    VIDEO_FILTERCHAIN_NOCROP=1
@@ -900,9 +905,11 @@ case "$x" in
 #   VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=2.5:chroma_spatial=2.4:luma_tmp=3.1:chroma_tmp=3.0"
    VIDEO_FILTERCHAINX="yadif"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1440:h=1080"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1440:h=1080"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1440:h=1080"
    fi
    VIDEO_FILTERCHAIN_NOSCALE=1
    VIDEO_FILTERCHAIN_NOCROP=1
@@ -923,9 +930,11 @@ case "$x" in
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.2:chroma_spatial=3.2:luma_tmp=3.8:chroma_tmp=3.8"
    VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1280:h=720"
-   else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
+   else 
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+     VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    fi
    VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p" 
    VIDEO_FILTERCHAIN_NOCROP=1
@@ -946,12 +955,13 @@ case "$x" in
    VIDEO_FILTERCHAINX="yadif"
    VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob:rate=2"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=640:h=480"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadifformat=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=640:h=480"
    fi
    VIDEO_FILTERCHAIN_VAAPI=${VIDEO_FILTERCHAIN_VAAPI},scale_vaapi=w=640:h=480
-   #VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob"
    VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p"
    VIDEO_FILTERCHAIN_NOSCALE=0
    VIDEO_FILTER_NOCROP=1
@@ -967,28 +977,16 @@ case "$x" in
    VIDEO_REF_FRAMES=3
    VIDEO_BFRAMES=6
    
-   HWENC_PARAM="-profile:v main -level 51 \
-          -aud 1 \
-	  -qp 30 -qmin 21 -qmax 58 -qcomp 0.40 \
-	  -maxrate 1500k -minrate 55k -bufsize 32768 \
-	  -sc_threshold 65 -qdiff 10 \
-	  -quality 3 \
-	  -aspect 16:9"
-	  
    #X264_BITRATE="1800"
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
    VIDEO_FILTERCHAINX="yadif"
    VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=lanczos"
-   VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
-#   if test $USE_60FPS -ne 0 ; then
-#      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive:rate=2,scale_vaapi=w=1280:h=720"
-#   else
-#      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=motion_adaptive,scale_vaapi=w=1280:h=720"
-#   fi
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob:rate=field,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+     VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    fi
    VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p"
    VIDEO_FILTERCHAIN_NOSCALE=0
@@ -1007,9 +1005,11 @@ case "$x" in
 #   X264_BITRATE=1100
    VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=5.0:chroma_spatial=3.9:luma_tmp=4.7:chroma_tmp=4.7"
    if test $USE_60FPS -ne 0 ; then
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob:rate=2,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    else
-      VIDEO_FILTERCHAIN_VAAPI="deinterlace_vaapi=mode=bob,scale_vaapi=w=1280:h=720"
+      VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+      VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
    fi
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
@@ -1059,10 +1059,10 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
-     HW_SCALING="Yes"
-     HWACCEL_DEC="vaapi"
-     #HW_SCALING="No"
-     #HWACCEL_DEC="NONE"
+     #HW_SCALING="Yes"
+     #HWACCEL_DEC="vaapi"
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
      FFMPEG_ENC=1
      HWENC=0
      HWDEC=0
@@ -1112,10 +1112,10 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
-     HW_SCALING="No"
-     HWACCEL_DEC="vaapi"
      #HW_SCALING="No"
-     #HWACCEL_DEC="NONE"
+     #HWACCEL_DEC="vaapi"
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
      FFMPEG_ENC=1
      HWENC=0
      HWDEC=0
@@ -1259,13 +1259,11 @@ case "$x" in
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
      HWENC_PARAM=" -coder cavlc -aspect 16:9 -qp 21 -quality 4 "
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
      FFMPEG_ENC=1
      HWENC=0
      HWDEC=0
-     #HW_SCALING="No"
-     #HWACCEL_DEC="none"
-     HW_SCALING="Yes"
-     HWACCEL_DEC="vaapi"
    ;;
    LIVE_SD_HIGH_HW )
      HWENC_PARAM=" \
@@ -1349,10 +1347,10 @@ case "$x" in
      FFMPEG_ENC=1
      HWENC=0
      HWDEC=0
-     #HW_SCALING="No"
-     #HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
-     HWACCEL_DEC="vaapi"
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
+     #HW_SCALING="Yes"
+     #HWACCEL_DEC="vaapi"
    ;;
    LIVE_MID_HW )
      FFMPEG_ENC=0
@@ -1360,8 +1358,25 @@ case "$x" in
      HWDEC=0
      #HW_SCALING="No"
      #HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
+     HW_SCALING="No"
      HWACCEL_DEC="vaapi"
+     HWENC_PARAM=" \
+                   -profile:v main -aud 1 -level 51  \
+ 		   -qp 30 -qmin 21 -qmax 58 \
+		   -qcomp 0.40 -qdiff 10 \
+		   -sc_threshold 65 \
+		   -bf 4 \
+		   -maxrate 1500k -minrate 55k -bufsize 8192 \
+		   -quality 2 \
+		   -aspect 16:9"
+#		   -qmin 10 -qmax 35 \
+     if test $USE_60FPS -ne 0 ; then
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif=mode=send_field,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
+     else
+        VIDEO_FILTERCHAIN_VAAPI_HEAD="yadif,format=nv12|vaapi,hwupload"
+        VIDEO_FILTERCHAIN_VAAPI="scale_vaapi=w=1280:h=720"
+     fi
      
    ;;
    LIVE_LOW )
@@ -1403,10 +1418,11 @@ fi
 
 if test $USEOPENCL -ne 0; then
    USECL="--opencl"
-   FFMPEG_X264_USE_OPENCL=":opencl=1:lookahead_threads=${LOOKAHEAD_THREADS}"
+   FFMPEG_X264_USE_OPENCL=":opencl=1:lookahead_threads=`expr ${LOOKAHEAD_THREADS} \* 1`:sync_lookahead=`expr ${LOOKAHEAD_THREADS} \* 2`"
 else
    USECL=""
-   FFMPEG_X264_USE_OPENCL=":lookahead_threads=${LOOKAHEAD_THREADS}"
+   FFMPEG_X264_USE_OPENCL=":lookahead_threads=`expr ${LOOKAHEAD_THREADS} \* 1`:sync_lookahead=`expr ${LOOKAHEAD_THREADS} \* 1`"
+#   FFMPEG_X264_USE_OPENCL=""
 fi
 
 FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM2}${FFMPEG_X264_PARAM3}${FFMPEG_X264_QP_PARAM}${FFMPEG_X264_PARAM4}${FFMPEG_X264_USE_OPENCL}
