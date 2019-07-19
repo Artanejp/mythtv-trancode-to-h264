@@ -1,0 +1,6 @@
+#
+USEOPENCL=0
+DATABASEUSER="mythtv"
+DATABASEPASSWORD="fqn363lf"
+ENCTHREADS=7
+FFMPEG_CMD="taskset 0xfbe /usr/bin/ffmpeg"

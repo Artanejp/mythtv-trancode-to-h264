@@ -69,6 +69,8 @@ HWDEC=0
 HW_SCALING="No"
 
 N_QUERY_ID=0;
+
+FFMPEG_CMD="/usr/bin/ffmpeg"
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
 fi
@@ -1438,9 +1440,9 @@ if test $X264_BITRATE -gt 0; then
   else 
   X264_OPT_BITRATE=""
 fi  
-#ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
+#${FFMPEG_CMD} -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec pcm_s16be -f s16be -ar 48000 -ac 2 -y $AUDIOTMP  >/dev/null &
 #if test $HWENC -eq 0; then
-#ffmpeg -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec aac -ab 224k -ar 48000 -ac 2 -y "$TEMPDIR/a1.aac"  >/dev/null &
+#${FFMPEG_CMD} -loglevel panic $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  -acodec aac -ab 224k -ar 48000 -ac 2 -y "$TEMPDIR/a1.aac"  >/dev/null &
 #DEC_AUDIO_PID=$!
 #faac -w -b $AUDIOBITRATE -c $AUDIOCUTOFF -B 32 -P -R 48000 -C 2 $AUDIOTMP -o $TEMPDIR/a1.m4a >/dev/null 2>/dev/null &
 #ENC_AUDIO_PID=$!
@@ -1533,7 +1535,7 @@ esac
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 if test $FFMPEG_ENC -ne 0; then
-    ffmpeg -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
+    ${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v libx264 \
     -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1553,7 +1555,7 @@ if test $FFMPEG_ENC -ne 0; then
 elif test $HWENC -ne 0; then
   if test $IS_HWENC_USE_HEVC -eq 0; then
     logging ${ARG_METADATA}
-    ffmpeg $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+    ${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v h264_vaapi \
@@ -1572,7 +1574,7 @@ elif test $HWENC -ne 0; then
 #    -c:v hevc_vaapi \
    else
     logging ${ARG_METADATA}
-    ffmpeg $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+    ${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
     -r:v ${FRAMERATE} \
     $VIDEO_FILTERCHAIN_HWACCEL \
     -c:v hevc_vaapi \
@@ -1591,10 +1593,10 @@ elif test $HWENC -ne 0; then
 #    -c:v hevc_vaapi \
    fi
 #else
-#ffmpeg -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
+#${FFMPEG_CMD}  -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 -acodec null -vcodec rawvideo -f yuv4mpegpipe -vf $VIDEO_FILTERCHAIN -y $VIDEOTMP &
 #case "$HW_SCALING" in
 #  "Yes" | "yes" | "YES" )
-#    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 \
+#    ${FFMPEG_CMD}  -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9 \
 #    -filter_complex_threads 16 -filter_threads 16 \
 #    -threads 4 \
 #    -f yuv4mpegpipe \
@@ -1602,7 +1604,7 @@ elif test $HWENC -ne 0; then
 #    -y $VIDEOTMP &
 #  ;;
 #  "No" | "no" | "NO" | "*")
-#    ffmpeg -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9  \
+#    ${FFMPEG_CMD}  -loglevel panic $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r 30000/1001 -aspect 16:9  \
 #    -filter_complex_threads 16 -filter_threads 16 \
 #    -threads 4 \
 #    -f yuv4mpegpipe \
@@ -1675,7 +1677,7 @@ rm "$DIRNAME/test$BASENAME"
 if test $HWENC -ne 0; then
   #MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
   cp "$TEMPDIR/v1tmp.mp4" "$DIRNAME/$BASENAME"
-#  ffmpeg \
+#  ${FFMPEG_CMD}  \
 #    -i "$TEMPDIR/v1tmp.mp4" \
 #    -c:a copy -c:v copy \
 #    -f mp4 \
