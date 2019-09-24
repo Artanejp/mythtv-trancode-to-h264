@@ -55,11 +55,24 @@ CMCUT=0
 REMOVE_SOURCE=0
 FASTENC=0
 HWACCEL_DEC="NONE"
+HWDEINT=0
 VIDEO_FILTERCHAIN_NOSCALE=0
+$VIDEO_FILTERCHAIN_NOCROP=0
 VIDEO_FILTER_NOCROP=0
+USE_X265=0
 
 X264_ENCPRESET="--preset slower --8x8dct --partitions all"
 X264_BITRATE="2000"
+X264_PROFILE="high"
+
+X265_PROFILE="main"
+X265_PRESET="medium"
+X265_PARAMS=""
+
+FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE} -preset medium"
+FFMPEG_X265_FRAMES1=""
+FFMPEG_X265_AQ=""
+FFMPEG_X265_PARAMS=""
 
 VIDEO_SKIP="-ss 15"
 
@@ -119,286 +132,300 @@ logging "$@"
 for x in "$@" ; do
     SS="$1"
     case "$1" in
-    -d | --dir )
-    shift
-    S_DIRSET="$1"
-    N_DIRSET=1
-    shift
-    ;;
-    -i | --src | --i )
-    shift
-    SRC="$1"
-    shift
-    ;;
-    -o | --dst | --o )
-    shift
-    DST="$1"
-    shift
-    ;;
-    --jobid | --job-id )
-    shift
-    N_QUERY_ID="$1"
-    shift
-    ;;
-    --desc | --video-desc )
-    shift
-    VIDEO_DESC="$1"
-    if [ -n "${VIDEO_DESC}" ] ; then
-      shift
-    fi
-    ;;
-    --episode | --video-episode )
-    shift
-    VIDEO_EPISODE="$1"
-    if [ -n "${VIDEO_EPISODE}" ] ; then
-      shift
-    fi
-    ;;
-    --subtitle | --sub-title | --video-sub-title )
-    shift
-    VIDEO_SUBTITLE="$1"
-    if [ -n "${VIDEO_SUBTITLE}" ] ; then
-      shift
-    fi
-    ;;
-    --onair | --on-air | --video-onair )
-    shift
-    VIDEO_ONAIR="$1"
-    if [ -n "${VIDEO_ONAIR}" ] ; then
-      shift
-    fi
-    ;;
-    --no-chanid | --nc )
-    F_CHANID=0
-    shift
-    ;;
-    --chanid | -c )
-    shift
-    I_CHANID="$1"
-    F_CHANID=1
-    shift
-    ;;
-    --starttime | -t )
-    shift
-    I_STARTTIME="$1"
-    F_STARTTIME=1
-    shift
-    ;;
-    --local-starttime | --lt | -lt | --local_starttime )
-    shift
-    I_LOCALSTARTTIME="$1"
-    F_LOCALSTARTTIME=1
-    shift
-    ;;
-    --noskip | --no-skip | --no_skip )
-    VIDEO_SKIP=""
-    shift
-    ;;
-    --skip_sec | --skip-sec )
-    shift
-    VIDEO_SKIP="-ss $1"
-    shift
-    ;;
-    --threads | --thread | -thread | -threads )
-    shift
-    ENCTHREADS="$1"
-    shift
-    ;;
-    --db | --use-db | --with-db )
-    shift
-    USE_DATABASE=1
-    ;;
-    --hwaccel-vaapi )
-    shift
-    HWACCEL_DEC="VAAPI"
-    ;;
-    --hwaccel-vdpau )
-    shift
-    HWACCEL_DEC="VDPAU"
-    ;;
-     --no-hwaccel )
-    shift
-    HWACCEL_DEC="NONE"
-    ;;
-    --no-database | --nodb | --not-use-db | --without-db )
-    shift
-    USE_DATABASE=0
-    ;;
-    --noenc | --noencode )
-    shift
-    NOENCODE=1
-    ;;
-    --opencl | --OpenCL | --OPENCL)
-    shift
-    USEOPENCL=1
-    ;;
-    --no-opencl | --no-OpenCL | --NO-OpenCL | --NO-OPENCL)
-    shift
-    USEOPENCL=0
-    ;;
-    --cmcut )
-    shift
-    CMCUT=1
-    ;;
-    --no-cmcut )
-    shift
-    CMCUT=0
-    ;;
-    --fast-enc )
-    shift
-    FASTENC=1
-    ;;
-    --no-fast-enc )
-    shift
-    FASTENC=0
-    ;;
-    --encpreset )
-    shift
-    ENCPRE="$1"
-     case "$ENCPRE" in
-     "std" | "STD" | "standard" | "STANDARD" )
-       X264_ENCPRESET="--preset slower --8x8dct --partitions all"
-       ;;
-     "fast" | "FAST" )
-       X264_ENCPRESET="--preset slow --8x8dct --partitions all"
-       ;;
-     "faster" | "FASTER" )
-       X264_ENCPRESET="--preset medium --8x8dct --partitions all"
-       ;;
-     "slow" | "SLOW" )
-       X264_ENCPRESET="--preset veryslow --8x8dct --partitions all"
-       ;;
-     esac
-     shift
-     ;;
-    --anime )
-    # Optimize for anime
-    shift
-    ENCMODE="ANIME"
-    echo "anime"
-    ;;
-    --anime_high | --anime-high )
-    # Optimize for anime
-    shift
-    ENCMODE="ANIME_HIGH"
-    ;;
-    --anime_high_hw | --anime-high-hw )
-    # Optimize for anime
-    shift
-    ENCMODE="ANIME_HIGH_HW"
-    ;;
-    --live_hd_high | --live-hd-high)
-    # for Live, HD, high quality.
-    shift
-    ENCMODE="LIVE_HD_HIGH"
-    ;;
-    --live_hd_mid | --live-hd-mid)
-    # for Live, HD, high quality.
-    shift
-    ENCMODE="LIVE_HD_MID"
-    ;;
-    --live_hd_mid_hw | --live-hd-mid-hw)
-    # for Live, HD, high quality.
-    shift
-    ENCMODE="LIVE_HD_MID_HW"
-    ;;
-    --live_hd_mid_hw2 | --live-hd-mid-hw2)
-    # for Live, HD, high quality.
-    shift
-    ENCMODE="LIVE_HD_MID_HW2"
-    IS_HWENC_USE_HEVC=0
-    ;;
-    --live_hd_mid_hw_test | --live-hd-mid-hw_test)
-    # for Live, HD, high quality.
-    shift
-    ENCMODE="LIVE_HD_MID_HW"
-    TESTMODE=1
-    ;;
-    --live1 | --live)
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE1"
-    ;;
-    --live_high | --live-high )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_HIGH"
-    ;;
-    --live_high_hw | --live-high-hw )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_HIGH_HW"
-    ;;
-    --live_mid_hw | --live-mid-hw )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_MID_HW"
-    ;;
-    --live_sd_high | --live-sd-high )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_SD_HIGH"
-    ;;
-    --live_sd_high_hw | --live-sd-high-hw )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_SD_HIGH_HW"
-    ;;
-    --live_sd_high_hw2 | --live-sd-high-hw2 )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_SD_HIGH_HW2"
-    ;;
-    --live_sd_mid | --live-sd-mid )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_SD_MID"
-    ;;
-    --live_sd_mid_hw | --live-sd-mid-hw )
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_SD_MID_HW"
-    ;;
-    --live_low | --live-low)
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_LOW"
-    ;;
-    --live_low_hw | --live-low-hw)
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_LOW_HW"
-    ;;
-    --live_mid | --live-mid)
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_MID"
-    ;;
-    --live_mid_hw | --live-mid-hw)
-    # for Live, middle quality.
-    shift
-    ENCMODE="LIVE_MID_HW"
-    ;;
-    --encmode )
-    shift
-    ENCMODE="$1"
-    shift
-    ;;
-    --remove | --remove-source | --REMOVE-SOURCE )
-    shift
-    REMOVE_SOURCE=1
-    ;;
-    --fps60 | --60fps )
-    shift
-    USE_60FPS=1
-    ;;
-    --norm | --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
-    shift
-    REMOVE_SOURCE=0
-    ;;
-    -h | --help )
-    IS_HELP=1
-    ;;
+	-d | --dir )
+	    shift
+	    S_DIRSET="$1"
+	    N_DIRSET=1
+	    shift
+	    ;;
+	-i | --src | --i )
+	    shift
+	    SRC="$1"
+	    shift
+	    ;;
+	-o | --dst | --o )
+	    shift
+	    DST="$1"
+	    shift
+	    ;;
+	--jobid | --job-id )
+	    shift
+	    N_QUERY_ID="$1"
+	    shift
+	    ;;
+	--desc | --video-desc )
+	    shift
+	    VIDEO_DESC="$1"
+	    if [ -n "${VIDEO_DESC}" ] ; then
+		shift
+	    fi
+	    ;;
+	--episode | --video-episode )
+	    shift
+	    VIDEO_EPISODE="$1"
+	    if [ -n "${VIDEO_EPISODE}" ] ; then
+		shift
+	    fi
+	    ;;
+	--subtitle | --sub-title | --video-sub-title )
+	    shift
+	    VIDEO_SUBTITLE="$1"
+	    if [ -n "${VIDEO_SUBTITLE}" ] ; then
+		shift
+	    fi
+	    ;;
+	--onair | --on-air | --video-onair )
+	    shift
+	    VIDEO_ONAIR="$1"
+	    if [ -n "${VIDEO_ONAIR}" ] ; then
+		shift
+	    fi
+	    ;;
+	--no-chanid | --nc )
+	    F_CHANID=0
+	    shift
+	    ;;
+	--chanid | -c )
+	    shift
+	    I_CHANID="$1"
+	    F_CHANID=1
+	    shift
+	    ;;
+	--starttime | -t )
+	    shift
+	    I_STARTTIME="$1"
+	    F_STARTTIME=1
+	    shift
+	    ;;
+	--local-starttime | --lt | -lt | --local_starttime )
+	    shift
+	    I_LOCALSTARTTIME="$1"
+	    F_LOCALSTARTTIME=1
+	    shift
+	    ;;
+	--noskip | --no-skip | --no_skip )
+	    VIDEO_SKIP=""
+	    shift
+	    ;;
+	--skip_sec | --skip-sec )
+	    shift
+	    VIDEO_SKIP="-ss $1"
+	    shift
+	    ;;
+	--threads | --thread | -thread | -threads )
+	    shift
+	    ENCTHREADS="$1"
+	    shift
+	    ;;
+	--db | --use-db | --with-db )
+	    shift
+	    USE_DATABASE=1
+	    ;;
+	--hwaccel-vaapi )
+	    shift
+	    HWACCEL_DEC="VAAPI"
+	    ;;
+	--10bit | --10BIT | --profile-10 | --PROFILE-10  )
+	    X264_PROFILE="high10"
+	    X265_PROFILE="main10"
+	    shift
+	    ;;
+	--hwaccel-vdpau )
+	    shift
+	    HWACCEL_DEC="VDPAU"
+	    ;;
+	--no-hwaccel )
+	    shift
+	    HWACCEL_DEC="NONE"
+	    ;;
+	--no-database | --nodb | --not-use-db | --without-db )
+	    shift
+	    USE_DATABASE=0
+	    ;;
+	--noenc | --noencode )
+	    shift
+	    NOENCODE=1
+	    ;;
+	--opencl | --OpenCL | --OPENCL)
+	    shift
+	    USEOPENCL=1
+	    ;;
+	--use-x265 | --USE-X265 | --x265 | --X265)
+	    shift
+	    USE_X265=1
+	    ;;
+	--use-x265-10 | --USE-X265-10 | --x265-10 | --X265-10)
+	    shift
+	    USE_X265=1
+	    X265_PROFILE="main10"
+	    ;;
+	--no-opencl | --no-OpenCL | --NO-OpenCL | --NO-OPENCL)
+	    shift
+	    USEOPENCL=0
+	    ;;
+	--cmcut )
+	    shift
+	    CMCUT=1
+	    ;;
+	--no-cmcut )
+	    shift
+	    CMCUT=0
+	    ;;
+	--fast-enc )
+	    shift
+	    FASTENC=1
+	    ;;
+	--no-fast-enc )
+	    shift
+	    FASTENC=0
+	    ;;
+	--encpreset )
+	    shift
+	    ENCPRE="$1"
+	    case "$ENCPRE" in
+		"std" | "STD" | "standard" | "STANDARD" )
+		    X264_ENCPRESET="--preset slower --8x8dct --partitions all"
+		    ;;
+		"fast" | "FAST" )
+		    X264_ENCPRESET="--preset slow --8x8dct --partitions all"
+		    ;;
+		"faster" | "FASTER" )
+		    X264_ENCPRESET="--preset medium --8x8dct --partitions all"
+		    ;;
+		"slow" | "SLOW" )
+		    X264_ENCPRESET="--preset veryslow --8x8dct --partitions all"
+		    ;;
+	    esac
+	    shift
+	    ;;
+	--anime )
+	    # Optimize for anime
+	    shift
+	    ENCMODE="ANIME"
+	    echo "anime"
+	    ;;
+	--anime_high | --anime-high )
+	    # Optimize for anime
+	    shift
+	    ENCMODE="ANIME_HIGH"
+	    ;;
+	--anime_high_hw | --anime-high-hw )
+	    # Optimize for anime
+	    shift
+	    ENCMODE="ANIME_HIGH_HW"
+	    ;;
+	--live_hd_high | --live-hd-high)
+	    # for Live, HD, high quality.
+	    shift
+	    ENCMODE="LIVE_HD_HIGH"
+	    ;;
+	--live_hd_mid | --live-hd-mid)
+	    # for Live, HD, high quality.
+	    shift
+	    ENCMODE="LIVE_HD_MID"
+	    ;;
+	--live_hd_mid_hw | --live-hd-mid-hw)
+	    # for Live, HD, high quality.
+	    shift
+	    ENCMODE="LIVE_HD_MID_HW"
+	    ;;
+	--live_hd_mid_hw2 | --live-hd-mid-hw2)
+	    # for Live, HD, high quality.
+	    shift
+	    ENCMODE="LIVE_HD_MID_HW2"
+	    IS_HWENC_USE_HEVC=0
+	    ;;
+	--live_hd_mid_hw_test | --live-hd-mid-hw_test)
+	    # for Live, HD, high quality.
+	    shift
+	    ENCMODE="LIVE_HD_MID_HW"
+	    TESTMODE=1
+	    ;;
+	--live1 | --live)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE1"
+	    ;;
+	--live_high | --live-high )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_HIGH"
+	    ;;
+	--live_high_hw | --live-high-hw )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_HIGH_HW"
+	    ;;
+	--live_mid_hw | --live-mid-hw )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_MID_HW"
+	    ;;
+	--live_sd_high | --live-sd-high )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_SD_HIGH"
+	    ;;
+	--live_sd_high_hw | --live-sd-high-hw )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_SD_HIGH_HW"
+	    ;;
+	--live_sd_high_hw2 | --live-sd-high-hw2 )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_SD_HIGH_HW2"
+	    ;;
+	--live_sd_mid | --live-sd-mid )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_SD_MID"
+	    ;;
+	--live_sd_mid_hw | --live-sd-mid-hw )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_SD_MID_HW"
+	    ;;
+	--live_low | --live-low)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_LOW"
+	    ;;
+	--live_low_hw | --live-low-hw)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_LOW_HW"
+	    ;;
+	--live_mid | --live-mid)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_MID"
+	    ;;
+	--live_mid_hw | --live-mid-hw)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_MID_HW"
+	    ;;
+	--encmode )
+	    shift
+	    ENCMODE="$1"
+	    shift
+	    ;;
+	--remove | --remove-source | --REMOVE-SOURCE )
+	    shift
+	    REMOVE_SOURCE=1
+	    ;;
+	--fps60 | --60fps )
+	    shift
+	    USE_60FPS=1
+	    ;;
+	--norm | --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
+	    shift
+	    REMOVE_SOURCE=0
+	    ;;
+	-h | --help )
+	    IS_HELP=1
+	    ;;
     esac
 done
 # don't change these
@@ -802,6 +829,7 @@ mkfifo $VIDEOTMP
 VIDEO_FILTERCHAIN0=""
 VIDEO_FILTERCHAINX=""
 VIDEO_FILTERCHAIN_DEINT="yadif"
+VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi"
 VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=lanczos"
 
 VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
@@ -838,8 +866,8 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
-   VIDEO_QUANT=23
-   VIDEO_MINQ=14
+   VIDEO_QUANT=22
+   VIDEO_MINQ=13
    VIDEO_MAXQ=28
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.88
@@ -910,17 +938,17 @@ case "$x" in
 
    ;;
    "LIVE_HIGH" | "LIVE_HIGH_HW" )
-   VIDEO_QUANT=23
+   VIDEO_QUANT=24
    VIDEO_MINQ=12
-   VIDEO_MAXQ=34
-   VIDEO_AQSTRENGTH=1.05
+   VIDEO_MAXQ=29
+   VIDEO_AQSTRENGTH=0.7
    VIDEO_QCOMP=0.70
    VIDEO_SCENECUT=42
-   VIDEO_REF_FRAMES=5
-   VIDEO_BFRAMES=5
+   VIDEO_REF_FRAMES=4
+   VIDEO_BFRAMES=3
    OUT_WIDTH=1280
    OUT_HEIGHT=720
-   SCALER_MODE="lanczos"
+   SCALER_MODE="spline"
    
    #X264_BITRATE=3500
    VIDEO_FILTERCHAINX=""
@@ -945,7 +973,7 @@ case "$x" in
    VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
    VIDEO_FILTERCHAINX=""
    VIDEO_FILTERCHAIN_NOSCALE=0
-   VIDEO_FILTER_NOCROP=1
+   VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_MID" | "LIVE_MID_HW" )
    VIDEO_QUANT=26
@@ -992,16 +1020,18 @@ esac
 if test $USE_60FPS -eq 0 ; then
    FRAMERATE=30000/1001
    VIDEO_FILTERCHAIN_DEINT="yadif"
+   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=weave"
 else
    FRAMERATE=60000/1001
    VIDEO_FILTERCHAIN_DEINT="yadif=mode=send_field"
+   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=frame=field"
 fi
 
-VIDEO_FILTERCHAIN_VAAPI_SCALE="scale=width=${OUT_WIDTH}:height=${OUT_WIDTH}:mode=${VAAPI_SCALER_MODE}"
+VIDEO_FILTERCHAIN_VAAPI_SCALE="scale_vaapi=w=${OUT_WIDTH}:h=${OUT_WIDTH}:mode=${VAAPI_SCALER_MODE}"
 VIDEO_FILTERCHAIN_SCALE="scale=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:flags=${SCALER_MODE}"
 
 
-X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
+X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
 #X264_QUANT="--crf $VIDEO_QUANT"
 X264_QUANT=""
 X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 12 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
@@ -1015,11 +1045,11 @@ case "$x" in
    ANIME )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    ANIME_HW )
-     HWENC_PARAM="-profile:v main -level 51 \
+     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
 		  -qp 25 -qmin 16 -qmax 30 \
 		  -sc_threshold 40 \
 		  -quality 1 -aspect 16:9"
@@ -1035,12 +1065,12 @@ case "$x" in
    ANIME_HIGH )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile high --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
      
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
-     
+     X265_PARAMS="ref=5"
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1050,7 +1080,7 @@ case "$x" in
      HWDEC=0
    ;;
    ANIME_HIGH_HW )
-     HWENC_PARAM="-profile:v main -level 51 \
+     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
 		  -quality 0	\
 		  -qp 22 -qmin 10 -qmax 27 \
 		  -qcomp 0.75   -qdiff 8 \
@@ -1070,20 +1100,20 @@ case "$x" in
    LIVE_HD_HIGH )
      X264_DIRECT="--direct auto --aq-mode 3"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
    ;;
    LIVE_HD_MID )
 #     X264_DIRECT="--direct spatial"
 #    X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-#     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
+#     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
 #     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
      #HW_SCALING="No"
@@ -1095,7 +1125,7 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_HD_MID_HW )
-      HWENC_PARAM="-profile:v main -level 51 \
+      HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
 		 -crf 25 -qmin 12 -qmax 35 \
 		 -maxrate 14500k -minrate 100k \
 		 -sc_threshold 45 -qdiff 8 -qcomp 0.40 \
@@ -1103,9 +1133,9 @@ case "$x" in
 		 -quality 0 -aspect 16:9"
 #		 -qp 25 -qmin 10 -qmax 40 \
 #		 -maxrate 16500k -minrate 100k \
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
-     #HW_SCALING="No"
+     HW_SCALING="No"
      #HWACCEL_DEC="NONE"
      FFMPEG_ENC=0
      HWENC=1
@@ -1113,7 +1143,7 @@ case "$x" in
    ;;
    LIVE_HD_MID_HW2 )
      VIDEO_QCOMP=0.40
-     HWENC_PARAM="-profile:v main -level 51 \
+     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
 		 -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ} \
 		 -sc_threshold ${VIDEO_SCENECUT} -qdiff 8 -qcomp ${VIDEO_QCOMP} \
                  -bufsize 32768 \
@@ -1123,9 +1153,9 @@ case "$x" in
 #		 -qp 25 -qmin 10 -qmax 36 \
 #		 -maxrate 14500k -minrate 100k \
 #		 -maxrate 16500k -minrate 100k \
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
-     #HW_SCALING="No"
+     HW_SCALING="No"
      #HWACCEL_DEC="NONE"
      FFMPEG_ENC=0
      HWENC=1
@@ -1139,24 +1169,25 @@ case "$x" in
    LIVE_HIGH )
      X264_DIRECT="--direct spatial --aq-mode 3"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.2:0.6"
      HWENC_PARAM=" -coder cavlc -qp 23 -quality 2"
      FFMPEG_ENC=1
+     X265_PARAMS="ref=4"
      HWENC=0
      HWDEC=0
-     #HW_SCALING="No"
+     HW_SCALING="No"
      HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
      
    ;;
    LIVE_HIGH_HW )
      HWENC_PARAM=" \
-                   -profile:v main -aud 1 -level 51  \
+                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
  		   -qp 26 -qmin 10 -qmax 35 \
 		   -qcomp 0.30 -qdiff 10 \
 		   -sc_threshold 55 \
@@ -1169,17 +1200,18 @@ case "$x" in
     FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
-     #HW_SCALING="No"
+     HWDEINT=0
+     HW_SCALING="No"
      #HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
    ;;
    LIVE_SD_HIGH )
      X264_DIRECT="--direct spatial --aq-mode 3"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
      HWENC_PARAM=" -coder cavlc -aspect 16:9 -qp 21 -quality 4 "
@@ -1191,7 +1223,7 @@ case "$x" in
    ;;
    LIVE_SD_HIGH_HW )
      HWENC_PARAM=" \
-                  -profile:v main -level 51 \
+                  -profile:v ${X265_PROFILE} -level 51 \
 		  -qp 22 -qmin 10 -qmax 28 \
 		  -qdiff 9 -qcomp 0.70 \
 		  -sc_threshold 38 \
@@ -1207,15 +1239,15 @@ case "$x" in
      HWENC=1
      HWDEC=0
      VIDEO_FILTERCHAIN_NOSCALE=0
-     #HW_SCALING="No"
+     HW_SCALING="No"
      #HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      
    ;;
    LIVE_SD_HIGH_HW2 )
      HWENC_PARAM=" \
-                  -profile:v main -level 51 \
+                  -profile:v ${X265_PROFILE} -level 51 \
 		  -qp 22 -qmin 15 -qmax 28 \
 		  -qdiff 9 -qcomp 0.70 \
 		  -sc_threshold 40 \
@@ -1230,21 +1262,22 @@ case "$x" in
      HWENC=1
      HWDEC=0
      VIDEO_FILTERCHAIN_NOSCALE=0
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
+     HW_SCALING="NO"
      HWACCEL_DEC="vaapi"
      #HWACCEL_DEC="NONE"
      IS_HWENC_USE_HEVC=1
    ;;
    LIVE_SD_MID_HW )
      HWENC_PARAM=" \
-                  -profile:v main -level 51 -aud 1 \
+                  -profile:v ${X265_PROFILE} -level 51 -aud 1 \
 		  -maxrate 900k -minrate 20k \
 		  -qp 28 -qmin 21 -qmax 55 -qcomp 0.4 \
 		  -quality 4 \
 		  -aspect 16:9"
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
-     #HW_SCALING="No"
+     HW_SCALING="No"
      HWACCEL_DEC="NONE"
      FFMPEG_ENC=1
      HWENC=0
@@ -1253,9 +1286,9 @@ case "$x" in
    LIVE_MID )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
      X264_ENCPRESET="--preset medium --ref 5 --8x8dct"
-     FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -1270,12 +1303,13 @@ case "$x" in
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
-     #HW_SCALING="No"
+     HW_SCALING="No"
+     #HWDEINT=1
      #HWACCEL_DEC="NONE"
-     HW_SCALING="Yes"
+     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      HWENC_PARAM=" \
-                   -profile:v main -aud 1 -level 51  \
+                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
  		   -qp 30 -qmin 21 -qmax 58 \
 		   -qcomp 0.40 -qdiff 10 \
 		   -sc_threshold 65 \
@@ -1288,11 +1322,11 @@ case "$x" in
    LIVE_LOW )
      X264_DIRECT="--direct auto --aq-mode 3"
      X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
-     X264_PRESETS="--profile high --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
    ;;
    LIVE_LOW_HW )
-     HWENC_PARAM="-profile:v main -level 51 \
+     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
  		 -maxrate 1000k -minrate 50k \
                  -qp 35 -qmin 23 -qmax 51 \
 		 -qcomp 0.3 -quality 4 \
@@ -1345,28 +1379,125 @@ if test $X264_BITRATE -gt 0; then
   X264_OPT_BITRATE=""
 fi  
 
+VAAPI_EPILOGUE=""
+case "$HWACCEL_DEC" in
+#    "VDPAU" | "vdpau" )
+#    ;;
+    "VAAPI" | "vaapi" )
+	if test $HWDEINT -ne 0; then
+	    if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
+		# Scaling
+		case "$HW_SCALING" in
+		    "Yes" | "yes" | "YES" )
+			VAAPI_EPILOGUE="${VIDEO_FILTERCHAIN_DEINT_VAAPI},${VIDEO_FILTERCHAIN_VAAPI_SCALE}"
+			;;
+		    * )
+			VAAPI_EPILOGUE="${VIDEO_FILTERCHAIN_DEINT_VAAPI}"
+			;;
+		esac
+	    else
+		    VAAPI_EPILOGUE="${VIDEO_FILTERCHAIN_DEINT_VAAPI}"
+	    fi
+	    
+	else
+	    # NOT HARDWARE DEINT
+	    if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
+		# scaling
+		case "$HW_SCALING" in
+		    "Yes" | "yes" | "YES" )
+			VAAPI_EPILOGUE="${VIDEO_FILTERCHAIN_VAAPI_SCALE}"
+			;;
+		    * )
+			VAAPI_EPILOGUE=""
+			;;
+		esac
+	    fi
+	fi
+	if test $HWDEC -ne 0; then
+	    if test $HWENC -eq 0; then
+		# HWDEC ONLY
+		if test "__n__${VAAPI_EPILOGUE}" = "__n__" ; then
+		   VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_VAAPI_TAIL}"
+		else
+		   VIDEO_FILTERCHAIN_HWACCEL="${VAAPI_EPILOGUE},${VIDEO_FILTERCHAIN_VAAPI_TAIL}"
+		fi
+	    fi
+	else
+	    if test $HWENC -eq 0; then
+	    # NOT BOTH HWDEC AND HWENC
+		VIDEO_FILTERCHAIN_HWACCEL=""
+	    else
+	    # HWENC ONLY
+		if test "__n__${VAAPI_EPILOGUE}" = "__n__" ; then
+		   VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_VAAPI_HEAD}"
+		else
+		   VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_VAAPI_HEAD},${VAAPI_EPILOGUE}"
+		fi
+	    fi
+	fi
+	;;
+    *)
+	;;
+esac
+# CORRECT VIDEO_FILTERCHAIN_HWACCEL
+if test $HWDEINT -ne 0; then
+    if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
+	# Scaling
+	case "$HW_SCALING" in
+	    "Yes" | "yes" | "YES" )
+		VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL}"
+		;;
+	    * )
+		if test "__n__${VIDEO_FILTERCHAIN_HWACCEL}" = "__n__" ; then
+		    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_SCALE}"
+		else
+		    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_SCALE},${VIDEO_FILTERCHAIN_HWACCEL}"
+		fi
+		;;
+	esac
+    else
+	# NOT SCALING AND NOT DEINT
+	VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL}"
+    fi
+else
+    # NOT HWDEINT
+    if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
+	# Scaling
+	case "$HW_SCALING" in
+	    "Yes" | "yes" | "YES" )
+		VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_HWACCEL}"
+		;;
+	    * )
+		if test "__n__${VIDEO_FILTERCHAIN_HWACCEL}" = "__n__" ; then
+		    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_SCALE}"
+		else
+		    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_SCALE},${VIDEO_FILTERCHAIN_HWACCEL}"
+		fi
+		;;
+	esac
+    else
+	# NOT SCALING AND NOT HWDEINT
+	if test "__n__${VIDEO_FILTERCHAIN_HWACCEL}" = "__n__" ; then
+	    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT}"
+	else
+	    VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_HWACCEL}"
+	fi
+    fi
+fi
+
 if test $VIDEO_FILTERCHAIN_NOSCALE -eq 0; then
-    #  VIDEO_FILTERCHAIN="$VIDEO_FILTERCHAIN0","$VIDEO_FILTERCHAINX","$VIDEO_FILTERCHAIN_SCALE"
-#    if test -n ${VIDEO_FILTERCHAINX} ; then
-#	VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAINX}","$VIDEO_FILTERCHAIN_SCALE"
-#	VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAINX},${VIDEO_FILTERCHAIN_SCALE},${VIDEO_FILTERCHAIN_VAAPI_HEAD}"
-#    else
-	VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT}","$VIDEO_FILTERCHAIN_SCALE"
-	VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_SCALE},${VIDEO_FILTERCHAIN_VAAPI_HEAD}"
-#    fi
+    # Scaling
+    VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_SCALE}"
 else
     # Not scaling
-#    if test -n ${VIDEO_FILTERCHAINX} ; then
-#	VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAINX}"
-#	VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAINX},${VIDEO_FILTERCHAIN_SCALE},${VIDEO_FILTERCHAIN_VAAPI_HEAD}"
-#    else
-	VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT}"
-	VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_DEINT},${VIDEO_FILTERCHAIN_VAAPI_HEAD}"
-#    fi
+    VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN_DEINT}"
 fi
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
+
+
 if test $VIDEO_FILTERCHAIN_NOCROP -eq 0 ; then
     VIDEO_FILTERCHAIN="${VIDEO_FILTERCHAIN0},${VIDEO_FILTERCHAIN}"
+    #ToDo: HWCROP
     VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN0},${VIDEO_FILTERCHAIN_HWACCEL}"
 fi
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
@@ -1378,20 +1509,14 @@ case "$HWACCEL_DEC" in
     "VDPAU" | "vdpau" )
 	DECODE_APPEND="-hwaccel vdpau"
 	;;
-  "VAAPI" | "vaapi" )
+    "VAAPI" | "vaapi" )
       HWDECODE_TAG=VAAPI_${MYPID}
       DECODE_APPEND="-vaapi_device:${HWDECODE_TAG} /dev/dri/renderD128" 
       if test $HWDEC -ne 0 ; then
 	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi -hwaccel_output_format vaapi"
-	  if test $FFMPEG_ENC -ne 0; then
-	      VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_VAAPI_HEAD},hwdownload,format=yuv420p"
-	  fi
-	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
       else
 	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
       fi
-      VIDEO_FILTERCHAIN_HWACCEL_HEAD=${VIDEO_FILTERCHAIN_VAAPI_HEAD}
-      VIDEO_FILTERCHAIN_HWACCEL_TAIL=${VIDEO_FILTERCHAIN_VAAPI_TAIL}
       #echo "vaapi"
       ;;
   *)
@@ -1409,7 +1534,28 @@ echo ${VIDEO_FILTERCHAIN_HWACCEL}
 
 if test $FFMPEG_ENC -ne 0; then
     logging ${ARG_METADATA}
-    ${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
+    if test ${USE_X265} -ne 0; then
+
+	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
+	if test "__n__${X265_PARAMS}" != "__n__"; then
+	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
+	fi
+	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
+		      ${VIDEO_FILTERCHAIN_HWACCEL} \
+		      -c:v libx265 \
+		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
+		      ${FFMPEG_X265_HEAD} \
+		      ${FFMPEG_X265_FRAMES1} \
+		      ${FFMPEG_X265_AQ} \
+		      ${FFMPEG_X265_PARAMS} \
+		      -threads ${ENCTHREADS} \
+		      -c:a aac \
+		      -ab 224k -ar 48000 -ac 2 \
+		      -f mp4 \
+		      $ARG_METADATA \
+		      -y $TEMPDIR/v1tmp.mp4  &
+    else
+	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
 		  ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
 		  -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1425,7 +1571,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -y $TEMPDIR/v1tmp.mp4  &
 
     #    -filter_complex_threads 4 -filter_threads 4 \
-
+	fi
 elif test $HWENC -ne 0; then
     if test $IS_HWENC_USE_HEVC -eq 0; then
 	logging ${ARG_METADATA}
