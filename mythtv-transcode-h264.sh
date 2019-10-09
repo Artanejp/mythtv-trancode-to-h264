@@ -19,7 +19,7 @@
 # And set User Job of MythTV:
 # Place local configuration file, 
 # the full userjob command in mythtv-setup should look like this:
-# /usr/local/bin/mythtv-transcode-h264.sh -i "%DIR%/%FILE%" -o "%DIR%/%TITLE% %SUBTITLE% - %CHANID% %STARTTIME%.mp4" -c "%CHANID%" -t "%STARTTIMEISOUTC%" --otheroptions
+# /usr/local/bin/mythtv-transcode-h264.sh -i "%DIR%/%FILE%" -o "%DIR%/%TITLE% %SUBTITLE% - %CHANID% %STARTTIME%.mkv" -c "%CHANID%" -t "%STARTTIMEISOUTC%" --otheroptions
 
 
 # MySQL database login information (for mythconverg database)
@@ -84,6 +84,10 @@ HW_SCALING="No"
 N_QUERY_ID=0;
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
+#FFMPEG_CMD="/usr/local/bin/ffmpeg-arib"
+#FFMPEG_SUBTXT_CMD="/usr/local/bin/ffmpeg-arib"
+FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
 fi
@@ -683,7 +687,7 @@ else
   BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
 fi
 if [ -z "${BASENAME}" ] ; then
-   BASENAME="${ARG_TITLE}_${I_CHANID}_${ARG_STARTTIME}.mp4"
+   BASENAME="${ARG_TITLE}_${I_CHANID}_${ARG_STARTTIME}.mkv"
 fi
   logging "TRY TO ENCODE SRC:DIR=${DIRNAME2} NAME=${SRC} TO DST:DIR=${DIRNAME} NAME=${BASENAME}" 
 
@@ -1112,7 +1116,8 @@ case "$x" in
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     
+     X265_PRESET="fast"
+
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
@@ -1532,6 +1537,12 @@ esac
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 
+${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
+       $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  \
+       -y $TEMPDIR/v1tmp.srt
+
+ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn"
+
 if test $FFMPEG_ENC -ne 0; then
     logging ${ARG_METADATA}
     if test ${USE_X265} -ne 0; then
@@ -1540,7 +1551,9 @@ if test $FFMPEG_ENC -ne 0; then
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
 	fi
-	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
+
+	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	              -r:v 30000/1001 -aspect 16:9 \
 		      ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
 		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1553,9 +1566,10 @@ if test $FFMPEG_ENC -ne 0; then
 		      -ab 224k -ar 48000 -ac 2 \
 		      -f mp4 \
 		      $ARG_METADATA \
-		      -y $TEMPDIR/v1tmp.mp4  &
+		      -y $TEMPDIR/v1tmp.mkv  &
     else
-	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" -r:v 30000/1001 -aspect 16:9 \
+	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	          -r:v 30000/1001 -aspect 16:9 \
 		  ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
 		  -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1568,7 +1582,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -ab 224k -ar 48000 -ac 2 \
 		  -f mp4 \
 		  $ARG_METADATA \
-		  -y $TEMPDIR/v1tmp.mp4  &
+		  -y $TEMPDIR/v1tmp.mkv  &
 
     #    -filter_complex_threads 4 -filter_threads 4 \
 	fi
@@ -1589,7 +1603,7 @@ elif test $HWENC -ne 0; then
 		       -ab 224k -ar 48000 -ac 2 \
 		       -f mp4 \
 		       $ARG_METADATA \
-		       -y $TEMPDIR/v1tmp.mp4  \
+		       -y $TEMPDIR/v1tmp.mkv  \
 	    &
 	    #    -c:v hevc_vaapi \
     else
@@ -1608,7 +1622,7 @@ elif test $HWENC -ne 0; then
 		       -ab 224k -ar 48000 -ac 2 \
 		       -f mp4 \
 		       $ARG_METADATA \
-		       -y $TEMPDIR/v1tmp.mp4  \
+		       -y $TEMPDIR/v1tmp.mkv  \
 	    &
 	    #    -c:v hevc_vaapi \
     fi
@@ -1633,7 +1647,7 @@ wait $ENC_VIDEO_PID
 RESULT_ENC_VIDEO=$?
 fi
 fi
-
+#exit 1
 # Demux files to one video
 ERRFLAGS=0
 #if test $HWENC -eq 0; then
@@ -1667,6 +1681,20 @@ if test $ERRFLAGS -ne 0; then
   exit 2
 fi
 
+
+if test -f "$TEMPDIR/v1tmp.srt" ; then
+    ARG_SUBTXT="-i $TEMPDIR/v1tmp.srt"
+    ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
+                 -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
+		 -metadata:s:a:0 language=jpn"
+    ${FFMPEG_CMD} -i $TEMPDIR/v1tmp.mkv \
+                  ${ARG_SUBTXT} \
+		  ${ARG_SUBTXT2} \
+		  -y $TEMPDIR/v2tmp.mkv
+else
+    mv $TEMPDIR/v1tmp.mkv $TEMPDIR/v2tmp.mkv
+fi   
+
 touch "$DIRNAME/test$BASENAME"
 if [ ! -w "$DIRNAME/test$BASENAME" ] ; then 
    logging "Unable to Write encoded movie."
@@ -1675,18 +1703,9 @@ fi
 rm "$DIRNAME/test$BASENAME"
 
 if test $HWENC -ne 0; then
-  #MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
-  cp "$TEMPDIR/v1tmp.mp4" "$DIRNAME/$BASENAME"
-#  ${FFMPEG_CMD}  \
-#    -i "$TEMPDIR/v1tmp.mp4" \
-#    -c:a copy -c:v copy \
-#    -f mp4 \
-#    $ARG_METADATA \
-#    -y "$DIRNAME/$BASENAME"
-#    echo "$DIRNAME/$BASENAME"
+  cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
 else
-#  MP4Box -add $TEMPDIR/v1tmp.mp4 -add $TEMPDIR/a1.aac -new "$DIRNAME/$BASENAME"
-  cp "$TEMPDIR/v1tmp.mp4" "$DIRNAME/$BASENAME"
+  cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
 fi
 
 RESULT_DEMUX=$?
