@@ -57,7 +57,7 @@ FASTENC=0
 HWACCEL_DEC="NONE"
 HWDEINT=0
 VIDEO_FILTERCHAIN_NOSCALE=0
-$VIDEO_FILTERCHAIN_NOCROP=0
+VIDEO_FILTERCHAIN_NOCROP=0
 VIDEO_FILTER_NOCROP=0
 USE_X265=0
 
@@ -364,6 +364,11 @@ for x in "$@" ; do
 	    # for Live, middle quality.
 	    shift
 	    ENCMODE="LIVE_MID_HW"
+	    ;;
+	--live_mid_hw2 | --live-mid-hw2 )
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_MID_HW2"
 	    ;;
 	--live_sd_high | --live-sd-high )
 	    # for Live, middle quality.
@@ -838,7 +843,8 @@ VIDEO_FILTERCHAIN_SCALE="scale=width=1280:height=720:flags=lanczos"
 
 VIDEO_FILTERCHAIN_VAAPI_HEAD="format=nv12|vaapi,hwupload"
 VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload,format=yuv420p"
-VAAPI_SCALER_MODE="default"
+#VAAPI_SCALER_MODE="default"
+VAAPI_SCALER_MODE="hq"
 
 OUT_WIDTH=1280
 OUT_HEIGHT=720
@@ -903,9 +909,9 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=23
+   VIDEO_QUANT=22
    VIDEO_MINQ=12
-   VIDEO_MAXQ=35
+   VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
    VIDEO_SCENECUT=60
@@ -979,7 +985,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=0
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
-   "LIVE_MID" | "LIVE_MID_HW" )
+   "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" )
    VIDEO_QUANT=26
 #   VIDEO_QUANT=25
    VIDEO_MINQ=18
@@ -1024,14 +1030,15 @@ esac
 if test $USE_60FPS -eq 0 ; then
    FRAMERATE=30000/1001
    VIDEO_FILTERCHAIN_DEINT="yadif"
-   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=weave"
+#   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=weave"
+   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=motion_adaptive"
 else
    FRAMERATE=60000/1001
    VIDEO_FILTERCHAIN_DEINT="yadif=mode=send_field"
-   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=frame=field"
+   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=rate=frame"
 fi
 
-VIDEO_FILTERCHAIN_VAAPI_SCALE="scale_vaapi=w=${OUT_WIDTH}:h=${OUT_WIDTH}:mode=${VAAPI_SCALER_MODE}"
+VIDEO_FILTERCHAIN_VAAPI_SCALE="scale_vaapi=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:mode=${VAAPI_SCALER_MODE}"
 VIDEO_FILTERCHAIN_SCALE="scale=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:flags=${SCALER_MODE}"
 
 
@@ -1130,10 +1137,14 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_HD_MID_HW )
-      HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
-		 -crf 25 -qmin 12 -qmax 35 \
+#		 -rc_mode VBR -crf 25 -qmin 12 -qmax 35 
+	 
+     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
+		 -qmin 14 -qmax 36 \
+		 -b:v 3500k \
 		 -maxrate 14500k -minrate 100k \
-		 -sc_threshold 45 -qdiff 8 -qcomp 0.40 \
+		 -rc_mode VBR \
+		 -sc_threshold 45 -qdiff 6 -qcomp 0.40 \
                  -bufsize 32768 \
 		 -quality 0 -aspect 16:9"
 #		 -qp 25 -qmin 10 -qmax 40 \
@@ -1145,6 +1156,10 @@ case "$x" in
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
+     VIDEO_FILTERCHAIN_NOSCALE=1
+     HWDEINT=1
+     IS_HWENC_USE_HEVC=1
+     
    ;;
    LIVE_HD_MID_HW2 )
      VIDEO_QCOMP=0.40
@@ -1158,13 +1173,15 @@ case "$x" in
 #		 -qp 25 -qmin 10 -qmax 36 \
 #		 -maxrate 14500k -minrate 100k \
 #		 -maxrate 16500k -minrate 100k \
-     #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      HW_SCALING="No"
      #HWACCEL_DEC="NONE"
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
+     VIDEO_FILTERCHAIN_NOSCALE=1
+     HWDEINT=1
+     IS_HWENC_USE_HEVC=1
    ;;
    
    LIVE1 )
@@ -1324,6 +1341,27 @@ case "$x" in
 		   -aspect 16:9"
 #		   -qmin 10 -qmax 35 \
    ;;
+   LIVE_MID_HW2 )
+     FFMPEG_ENC=0
+     HWENC=1
+     HWDEC=0
+#     HW_SCALING="No"
+     HWDEINT=1
+     #HWACCEL_DEC="NONE"
+     HW_SCALING="Yes"
+     HWACCEL_DEC="vaapi"
+     HWDEINT=1
+     HWENC_PARAM=" \
+                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
+ 		   -qp 30 -qmin 21 -qmax 58 \
+		   -qcomp 0.40 -qdiff 10 \
+		   -sc_threshold 65 \
+		   -bf 4 \
+		   -maxrate 1500k -minrate 55k -bufsize 8192 \
+		   -quality 2 \
+		   -aspect 16:9"
+#		   -qmin 10 -qmax 35 \
+   ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto --aq-mode 3"
      X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
@@ -1426,6 +1464,8 @@ case "$HWACCEL_DEC" in
 		else
 		   VIDEO_FILTERCHAIN_HWACCEL="${VAAPI_EPILOGUE},${VIDEO_FILTERCHAIN_VAAPI_TAIL}"
 		fi
+    	    else
+		   VIDEO_FILTERCHAIN_HWACCEL="${VAAPI_EPILOGUE}"
 	    fi
 	else
 	    if test $HWENC -eq 0; then
@@ -1518,7 +1558,8 @@ case "$HWACCEL_DEC" in
       HWDECODE_TAG=VAAPI_${MYPID}
       DECODE_APPEND="-vaapi_device:${HWDECODE_TAG} /dev/dri/renderD128" 
       if test $HWDEC -ne 0 ; then
-	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi -hwaccel_output_format vaapi"
+#	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi -hwaccel_output_format vaapi"
+	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi"
       else
 	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
       fi
@@ -1553,7 +1594,7 @@ if test $FFMPEG_ENC -ne 0; then
 	fi
 
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
-	              -r:v 30000/1001 -aspect 16:9 \
+	              -r:v ${FRAMERATE} -aspect 16:9 \
 		      ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
 		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1569,7 +1610,7 @@ if test $FFMPEG_ENC -ne 0; then
 		      -y $TEMPDIR/v1tmp.mkv  &
     else
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
-	          -r:v 30000/1001 -aspect 16:9 \
+	          -r:v ${FRAMERATE} -aspect 16:9 \
 		  ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
 		  -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1682,7 +1723,7 @@ if test $ERRFLAGS -ne 0; then
 fi
 
 
-if test -f "$TEMPDIR/v1tmp.srt" ; then
+if test -s "$TEMPDIR/v1tmp.srt" ; then
     ARG_SUBTXT="-i $TEMPDIR/v1tmp.srt"
     ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
                  -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
