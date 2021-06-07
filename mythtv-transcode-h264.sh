@@ -66,13 +66,14 @@ X264_BITRATE="2000"
 X264_PROFILE="high"
 
 X265_PROFILE="main"
-X265_PRESET="medium"
+X265_PRESET="fast"
 X265_PARAMS=""
 
 FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE} -preset medium"
 FFMPEG_X265_FRAMES1=""
 FFMPEG_X265_AQ=""
 FFMPEG_X265_PARAMS=""
+EXTRA_X265_PARAMS=""
 
 VIDEO_SKIP="-ss 15"
 
@@ -878,9 +879,9 @@ case "$x" in
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
    VIDEO_QUANT=22
    VIDEO_MINQ=13
-   VIDEO_MAXQ=28
+   VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH=0.36
-   VIDEO_QCOMP=0.88
+   VIDEO_QCOMP=0.80
    VIDEO_SCENECUT=38
    VIDEO_REF_FRAMES=3
    VIDEO_BFRAMES=4
@@ -909,8 +910,8 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=22
-   VIDEO_MINQ=12
+   VIDEO_QUANT=23
+   VIDEO_MINQ=14
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -929,11 +930,11 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HD_HIGH" | "LIVE_HD_HIGH_HW" )
-   VIDEO_QUANT=23
-   VIDEO_MINQ=14
+   VIDEO_QUANT=21
+   VIDEO_MINQ=12
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.75
-   VIDEO_QCOMP=0.85
+   VIDEO_QCOMP=0.80
    VIDEO_SCENECUT=45
    VIDEO_REF_FRAMES=5
    VIDEO_BFRAMES=4
@@ -1081,7 +1082,7 @@ case "$x" in
      
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
-     X265_PARAMS="ref=5"
+#     X265_PARAMS="ref=4"
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1113,21 +1114,28 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-   ;;
-   LIVE_HD_MID )
-#     X264_DIRECT="--direct spatial"
-#    X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-#     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 47 --trellis 2"
-#     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     X264_DIRECT="--direct auto"
-     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
-     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
-     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      X265_PRESET="fast"
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
+     FFMPEG_ENC=1
+     HWENC=0
+     HWDEC=0
+     
+   ;;
+   LIVE_HD_MID )
+     X264_DIRECT="--direct auto"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
+     X265_PRESET="faster"
+
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
+     FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
+
      #HW_SCALING="No"
      #HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1587,8 +1595,21 @@ ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn"
 if test $FFMPEG_ENC -ne 0; then
     logging ${ARG_METADATA}
     if test ${USE_X265} -ne 0; then
-
-	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
+	X265_THREAD_PARAMS="frame-threads=${ENCTHREADS}"
+	FFMPEG_X265_HEAD="-profile ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
+#	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -qp ${VIDEO_QUANT}"
+	if test "__n__${X265_PARAMS}" != "__n__"; then
+		X265_PARAMS="${X265_PARAMS}:${X265_THREAD_PARAMS}"
+	else
+		X265_PARAMS="${X265_THREAD_PARAMS}"
+	fi 
+	if test "__n__${EXTRA_X265_PARAMS}" != "__n__"; then
+		if test "__n__${X265_PARAMS}" != "__n__"; then
+			X265_PARAMS="${X265_PARAMS}:${EXTRA_X265_PARAMS}"
+		else
+			X265_PARAMS="${EXTRA_X265_PARAMS}"
+		fi
+	fi
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
 	fi
@@ -1605,7 +1626,6 @@ if test $FFMPEG_ENC -ne 0; then
 		      -threads ${ENCTHREADS} \
 		      -c:a aac \
 		      -ab 224k -ar 48000 -ac 2 \
-		      -f mp4 \
 		      $ARG_METADATA \
 		      -y $TEMPDIR/v1tmp.mkv  &
     else
@@ -1621,7 +1641,6 @@ if test $FFMPEG_ENC -ne 0; then
 		  -threads ${ENCTHREADS} \
 		  -c:a aac \
 		  -ab 224k -ar 48000 -ac 2 \
-		  -f mp4 \
 		  $ARG_METADATA \
 		  -y $TEMPDIR/v1tmp.mkv  &
 
@@ -1642,7 +1661,6 @@ elif test $HWENC -ne 0; then
 		       -threads:1 8 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
-		       -f mp4 \
 		       $ARG_METADATA \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    &
@@ -1661,7 +1679,6 @@ elif test $HWENC -ne 0; then
 		       -threads:1 4 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
-		       -f mp4 \
 		       $ARG_METADATA \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    &

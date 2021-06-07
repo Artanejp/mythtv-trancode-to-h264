@@ -1,0 +1,15 @@
+#
+USEOPENCL=0
+DATABASEUSER="mythtv"
+DATABASEPASSWORD="fqn363lf"
+ENCTHREADS=4
+FILTER_THREADS=4
+FILTER_COMPLEX_THREADS=4
+#FILTER_COMPLEX_THREADS=2
+#FFMPEG_CMD="/usr/bin/ffmpeg"
+FFMPEG_CMD="taskset --cpu-list 3,4,5,9,10,11 /usr/bin/ffmpeg"
+#FFMPEG_CMD="taskset --cpu-list 0,2,4,6,8,10 /usr/bin/ffmpeg"
+#FFMPEG_CMD="taskset 0xfbe /usr/local/bin/ffmpeg-arib"
+FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+EXTRA_X265_PARAMS="pools=5"
+#EXTRA_X265_PARAMS="frame-threads=5:pools=5"
