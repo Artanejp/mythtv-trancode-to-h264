@@ -36,6 +36,7 @@ AUDIOBITRATE=224
 AUDIOCUTOFF=22050
 
 ENCTHREADS=4
+FRAME_THREADS=4
 LOOKAHEAD_THREADS=8
 FILTER_THREADS=8
 FILTER_COMPLEX_THREADS=8
@@ -877,7 +878,7 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
-   VIDEO_QUANT=22
+   VIDEO_QUANT=23
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH=0.36
@@ -1043,7 +1044,7 @@ VIDEO_FILTERCHAIN_VAAPI_SCALE="scale_vaapi=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:mode=$
 VIDEO_FILTERCHAIN_SCALE="scale=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:flags=${SCALER_MODE}"
 
 
-X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
+X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
 #X264_QUANT="--crf $VIDEO_QUANT"
 X264_QUANT=""
 X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 12 --aq-strength $VIDEO_AQSTRENGTH --qcomp $VIDEO_QCOMP"
@@ -1077,7 +1078,7 @@ case "$x" in
    ANIME_HIGH )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
-     X264_PRESETS="--profile ${X264_PROFILE} --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_PRESETS="--profile:v ${X264_PROFILE} --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
      
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
@@ -1112,7 +1113,7 @@ case "$x" in
    LIVE_HD_HIGH )
      X264_DIRECT="--direct auto --aq-mode 3"
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
-     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
+     X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
      X265_PRESET="fast"
 
@@ -1129,7 +1130,7 @@ case "$x" in
    LIVE_HD_MID )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
-     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
+     X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      X265_PRESET="faster"
 
@@ -1578,6 +1579,11 @@ case "$HWACCEL_DEC" in
 	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
       else
           VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN}"
+	  if test $USE_X265 -ne 0 ; then
+	 	if test "__n__${X265_PROFILE}" = "__n__main10" ; then
+			VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL},format=yuv420p10le"
+	 	fi
+	 fi
       fi
       ;;
 esac
@@ -1595,8 +1601,8 @@ ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn"
 if test $FFMPEG_ENC -ne 0; then
     logging ${ARG_METADATA}
     if test ${USE_X265} -ne 0; then
-	X265_THREAD_PARAMS="frame-threads=${ENCTHREADS}"
-	FFMPEG_X265_HEAD="-profile ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
+	X265_THREAD_PARAMS="frame-threads=${FRAME_THREADS}:pools=${ENCTHREADS}:pme=true:pmode=true"
+	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
 #	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -qp ${VIDEO_QUANT}"
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 		X265_PARAMS="${X265_PARAMS}:${X265_THREAD_PARAMS}"
