@@ -36,21 +36,29 @@ AUDIOBITRATE=224
 AUDIOCUTOFF=22050
 
 ENCTHREADS=4
+POOLTHREADS=4
 FRAME_THREADS=4
 LOOKAHEAD_THREADS=8
 FILTER_THREADS=8
 FILTER_COMPLEX_THREADS=8
+IS_CRF=1
+
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
 VIDEO_QUANT=22
 
 VIDEO_AQSTRENGTH="1.1"
 VIDEO_QCOMP="0.55"
+VIDEO_QDIFF=3
+VIDEO_MAXRATE=0
+VIDEO_MINRATE=0
+VIDEO_BUFSIZE=4096
 
 VIDEO_SCENECUT=48
 VIDEO_REF_FRAMES=3
 VIDEO_BFRAMES=6
 #X264_BITRATE=2500
+VIDEO_ASPECT="16:9"
 
 CMCUT=0
 REMOVE_SOURCE=0
@@ -69,12 +77,16 @@ X264_PROFILE="high"
 X265_PROFILE="main"
 X265_PRESET="fast"
 X265_PARAMS=""
+X265_AQ_STRENGTH=1.0
+X265_QP_ADAPTATION_RANGE=1.0
+
 
 FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE} -preset medium"
 FFMPEG_X265_FRAMES1=""
 FFMPEG_X265_AQ=""
 FFMPEG_X265_PARAMS=""
 EXTRA_X265_PARAMS=""
+HWENC_APPEND=""
 
 VIDEO_SKIP="-ss 15"
 
@@ -593,7 +605,7 @@ if [ -n "${VIDEO_EPISODE}" ] ; then
 fi
 if [ -n "${VIDEO_SUBTITLE}" ] ; then
    ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_SUBTITLE}\""
+   ARG_METADATA="${ARG_METADATA} -metadata subtitle=\"${ARG_SUBTITLE}\""
 fi
 if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_ONAIR="${VIDEO_ONAIR}"
@@ -638,16 +650,31 @@ if test $N_QUERY_ID -gt 0; then
   mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt"
 #  logging `cat "$TEMPDIR/desc.txt"`
 
+#  logging "TITLE:"
+  echo "SELECT category from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getcategory.query.sql"
+#  logging `cat "$TEMPDIR/getcategory.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getcategory.query.sql" > "$TEMPDIR/category.txt" 
+#  logging `cat "$TEMPDIR/category.txt"`
+
+
+
   __N_DESC=`cat "$TEMPDIR/desc.txt"`
-    __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
-    __N_TITLE=`cat "$TEMPDIR/title.txt"`
+  __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
+  __N_TITLE=`cat "$TEMPDIR/title.txt"`
+  __N_GENRE=`cat "$TEMPDIR/category.txt"`
+  
 #    logging ${__N_TITLE}
 #    if [ -n "${__N_TITLE}" ] ; then
 #      change_arg_file "$TEMPDIR/title.txt"
       ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
+      ARG_METADATA="${ARG_METADATA} -metadata real_title=\"${ARG_TITLE}\""
 #      logging ${ARG_TITLE}
 #    fi
+    if [ -n "${__N_GENRE}" ] ; then
+      ARG_GENRE=$(change_arg_file "$TEMPDIR/category.txt")
+      ARG_METADATA="${ARG_METADATA} -metadata genre=\"${ARG_GENRE}\""
+#      logging ${ARG_GENRE}
+    fi
     if [ -n "${__N_DESC}" ] ; then
       ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
       ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
@@ -655,7 +682,16 @@ if test $N_QUERY_ID -gt 0; then
     fi
     if [ -n "${__N_SUBTITLE}" ] ; then
       ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata synopsis=\"${ARG_SUBTITLE}\""
+#      __TMPARG_TITLE=`echo "${ARG_TITLE}"  |  tr -d "\n"`
+#     __TMPARG_SUBTITLE=`echo "${ARG_SUBTITLE}"  |  tr -d "\n"`
+#      __TMPARG_TITLE="${__TMPARG_SUBTITLE}"
+#      __TMPARG_TITLE=`echo "${__TMPARG_TITLE}" | cut -c -16 -z`
+        __TMPARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}" 
+
+      ARG_METADATA="${ARG_METADATA} -metadata title=\"${__TMPARG_TITLE}\""
+      ARG_METADATA="${ARG_METADATA} -metadata subtitle=\"${ARG_SUBTITLE}\""
+    else
+      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
 #      logging ${ARG_SUBTITLE}
     fi
     if [ $F_CHANID -eq 0 ]; then
@@ -679,6 +715,7 @@ logging "SUBTITLE:"
 logging ${ARG_SUBTITLE}
 logging "DESCRIPTION:"
 logging ${ARG_DESC}
+
 
 BASENAME=""
 if [ $N_DIRSET -ne 0 ] ; then
@@ -1060,6 +1097,8 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+     X265_AQ_STRENGTH=1.1
+     X265_QP_ADAPTATION_RANGE=1.25
    ;;
    ANIME_HW )
      HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
@@ -1083,6 +1122,9 @@ case "$x" in
      
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
+     
+     X265_AQ_STRENGTH=0.70
+     X265_QP_ADAPTATION_RANGE=1.15
 #     X265_PARAMS="ref=4"
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
@@ -1093,14 +1135,18 @@ case "$x" in
      HWDEC=0
    ;;
    ANIME_HIGH_HW )
-     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
-		  -quality 0	\
-		  -qp 22 -qmin 10 -qmax 27 \
-		  -qcomp 0.75   -qdiff 8 \
-		  -sc_threshold 38 \
-		  -bufsize 32768 \
-		  -aspect 16:9"
-#		  -maxrate 12000k -minrate 100k \
+     IS_CRF=0
+     VIDEO_QUANT=22
+     VIDEO_MINQ=10
+     VIDEO_MAXQ=27
+     VIDEO_QCOMP=0.75
+     VIDEO_QDIFF=8
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=0
+     VIDEO_SCENECUT=38
+     VIDEO_BUFSIZE=32768
+     VIDEO_ASPECT="16:9"
+
      HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      #HW_SCALING="No"
@@ -1119,6 +1165,8 @@ case "$x" in
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
+     X265_AQ_STRENGTH=0.85
+     X265_QP_ADAPTATION_RANGE=1.5
      
      HW_SCALING="No"
      HWACCEL_DEC="NONE"
@@ -1137,6 +1185,9 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
+     X265_AQ_STRENGTH=0.85
+     X265_QP_ADAPTATION_RANGE=1.18
+     
      #HW_SCALING="No"
      #HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1146,18 +1197,21 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_HD_MID_HW )
-#		 -rc_mode VBR -crf 25 -qmin 12 -qmax 35 
-	 
-     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
-		 -qmin 14 -qmax 36 \
-		 -b:v 3500k \
-		 -maxrate 14500k -minrate 100k \
-		 -rc_mode VBR \
-		 -sc_threshold 45 -qdiff 6 -qcomp 0.40 \
-                 -bufsize 32768 \
-		 -quality 0 -aspect 16:9"
-#		 -qp 25 -qmin 10 -qmax 40 \
-#		 -maxrate 16500k -minrate 100k \
+     IS_CRF=0
+     VIDEO_QUANT=25
+     VIDEO_MINQ=14
+     VIDEO_MAXQ=36
+     VIDEO_QCOMP=0.40
+     VIDEO_QDIFF=6
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=0
+     VIDEO_SCENECUT=45
+     VIDEO_MAXRATE=14500k
+     VIDEO_MINRATE=100k
+     VIDEO_BUFSIZE=32768
+     VIDEO_ASPECT="16:9"
+     HWENC_APPEND="-b:v 3500k -rc_mode VBR"
+     
      #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1171,17 +1225,16 @@ case "$x" in
      
    ;;
    LIVE_HD_MID_HW2 )
+     IS_CRF=1
      VIDEO_QCOMP=0.40
-     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
-		 -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ} \
-		 -sc_threshold ${VIDEO_SCENECUT} -qdiff 8 -qcomp ${VIDEO_QCOMP} \
-                 -bufsize 32768 \
-		  -aspect 16:9"
-#		 -quality 0 -aspect 16:9"
-#		 -crf 24 -qmin 10 -qmax 39 \
-#		 -qp 25 -qmin 10 -qmax 36 \
-#		 -maxrate 14500k -minrate 100k \
-#		 -maxrate 16500k -minrate 100k \
+     VIDEO_QDIFF=8
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=0
+     VIDEO_MAXRATE=6000k
+     VIDEO_MINRATE=100k
+     VIDEO_BUFSIZE=32768
+
+
      HWACCEL_DEC="vaapi"
      HW_SCALING="No"
      #HWACCEL_DEC="NONE"
@@ -1205,6 +1258,10 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.2:0.6"
+     
+     X265_AQ_STRENGTH=0.8
+     X265_QP_ADAPTATION_RANGE=1.2
+     
      HWENC_PARAM=" -coder cavlc -qp 23 -quality 2"
      FFMPEG_ENC=1
      X265_PARAMS="ref=4"
@@ -1217,18 +1274,20 @@ case "$x" in
      
    ;;
    LIVE_HIGH_HW )
-     HWENC_PARAM=" \
-                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
- 		   -qp 26 -qmin 10 -qmax 35 \
-		   -qcomp 0.30 -qdiff 10 \
-		   -sc_threshold 55 \
-		   -bf 4 \
-		   -maxrate 6000k -minrate 100k -bufsize 8192 \
-		   -quality 0 \
-		   -aspect 16:9"
-#		   -qmin 10 -qmax 35 \
+     IS_CRF=0
+     VIDEO_QUANT=26
+     VIDEO_MINQ=10
+     VIDEO_MAXQ=35
+     VIDEO_QCOMP=0.30
+     VIDEO_QDIFF=10
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=0
+     VIDEO_MAXRATE=6000k
+     VIDEO_MINRATE=100k
+     VIDEO_BUFSIZE=8192
+     VIDEO_ASPECT="16:9"
 
-    FFMPEG_ENC=0
+     FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
      HWDEINT=0
@@ -1245,7 +1304,11 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
-     HWENC_PARAM=" -coder cavlc -aspect 16:9 -qp 21 -quality 4 "
+     
+     X265_AQ_STRENGTH=0.8
+     X265_QP_ADAPTATION_RANGE=1.0
+     
+     HWENC_PARAM=" -coder cavlc -aspect ${VIDEO_ASPECT} -qp 21 -quality 4 "
      HW_SCALING="No"
      HWACCEL_DEC="NONE"
      FFMPEG_ENC=1
@@ -1253,19 +1316,19 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_SD_HIGH_HW )
-     HWENC_PARAM=" \
-                  -profile:v ${X265_PROFILE} -level 51 \
-		  -qp 22 -qmin 10 -qmax 28 \
-		  -qdiff 9 -qcomp 0.70 \
-		  -sc_threshold 38 \
-		  -quality 0 \
-		  -aspect 16:9"
-#		  -rc_mode auto \
-#		  -b_depth 3 \
-#		  -qp 22 -qmin 10 -qmax 28 \
-#  		  -maxrate 3500k -minrate 70k -bufsize 32768 \
-		  
-    IS_HWENC_USE_HEVC=0
+     IS_CRF=0
+     VIDEO_QUANT=22
+     VIDEO_MINQ=10
+     VIDEO_MAXQ=28
+     VIDEO_QCOMP=0.70
+     VIDEO_QDIFF=9
+     VIDEO_AQSTRENGTH=0.48
+     VIDEO_SCENECUT=38
+     VIDEO_QUALITY=0
+     VIDEO_BUFSIZE=32768
+     VIDEO_ASPECT="16:9"
+     
+     IS_HWENC_USE_HEVC=0
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1277,18 +1340,19 @@ case "$x" in
      
    ;;
    LIVE_SD_HIGH_HW2 )
-     HWENC_PARAM=" \
-                  -profile:v ${X265_PROFILE} -level 51 \
-		  -qp 22 -qmin 15 -qmax 28 \
-		  -qdiff 9 -qcomp 0.70 \
-		  -sc_threshold 40 \
-		  -rc_mode auto \
-		  -b_depth 4 \
-  		  -bufsize 32768 \
-		  -quality 0 \
-		  -aspect 16:9"
-		  # -qp 22
-#  		  -maxrate 3500k -minrate 70k -bufsize 32768 
+     IS_CRF=0
+     VIDEO_QUANT=22
+     VIDEO_MINQ=15
+     VIDEO_MAXQ=28
+     VIDEO_QCOMP=0.70
+     VIDEO_QDIFF=9
+     VIDEO_AQSTRENGTH=0.48
+     VIDEO_SCENECUT=38
+     VIDEO_REF_FRAMES=3
+     VIDEO_QUALITY=0
+     VIDEO_BUFSIZE=32768
+     VIDEO_ASPECT="16:9"
+
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1300,12 +1364,18 @@ case "$x" in
      IS_HWENC_USE_HEVC=1
    ;;
    LIVE_SD_MID_HW )
-     HWENC_PARAM=" \
-                  -profile:v ${X265_PROFILE} -level 51 -aud 1 \
-		  -maxrate 900k -minrate 20k \
-		  -qp 28 -qmin 21 -qmax 55 -qcomp 0.4 \
-		  -quality 4 \
-		  -aspect 16:9"
+     IS_CRF=0
+     VIDEO_QUANT=28
+     VIDEO_MINQ=21
+     VIDEO_MAXQ=55
+     VIDEO_QCOMP=0.40
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=4
+     VIDEO_MAXRATE=900k
+     VIDEO_MINRATE=20k
+     VIDEO_BUFSIZE=8192
+     VIDEO_ASPECT="16:9"
+		  
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
      HW_SCALING="No"
@@ -1321,6 +1391,10 @@ case "$x" in
      X264_ENCPRESET="--preset medium --ref 5 --8x8dct"
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
+     
+     X265_AQ_STRENGTH=1.3
+     X265_QP_ADAPTATION_RANGE=1.5
+     
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
      HWENC=0
@@ -1331,6 +1405,7 @@ case "$x" in
      #HWACCEL_DEC="vaapi"
    ;;
    LIVE_MID_HW )
+     IS_CRF=0
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1339,18 +1414,25 @@ case "$x" in
      #HWACCEL_DEC="NONE"
      #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
-     HWENC_PARAM=" \
-                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
- 		   -qp 30 -qmin 21 -qmax 58 \
-		   -qcomp 0.40 -qdiff 10 \
-		   -sc_threshold 65 \
-		   -bf 4 \
-		   -maxrate 1500k -minrate 55k -bufsize 8192 \
-		   -quality 2 \
-		   -aspect 16:9"
-#		   -qmin 10 -qmax 35 \
+     
+     VIDEO_QUANT=30
+     VIDEO_MINQ=21
+     VIDEO_MAXQ=58
+     VIDEO_QCOMP=0.40
+     VIDEO_QDIFF=10
+     VIDEO_AQSTRENGTH=0.48
+     VIDEO_SCENECUT=65
+     VIDEO_REF_FRAMES=3
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=2
+     VIDEO_MAXRATE=1500k
+     VIDEO_MINRATE=55k
+     VIDEO_BUFSIZE=8192
+     VIDEO_ASPECT="16:9"
+     
    ;;
    LIVE_MID_HW2 )
+     IS_CRF=0
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1360,16 +1442,23 @@ case "$x" in
      HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      HWDEINT=1
-     HWENC_PARAM=" \
-                   -profile:v ${X265_PROFILE} -aud 1 -level 51  \
- 		   -qp 30 -qmin 21 -qmax 58 \
-		   -qcomp 0.40 -qdiff 10 \
-		   -sc_threshold 65 \
-		   -bf 4 \
-		   -maxrate 1500k -minrate 55k -bufsize 8192 \
-		   -quality 2 \
-		   -aspect 16:9"
-#		   -qmin 10 -qmax 35 \
+     
+     #Re-Define QP params
+     VIDEO_QUANT=30
+     VIDEO_MINQ=21
+     VIDEO_MAXQ=58
+     VIDEO_QCOMP=0.40
+     VIDEO_QDIFF=10
+     VIDEO_AQSTRENGTH=0.48
+     VIDEO_SCENECUT=65
+     VIDEO_REF_FRAMES=3
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=2
+     VIDEO_MAXRATE=1500k
+     VIDEO_MINRATE=55k
+     VIDEO_BUFSIZE=8192
+     VIDEO_ASPECT="16:9"
+     
    ;;
    LIVE_LOW )
      X264_DIRECT="--direct auto --aq-mode 3"
@@ -1378,11 +1467,18 @@ case "$x" in
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
    ;;
    LIVE_LOW_HW )
-     HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
- 		 -maxrate 1000k -minrate 50k \
-                 -qp 35 -qmin 23 -qmax 51 \
-		 -qcomp 0.3 -quality 4 \
-		 -aspect 16:9"
+     IS_CRF=0
+     VIDEO_QUANT=35
+     VIDEO_MINQ=23
+     VIDEO_MAXQ=51
+     VIDEO_QCOMP=0.30
+     VIDEO_BFRAMES=4
+     VIDEO_QUALITY=4
+     VIDEO_MAXRATE=1000k
+     VIDEO_MINRATE=50k
+     VIDEO_BUFSIZE=8192
+     VIDEO_ASPECT="16:9"
+     
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1570,15 +1666,15 @@ case "$HWACCEL_DEC" in
 #	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi -hwaccel_output_format vaapi"
 	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi"
       else
-	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
+	  VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL}"
       fi
       #echo "vaapi"
       ;;
   *)
       if test $HWENC -ne 0 ; then 
-	  VIDEO_FILTERCHAIN_HWACCEL="-filter_complex ${VIDEO_FILTERCHAIN_HWACCEL}"
+	  VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL}"
       else
-          VIDEO_FILTERCHAIN_HWACCEL="-vf ${VIDEO_FILTERCHAIN}"
+          VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN}"
 	  if test $USE_X265 -ne 0 ; then
 	 	if test "__n__${X265_PROFILE}" = "__n__main10" ; then
 			VIDEO_FILTERCHAIN_HWACCEL="${VIDEO_FILTERCHAIN_HWACCEL},format=yuv420p10le"
@@ -1594,16 +1690,43 @@ echo ${VIDEO_FILTERCHAIN_HWACCEL}
 
 ${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
        $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  \
-       -y $TEMPDIR/v1tmp.srt
+       -y $TEMPDIR/v1tmp.srt 
 
-ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn"
+ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn -metadata:s:a:0 real_encoder=aac"
 
+DISPLAY_SINK_PARAM="filter_threads=${FILTER_THREADS}:filter_complex_threads=${FILTER_COMPLEX_THREADS}"
+DISPLAY_SINK_PARAM="-metadata:s:v:0 encode_threads=\"${DISPLAY_SINK_PARAM}\""
+ARG_METADATA="${ARG_METADATA}  -metadata:g source=\"${SRC2}\""
+
+__ENCODE_START_DATE=`date --rfc-3339=ns`
+
+DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
 if test $FFMPEG_ENC -ne 0; then
-    logging ${ARG_METADATA}
+    DISPLAY_FILTERCHAIN="-metadata:s:v:0 filterchains=\"vf:${DISPLAY_FILTERCHAIN}\""
+    
     if test ${USE_X265} -ne 0; then
-	X265_THREAD_PARAMS="frame-threads=${FRAME_THREADS}:pools=${ENCTHREADS}:pme=true:pmode=true"
-	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
-#	FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -qp ${VIDEO_QUANT}"
+    
+	if [ ${IS_CRF} -ne 0 ] ; then
+	   __QUANT_TYPE="crf"
+	   FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -crf ${VIDEO_QUANT}"
+	else
+	   __QUANT_TYPE="qp"
+           FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -qp ${VIDEO_QUANT}"
+	fi
+	X265_THREAD_PARAMS="frame-threads=${FRAME_THREADS}:pools=${POOLTHREADS}"
+	X265_THREAD_PARAMS="${X265_THREAD_PARAMS}:pme=true:pmode=true"
+	
+	X265_AQ_PARAMS="hevc-aq=true:aq-mode=4"
+	X265_AQ_PARAMS="${X265_AQ_PARAMS}:aq-strength=${X265_AQ_STRENGTH}"
+	X265_AQ_PARAMS="${X265_AQ_PARAMS}:qp-adaptation-range=${X265_QP_ADAPTATION_RANGE}"
+	#X265_AQ_PARAMS="${X265_AQ_PARAMS}:aq-motion=true"
+	if test "__n__${X265_PARAMS}" != "__n__"; then
+		X265_PARAMS="${X265_PARAMS}:"
+	fi
+	if test "__n__${X265_AQ_PARAMS}" != "__n__"; then
+		X265_PARAMS="${X265_PARAMS}${X265_AQ_PARAMS}:"
+	fi
+		
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 		X265_PARAMS="${X265_PARAMS}:${X265_THREAD_PARAMS}"
 	else
@@ -1619,10 +1742,23 @@ if test $FFMPEG_ENC -ne 0; then
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
 	fi
+	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=libx265"
+	
+	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params="
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}\"profile=${X265_PROFILE}"
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:preset=${X265_PRESET}"
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${__QUANT_TYPE}=${VIDEO_QUANT}"
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${X265_PARAMS}\""
 
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
+	logging ${ARG_METADATA}
+	
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
-	              -r:v ${FRAMERATE} -aspect 16:9 \
-		      ${VIDEO_FILTERCHAIN_HWACCEL} \
+	              -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
 		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
 		      ${FFMPEG_X265_HEAD} \
@@ -1632,12 +1768,22 @@ if test $FFMPEG_ENC -ne 0; then
 		      -threads ${ENCTHREADS} \
 		      -c:a aac \
 		      -ab 224k -ar 48000 -ac 2 \
-		      $ARG_METADATA \
+		      ${ARG_METADATA} \
+		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		      -y $TEMPDIR/v1tmp.mkv  &
     else
+	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=libx264"
+	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}\""
+
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
+	logging ${ARG_METADATA}
+    
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
-	          -r:v ${FRAMERATE} -aspect 16:9 \
-		  ${VIDEO_FILTERCHAIN_HWACCEL} \
+	          -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
 		  -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
 		  $FFMPEG_X264_HEAD \
@@ -1648,44 +1794,138 @@ if test $FFMPEG_ENC -ne 0; then
 		  -c:a aac \
 		  -ab 224k -ar 48000 -ac 2 \
 		  $ARG_METADATA \
+      		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv  &
 
     #    -filter_complex_threads 4 -filter_threads 4 \
 	fi
 elif test $HWENC -ne 0; then
+    DISPLAY_FILTERCHAIN="-metadata:s:v:0 filterchains=\"filter_complex:${DISPLAY_FILTERCHAIN}\""
+    __HWENC_AWK=" 
+    BEGIN { 
+    } 
+    
+    NR==1 {
+              i=1;
+	      for(x=1; x<= NF; x++) {
+	          __token[i]=\$x;
+		  i++;
+	      }
+	      __OUTSTR=\"\";
+	      for(j=1; j<i; j+=2) {
+ 	          gsub(/^-/, \"\", __token[j]);
+	          __OUTSTR=__OUTSTR  __token[j] \"=\" __token[j+1] \":\";	
+	      }
+	 }
+    END  {
+             printf(\"%s\", __OUTSTR);
+	 }
+	 "
     if test $IS_HWENC_USE_HEVC -eq 0; then
+
+        HWENC_PARAM=""
+        HWENC_PARAM="${HWENC_PARAM} -aud 1 -level 51"
+	# Will FIX
+	if [ ${IS_CRF} -ne 0 ] ; then
+	   __QUANT_TYPE="crf"
+           HWENC_PARAM="${HWENC_PARAM} -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
+	else
+	   __QUANT_TYPE="qp"
+           HWENC_PARAM="${HWENC_PARAM} -qp ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
+        fi	
+	if test "__n__${HWENC_APPEND}" != "__n__" ; then
+        	HWENC_PARAM="${HWENC_PARAM} ${HWENC_APPEND}"
+	fi
+        HWENC_PARAM="${HWENC_PARAM} -qcomp ${VIDEO_QCOMP} -qdiff ${VIDEO_QDIFF}"
+        HWENC_PARAM="${HWENC_PARAM} -sc_threshold ${VIDEO_SCENECUT} -bf ${VIDEO_BFRAMES}"
+        HWENC_PARAM="${HWENC_PARAM} -quality ${VIDEO_QUALITY}"
+        HWENC_PARAM="${HWENC_PARAM} -maxrate ${VIDEO_MAXRATE} -minrate ${VIDEO_MINRATE}"
+	HWENC_PARAM="${HWENC_PARAM} -bufsize ${VIDEO_BUFSIZE}"
+	
+	DISPLAY_HWENC_PARAM=`echo "${HWENC_PARAM}" | gawk "${__HWENC_AWK}"`
+	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}\""
+
+	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=h264_vaapi"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
 	logging ${ARG_METADATA}
+	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 		       -r:v ${FRAMERATE} \
-		       $VIDEO_FILTERCHAIN_HWACCEL \
+		       -filter_complex ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v h264_vaapi \
 		       -filter_threads ${FILTER_THREADS} \
 		       -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
 		       $HWENC_PARAM \
+		       -aspect ${VIDEO_ASPECT} \
 		       -threads:0 8 \
 		       -c:a aac \
 		       -threads:1 8 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
 		       $ARG_METADATA \
+		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    &
 	    #    -c:v hevc_vaapi \
     else
+	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
+        HWENC_PARAM=""
+	# Will FIX
+        HWENC_PARAM="${HWENC_PARAM} -aud 1 -level 51"
+	if [ ${IS_CRF} -ne 0 ] ; then
+	   __QUANT_TYPE="crf"
+           HWENC_PARAM="${HWENC_PARAM} -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
+	else
+	   __QUANT_TYPE="qp"
+           HWENC_PARAM="${HWENC_PARAM} -qp ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
+        fi	
+
+	if test "__n__${HWENC_APPEND}" != "__n__" ; then
+        	HWENC_PARAM="${HWENC_PARAM} ${HWENC_APPEND}"
+	fi
+        HWENC_PARAM="${HWENC_PARAM} -qcomp ${VIDEO_QCOMP} -qdiff ${VIDEO_QDIFF}"
+        HWENC_PARAM="${HWENC_PARAM} -sc_threshold ${VIDEO_SCENECUT} -bf ${VIDEO_BFRAMES}"
+        HWENC_PARAM="${HWENC_PARAM} -quality ${VIDEO_QUALITY}"
+        HWENC_PARAM="${HWENC_PARAM} -maxrate ${VIDEO_MAXRATE} -minrate ${VIDEO_MINRATE}"
+	HWENC_PARAM="${HWENC_PARAM} -bufsize ${VIDEO_BUFSIZE}"
+	
+	DISPLAY_HWENC_PARAM=`echo "${HWENC_PARAM}" | gawk "${__HWENC_AWK}"`
+	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}\""
+
+	
+	DISPLAY_SINK_PARAM="${DISPLAY_SINK_PARAM}:threads(0)=4:threads(1)=4"
+	echo
+	echo "${DISPLAY_HWENC_PARAM}"
+	echo
+	
+	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
+	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
 	logging ${ARG_METADATA}
+
+	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	               -profile:v ${X265_PROFILE} \
+		       -aud 1 -level 51 \
 		       -r:v ${FRAMERATE} \
-		       $VIDEO_FILTERCHAIN_HWACCEL \
+		       -filter_complex $VIDEO_FILTERCHAIN_HWACCEL \
 		       -c:v hevc_vaapi \
 		       -filter_threads ${FILTER_THREADS} \
 		       -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
 		       $HWENC_PARAM \
+		       -aspect ${VIDEO_ASPECT} \
 		       -threads:0 4 \
 		       -c:a aac \
 		       -threads:1 4 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
-		       $ARG_METADATA \
+		       ${ARG_METADATA} \
+		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    &
 	    #    -c:v hevc_vaapi \
@@ -1711,6 +1951,7 @@ wait $ENC_VIDEO_PID
 RESULT_ENC_VIDEO=$?
 fi
 fi
+
 #exit 1
 # Demux files to one video
 ERRFLAGS=0
@@ -1808,5 +2049,6 @@ sync
 sleep 2
 cd $TEMPDIR/..
 rm -rf $TEMPDIR
+
 logging "JOB COMPLETED."
 exit 0
