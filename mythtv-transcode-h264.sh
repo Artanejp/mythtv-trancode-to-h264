@@ -424,6 +424,11 @@ for x in "$@" ; do
 	    shift
 	    ENCMODE="LIVE_MID"
 	    ;;
+	--live_mid_fast | --live-mid-fast)
+	    # for Live, middle quality.
+	    shift
+	    ENCMODE="LIVE_MID_FAST"
+	    ;;
 	--live_mid_hw | --live-mid-hw)
 	    # for Live, middle quality.
 	    shift
@@ -547,7 +552,7 @@ s/"\"/＼/g
 s/\]/］/g
 s/</＜/g
 s/>/＞/g
-s/"\n"/_/g
+s/"\n"/"\\\n"/g
 EOF
 __tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript1"`
 #rm ${TEMPDIR}/__tmpscript1
@@ -595,6 +600,7 @@ ARG_ONAIR=""
 
 __N_TITLE=""
 
+
 if [ -n "${VIDEO_DESC}" ] ; then
    ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
    ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
@@ -638,6 +644,11 @@ if test $N_QUERY_ID -gt 0; then
   mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
 #  logging `cat "$TEMPDIR/title.txt"`
 
+  echo "SELECT recordedid from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getrecid.query.sql"
+#  logging `cat "$TEMPDIR/getrecid.query.sql"`
+  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql" > "$TEMPDIR/recid.txt" 
+#  logging `cat "$TEMPDIR/title.txt"`
+
 #  logging "DESC:"
   echo "SELECT subtitle from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
 #  logging `cat "$TEMPDIR/getsubtitle.query.sql"`
@@ -656,12 +667,15 @@ if test $N_QUERY_ID -gt 0; then
   mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getcategory.query.sql" > "$TEMPDIR/category.txt" 
 #  logging `cat "$TEMPDIR/category.txt"`
 
+echo "SELECT recordedid from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getrecid.query.sql"
+mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql" > "$TEMPDIR/recid.txt" 
 
 
   __N_DESC=`cat "$TEMPDIR/desc.txt"`
   __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
   __N_TITLE=`cat "$TEMPDIR/title.txt"`
   __N_GENRE=`cat "$TEMPDIR/category.txt"`
+  __N_RECID=`cat "$TEMPDIR/recid.txt"`
   
 #    logging ${__N_TITLE}
 #    if [ -n "${__N_TITLE}" ] ; then
@@ -707,6 +721,13 @@ fi
 if [ -z "${ARG_STARTTIME}" ] ; then
     ARG_STARTTIME="${I_STARTTIME}"
 fi
+    if [ -n "${__N_RECID}" ] ; then
+      ARG_RECID=${__N_RECID}
+      ARG_METADATA="${ARG_METADATA} -metadata recorded_id=${ARG_RECID}"
+#      logging ${ARG_GENRE}
+    fi
+
+
 logging "TITLE:"
 logging ${ARG_TITLE}
 logging "START:"
@@ -715,6 +736,7 @@ logging "SUBTITLE:"
 logging ${ARG_SUBTITLE}
 logging "DESCRIPTION:"
 logging ${ARG_DESC}
+
 
 
 BASENAME=""
@@ -782,6 +804,7 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo " --live_hd_mid      : Set encode parameters for Live movies (1920x1080 : standard)."
     echo " --live_high      : Set encode parameters for Live movies (higher than standard)."
     echo " --live_mid       : Set encode parameters for Live movies (lower than standard)."
+    echo " --live_mid_fast  : Set encode parameters for Live movies (faster and lower than standard)."
     echo " --live_low : Set encode parameters for Live movies (low-bitrate, low-quality)."
     echo " --encmode MODE : Set encode parameters to preset named MODE."
     echo " --remove-source | --remove       : Remove source after if transcoding is succeeded. (CAUTION!)"
@@ -860,6 +883,10 @@ case "$x" in
    AUDIOBITRATE=224
    AUDIOCUTOFF=22050
    ;;
+   * )
+   AUDIOBITRATE=224
+   AUDIOCUTOFF=22050
+   ;;
 esac
 
 # convert audio track to aac
@@ -915,7 +942,7 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
-   VIDEO_QUANT=23
+   VIDEO_QUANT=22.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH=0.36
@@ -948,7 +975,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=23
+   VIDEO_QUANT=22.5
    VIDEO_MINQ=14
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.48
@@ -968,7 +995,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HD_HIGH" | "LIVE_HD_HIGH_HW" )
-   VIDEO_QUANT=21
+   VIDEO_QUANT=20.5
    VIDEO_MINQ=12
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.75
@@ -1024,19 +1051,19 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=0
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
-   "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" )
+   "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" | "LIVE_MID_FAST" )
    VIDEO_QUANT=26
 #   VIDEO_QUANT=25
-   VIDEO_MINQ=18
+   VIDEO_MINQ=13
    VIDEO_MAXQ=57
-   VIDEO_AQSTRENGTH=1.35
-   VIDEO_QCOMP=0.45
+   VIDEO_AQSTRENGTH=0.95
+   VIDEO_QCOMP=0.40
    VIDEO_SCENECUT=48
    VIDEO_REF_FRAMES=3
    VIDEO_BFRAMES=6
    OUT_WIDTH=1280
    OUT_HEIGHT=720
-   SCALER_MODE="bilinear"
+   SCALER_MODE="lanczos"
    
    #X264_BITRATE="1800"
    #VIDEO_FILTERCHAINX="yadif,hqdn3d=luma_spatial=4.7:chroma_spatial=3.5:luma_tmp=4.2:chroma_tmp=4.2"
@@ -1176,6 +1203,8 @@ case "$x" in
      
    ;;
    LIVE_HD_MID )
+     IS_CRF=1
+     
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
@@ -1185,8 +1214,8 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
-     X265_AQ_STRENGTH=0.85
-     X265_QP_ADAPTATION_RANGE=1.18
+     X265_AQ_STRENGTH=0.80
+     X265_QP_ADAPTATION_RANGE=1.20
      
      #HW_SCALING="No"
      #HWACCEL_DEC="vaapi"
@@ -1384,7 +1413,9 @@ case "$x" in
      HWENC=0
      HWDEC=0
    ;;
-   LIVE_MID )
+   LIVE_MID | LIVE_MID_FAST )
+     IS_CRF=1
+
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias 0 --b-adapt 2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
@@ -1392,8 +1423,13 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
      
-     X265_AQ_STRENGTH=1.3
-     X265_QP_ADAPTATION_RANGE=1.5
+     if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
+         X265_PRESET="veryfast"
+     else
+         X265_PRESET="faster"
+     fi
+     X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
+     X265_QP_ADAPTATION_RANGE=1.35
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -1405,7 +1441,7 @@ case "$x" in
      #HWACCEL_DEC="vaapi"
    ;;
    LIVE_MID_HW )
-     IS_CRF=0
+     IS_CRF=1
      FFMPEG_ENC=0
      HWENC=1
      HWDEC=0
@@ -1415,7 +1451,9 @@ case "$x" in
      #HW_SCALING="Yes"
      HWACCEL_DEC="vaapi"
      
-     VIDEO_QUANT=30
+     VIDEO_QUANT=23
+     X264_BITRATE="1600k"
+
      VIDEO_MINQ=21
      VIDEO_MAXQ=58
      VIDEO_QCOMP=0.40
@@ -1425,7 +1463,7 @@ case "$x" in
      VIDEO_REF_FRAMES=3
      VIDEO_BFRAMES=4
      VIDEO_QUALITY=2
-     VIDEO_MAXRATE=1500k
+     VIDEO_MAXRATE=2200k
      VIDEO_MINRATE=55k
      VIDEO_BUFSIZE=8192
      VIDEO_ASPECT="16:9"
@@ -1445,7 +1483,7 @@ case "$x" in
      
      #Re-Define QP params
      VIDEO_QUANT=30
-     VIDEO_MINQ=21
+     VIDEO_MINQ=22
      VIDEO_MAXQ=58
      VIDEO_QCOMP=0.40
      VIDEO_QDIFF=10
@@ -1714,7 +1752,7 @@ if test $FFMPEG_ENC -ne 0; then
            FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE}  -preset ${X265_PRESET} -qp ${VIDEO_QUANT}"
 	fi
 	X265_THREAD_PARAMS="frame-threads=${FRAME_THREADS}:pools=${POOLTHREADS}"
-	X265_THREAD_PARAMS="${X265_THREAD_PARAMS}:pme=true:pmode=true"
+	#X265_THREAD_PARAMS="${X265_THREAD_PARAMS}:pme=true:pmode=true"
 	
 	X265_AQ_PARAMS="hevc-aq=true:aq-mode=4"
 	X265_AQ_PARAMS="${X265_AQ_PARAMS}:aq-strength=${X265_AQ_STRENGTH}"
@@ -1770,7 +1808,7 @@ if test $FFMPEG_ENC -ne 0; then
 		      -ab 224k -ar 48000 -ac 2 \
 		      ${ARG_METADATA} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		      -y $TEMPDIR/v1tmp.mkv  &
+		      -y $TEMPDIR/v1tmp.mkv  
     else
 	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=libx264"
 	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}\""
@@ -1795,7 +1833,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -ab 224k -ar 48000 -ac 2 \
 		  $ARG_METADATA \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		  -y $TEMPDIR/v1tmp.mkv  &
+		  -y $TEMPDIR/v1tmp.mkv 
 
     #    -filter_complex_threads 4 -filter_threads 4 \
 	fi
@@ -1868,7 +1906,7 @@ elif test $HWENC -ne 0; then
 		       $ARG_METADATA \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
-	    &
+	    
 	    #    -c:v hevc_vaapi \
     else
 	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
@@ -1876,8 +1914,8 @@ elif test $HWENC -ne 0; then
 	# Will FIX
         HWENC_PARAM="${HWENC_PARAM} -aud 1 -level 51"
 	if [ ${IS_CRF} -ne 0 ] ; then
-	   __QUANT_TYPE="crf"
-           HWENC_PARAM="${HWENC_PARAM} -crf ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
+	   __QUANT_TYPE="global_quality"
+           HWENC_PARAM="${HWENC_PARAM} -global_quality ${VIDEO_QUANT} -b:v ${X264_BITRATE} -rc_mode VBR"
 	else
 	   __QUANT_TYPE="qp"
            HWENC_PARAM="${HWENC_PARAM} -qp ${VIDEO_QUANT} -qmin ${VIDEO_MINQ} -qmax ${VIDEO_MAXQ}"
@@ -1927,12 +1965,12 @@ elif test $HWENC -ne 0; then
 		       ${ARG_METADATA} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
-	    &
+	    
 	    #    -c:v hevc_vaapi \
     fi
 fi
 
-DEC_VIDEO_PID=$!
+#DEC_VIDEO_PID=$!
 
 #if test $HWENC -eq 0; then 
 #wait $DEC_AUDIO_PID
@@ -1942,7 +1980,7 @@ DEC_VIDEO_PID=$!
 #wait $ENC_AUDIO_PID
 #RESULT_ENC_AUDIO=$?
 
-wait $DEC_VIDEO_PID
+#wait $DEC_VIDEO_PID
 RESULT_DEC_VIDEO=$?
 
 
