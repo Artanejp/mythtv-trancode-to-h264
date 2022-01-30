@@ -97,6 +97,14 @@ HW_SCALING="No"
 
 N_QUERY_ID=0;
 
+NICE_VALUE=19
+IONICE_ARGS="-n 7"
+
+NICE_CMD=/usr/bin/nice
+RENICE_CMD=/usr/bin/renice
+IONICE_CMD=/usr/bin/ionice
+
+EXECUTE_PREFIX_CMD=""
 FFMPEG_CMD="/usr/bin/ffmpeg"
 #FFMPEG_CMD="/usr/local/bin/ffmpeg-arib"
 #FFMPEG_SUBTXT_CMD="/usr/local/bin/ffmpeg-arib"
@@ -450,6 +458,16 @@ for x in "$@" ; do
 	--norm | --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
 	    shift
 	    REMOVE_SOURCE=0
+	    ;;
+	--nice )
+	    shift
+	    NICE_VALUE=$1
+	    shift
+	    ;;
+	--ionice )
+	    shift
+	    IONICE_ARGS="$1"
+	    shift
 	    ;;
 	-h | --help )
 	    IS_HELP=1
@@ -814,6 +832,8 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo "    fast   = --preset slow"
     echo "    fast   = --preset medium"
     echo "    faster = --preset fast"
+    echo " --nice VALUE : Set nice (process priority) value."
+    echo " --ionice ARGS : Set argument(s) for ionice."
     logging "END."
     exit 1
 fi
@@ -840,8 +860,25 @@ BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
 logging `printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`
 
 # play nice with other processes
-renice 19 $MYPID
-ionice -c 3 -p $MYPID
+if [ -x "${RENICE_CMD}" ] ; then
+    ${RENICE_CMD} ${NICE_VALUE} $MYPID
+fi
+
+if [ -x "${NICE_CMD}" ] ; then
+    EXECUTE_PREFIX_CMD="${EXECUTE_PREFIX_CMD} ${NICE_CMD} -n ${NICE_VALUE} "
+fi
+
+if [ -x "${IONICE_CMD}" ] ; then
+    if [ "__x__${IONICE_ARGS}" != "__x__" ] ; then
+	${IONICE_CMD}  ${IONICE_ARGS} -p $MYPID
+	EXECUTE_PREFIX_CMD="${EXECUTE_PREFIX_CMD}  ${IONICE_CMD} ${IONICE_ARGS}"
+    fi
+fi
+
+if  [ "__x__${EXECUTE_PREFIX_CMD}"  !=  "__x__" ] ; then
+    FFMPEG_CMD="${EXECUTE_PREFIX_CMD} ${FFMPEG_CMD}"
+    FFMPEG_SUBTXT_CMD="${EXECUTE_PREFIX_CMD} ${FFMPEG_SUBTXT_CMD}"
+fi
 
 # make working dir, go inside
 mkdir $TEMPDIR/mythtmp-$MYPID
@@ -1052,8 +1089,8 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" | "LIVE_MID_FAST" )
-   VIDEO_QUANT=26
-#   VIDEO_QUANT=25
+#   VIDEO_QUANT=26
+   VIDEO_QUANT=26.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=57
    VIDEO_AQSTRENGTH=0.95
