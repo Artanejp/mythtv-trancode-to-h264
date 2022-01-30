@@ -3,14 +3,23 @@
 BASEFILE=$1;
 
 #!/bin/bash
-POOL_THREADS=8
-FRAME_THREADS=8
+POOL_THREADS=5
+FRAME_THREADS=5
 PRESET_VALUE="faster"
 CRF_VALUE=22.5
 #TUNE_VALUE=grain
-AQ_VALUE=0.90
+AQ_VALUE=0.95
 QP_ADAPTATIVE_VALUE=1.20
+USE_DATABASE=1
+BASE_FPS="30000/1001"
+FORCE_FPS=0
+VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
+
+typeset -i COPY_AUDIOS
+COPY_AUDIOS=1
+AUDIO_CODEC="aac"
+AUDIO_ARGS="-ar 48000 -ab 224k"
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -22,7 +31,9 @@ if [ -e $HOME/.mythtv-transcode-x264 ]; then
    . $HOME/.mythtv-transcode-x264
 fi
 
-if [ -e $HOME/.mythtv-reload-metadatas ]; then
+if [ -e "$PWD/mythtv-reload-metadatas.txt" ]; then
+   . "$PWD/mythtv-reload-metadatas.txt"
+elif [ -e $HOME/.mythtv-reload-metadatas ]; then
    . $HOME/.mythtv-reload-metadatas
 fi
 
@@ -163,13 +174,157 @@ echo "${__tmpv1}"
 
 for x in "$@"; do \
 
+    case "$1" in
+        --num | -n )
+	  shift
+	  EPNUM=$1
+	  HAS_EPNUM=1
+	  shift
+	  continue
+        ;;
+        --database | -d )
+	  shift
+	  USE_DATABASE=$1
+	  shift
+	  continue
+        ;;
+        --with-database | -d1 )
+	  USE_DATABASE=1
+	  shift
+	  continue
+        ;;
+        --without-database |--no-database | -d0 )
+	  USE_DATABASE=0
+	  shift
+	  continue
+        ;;
+        --frame-threads )
+	  shift
+	  FRAME_THREADS=$1
+	  shift
+	  continue
+        ;;
+        --pool-threads )
+	  shift
+	  POOL_THREADS=$1
+	  shift
+	  continue
+        ;;
+        --encode-audio )
+	  COPY_AUDIOS=0
+	  shift
+	  continue
+	;;
+        --copy-audio )
+	  COPY_AUDIOS=1
+	  shift
+	  continue
+	;;
+        --threads | -j )
+	  shift
+	  POOL_THREADS=$1
+	  FRAME_THREADS=$1
+	  shift
+	  continue
+        ;;
+        --crf )
+	  shift
+	  CRF_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --vbv-maxrate | --vbv-max )
+	  shift
+	  VBV_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --reset-vbv-maxrate | --reset-vbv-max )
+	  VBV_VALUE=""
+	  shift
+	  continue
+        ;;
+        --aq-value )
+	  shift
+	  AQ_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --reset-aq-value )
+	  AQ_VALUE=""
+	  shift
+	  continue
+        ;;
+        --qp-adaptive )
+	  shift
+	  QP_ADAPTATIVE_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --reset-qp-adaptive )
+	  QP_ADAPTATIVE_VALUE=""
+	  shift
+	  continue
+        ;;
+        --preset )
+	  shift
+	  PRESET_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --tune )
+	  shift
+	  TUNE_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --reset-tune )
+	  TUNE_VALUE=""
+	  shift
+	  continue
+        ;;
+        --db-user )
+	  shift
+	  DATABASEUSER="$1"
+	  shift
+	  continue
+        ;;
+        --db-passwd )
+	  shift
+	  DATABASEPASSWORD="$1"
+	  shift
+	  continue
+        ;;
+
+    --fps )
+	  shift
+	  BASE_FPS=$1
+	  shift
+	  continue
+        ;;
+    --force-fps | --no-auto-fps )
+		shift
+		FORCE_FPS=1
+		continue
+        ;;
+    --no-force-fps | --auto-fps )
+		shift
+		FORCE_FPS=0
+		continue
+        ;;
+	* )
+        BASEFILE="$1"
+	;;
+    esac
+
+
     ARG_METADATA=""
     ARG_DESC=""
     ARG_SUBTITLE=""
     ARG_EPISODE=""
     ARG_ONAIR=""
     __N_TITLE=""
-    BASEFILE="$1"
+
     TEMPDIR=`mktemp -d`
     
 AWK_EXTRACT1="
@@ -196,16 +351,36 @@ AWK_EXTRACT1="
       }
       "
 cat <<EOF >${TEMPDIR}/__tmpscript13
+s/\.wmv//g
 s/\.mkv//g
 s/\.mp4//g
 s/\.ts//g
 s/\.m2ts//g
 s/\.mpg//g
+s/\.avi//g
+s/\.WMV//g
+s/\.MKV//g
+s/\.MP4//g
+s/\.TS//g
+s/\.M2TS//g
+s/\.MPG//g
+s/\.AVI//g
 EOF
-      
-  ARG_KEY=`echo "${BASEFILE}" | gawk "${AWK_EXTRACT1}" | sed -f "${TEMPDIR}/__tmpscript13" `
-  
-      
+
+ARG_TITLE=""
+ARG_SUBTITLE=""
+ARG_DESC=""
+ARG_STARTTIME=""
+ARG_ENDTIME=""
+ARG_GENRE=""
+ARG_EPISODE=""
+ARG_SEASON=""
+ARG_CHANID=""
+
+ARG_KEY=`echo "${BASEFILE}" | gawk "${AWK_EXTRACT1}" | sed -f "${TEMPDIR}/__tmpscript13" `
+
+if [ ${USE_DATABASE} -ne 0 ] ; then
+     
 #  echo "SELECT recordedid from recorded where basename=\"${BASEFILE}\" ;" > "$TEMPDIR/getrecid.query.sql"
   echo "SELECT recordedid from recorded where basename like \"%${ARG_KEY}%\" ;" > "$TEMPDIR/getrecid.query.sql"
   RECID=`mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql"`
@@ -222,8 +397,6 @@ echo "SELECT title from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/ge
 
 #  logging `cat "$TEMPDIR/title.txt"`
 __N_TITLE=`cat "$TEMPDIR/title.txt"`
-
-
 echo "SELECT subtitle from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
 #  logging `cat "$TEMPDIR/getsubtitle.query.sql"`
   mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
@@ -296,7 +469,16 @@ if [ "__x__${ARG_ENDTIME}" != "__x__" ] ; then
    ARG_METADATA="${ARG_METADATA} -metadata:g endtime_utc=${ARG_ENDTIME} "
 fi
 fi
+else
+	# WITHOUT DATABASE
+	ARG_METADATA="-map_metadata:g 0 "
+	
+	#ARG_TITLE="${ARG_KEY}"
+	if [ "__x__${ARG_TITLE}" != "__x__" ] ; then
+		ARG_METADATA="${ARG_METADATA} -metadata:g title=${ARG_TITLE} "
+	fi
 
+fi
 cat <<EOF >${TEMPDIR}/__tmpscript14
 s/\ /　/g
 EOF
@@ -313,6 +495,27 @@ FFPROBE_RESULT=`ffprobe "${BASEFILE}" 2>&1`
 echo
 #echo "${FFPROBE_RESULT}"
 
+__AWK_GETFPS=" 
+    BEGIN {
+	   FS=\",\";
+   }
+   \$1~/^.*Video:/ {
+   	  for(i = 1; i < NF; i++ ) {
+	      if(match(\$i, /^.*fps/)) {
+		  	 gsub(/ /, \"\", \$i);
+		  	 gsub(/fps/, \"\", \$i);
+		     printf(\"%s\\n\", \$i);
+		     break;
+	       }
+	      if(match(\$i, /^.*tbr/)) {
+		  	 gsub(/ /, \"\", \$i);
+		  	 gsub(/tbr/, \"\", \$i);
+		     printf(\"%s\\n\", \$i);
+		     break;
+	       }
+	  }
+    }
+"
 __AWK_STREAMDESC="
 	BEGIN {
 	   inum=1;
@@ -336,17 +539,41 @@ __AWK_STREAMDESC="
 	   for(i = 1; i <= inum; i++) {
 	      
 	      if(match(_ARG_TYPE[i], \"Video\") != 0) {
-	           #printf(\"-map:v %s -c:v copy \", _ARG_STREAM[i]);
+	           printf(\"-map:v %s \", _ARG_STREAM[i]);
 	      } else if(match(_ARG_TYPE[i], \"Audio\") != 0) {
-	           printf(\"-map:a %s -c:a copy \", _ARG_STREAM[i]);
+	           if(AUDIO_COPY != 0) {
+	                printf(\"-map:a %s -c:a copy \", _ARG_STREAM[i]);
+		   } else {
+		        printf(\"-map:a %s -c:a %s %s \", _ARG_STREAM[i], AUDIO_CODEC, AUDIO_ARGS);
+		   }
               } else if(match(_ARG_TYPE[i], \"Subtitle\") != 0) {
-	           printf(\"-map:s %s -c:s copy \", _ARG_STREAM[i]);
+	           printf(\"-map:s %s -c:s subrip \", _ARG_STREAM[i]);
+              } else if(match(_ARG_TYPE[i], \"Attachment\") != 0) {
+	           printf(\"-map:t %s -c:t copy  \", _ARG_STREAM[i]);
               }
 	   }
 	}
 	"
+ARG_FPS=""
 ARG_STREAM=`echo "${FFPROBE_RESULT}" | grep "Stream"`
-ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk "${__AWK_STREAMDESC}"`
+if [ ${COPY_AUDIOS} -ne 0 ] ; then
+    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=1 "${__AWK_STREAMDESC}"`
+else
+    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=0 -v AUDIO_CODEC="${AUDIO_CODEC}" -v AUDIO_ARGS="${AUDIO_ARGS}" "${__AWK_STREAMDESC}"`
+fi
+ARG_FPS=`echo "${ARG_STREAM}" | gawk "${__AWK_GETFPS}"`
+
+case "${ARG_FPS}" in
+     "23.98" )
+       ARG_FPS="24000/1001"
+       ;;
+     "29.97" )
+       ARG_FPS="30000/1001"
+       ;;
+     "59.94" )
+       ARG_FPS="60000/1001"
+       ;;
+esac
 
 #echo "${ARG_COPYMAP}"
 #echo
@@ -394,15 +621,24 @@ __START_DATE=`date -Iseconds`
 
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
 
+if [ "__x__${ARG_FPS}" != "__n__" ] ; then
+	if [ ${FORCE_FPS} -ne 0 ] ; then
+		FPS_VAL=${BASE_FPS}
+	else
+		FPS_VAL=${ARG_FPS}
+	fi
+else
+	FPS_VAL=${BASE_FPS}
+fi
+
 ${FFMPEG_CMD} -i "${BASEFILE}" \
-			  -map:v 0:0 \
 			  ${ARG_COPYMAP} \
 			  -vf "format=yuv420p10le" \
 			  -threads 4 -filter_complex_threads 4 -filter_threads 4 \
 			  -map_chapters 0 \
 			  -c:v libx265 \
 			  -profile:v main10 \
-			  -r:v 30000/1001 \
+			  -r:v ${FPS_VAL} \
 			  -crf ${CRF_VALUE}  \
 			  ${PRESET_ARG}  \
 			  ${TUNE_ARG} \

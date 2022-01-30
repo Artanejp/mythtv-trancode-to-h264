@@ -1,0 +1,40 @@
+## Setting files for
+
+# Around encoding (mainly for libx265)
+# Threading
+POOL_THREADS=9
+FRAME_THREADS=9
+
+# Encode preset value
+PRESET_VALUE="faster"
+
+# Quant parameters
+CRF_VALUE=21.5
+AQ_VALUE=0.80
+QP_ADAPTATIVE_VALUE=1.20
+
+# Set 1 if use mythtv's database.
+USE_DATABASE=0
+
+# Set 1 if encode with forced FPS.
+FORCE_FPS=0
+#BASE_FPS="24000/1001"
+
+# Using stream number (of FFMPEG) if has multiple video tracks.
+#VIDEO_STREAM="0:0"
+
+# Encode parameters (mostly not need to change)
+#VBV_VALUE=3000
+
+# Set 1 to copy all audio tracks, 0 to re-encode all audio tracks.
+COPY_AUDIOS=1
+# Audio codec when re-encoding .
+AUDIO_CODEC="aac"
+# Encode parameter (see FFMpeg's manuals) of audio codec
+AUDIO_ARGS="-ar 48000 -ab 224k"
+
+
+# Commands
+#FFMPEG_CMD="/usr/bin/ffmpeg"
+#FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+    
