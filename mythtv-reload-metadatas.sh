@@ -7,6 +7,12 @@ POOL_THREADS=5
 FRAME_THREADS=5
 PRESET_VALUE="faster"
 CRF_VALUE=22.5
+CRF_MIN=""
+CRF_MAX=""
+typeset -i AQ_MODE
+AQ_MODE=3
+APPEND_X265_MODE=""
+
 #TUNE_VALUE=grain
 AQ_VALUE=0.95
 QP_ADAPTATIVE_VALUE=1.20
@@ -20,6 +26,18 @@ typeset -i COPY_AUDIOS
 COPY_AUDIOS=1
 AUDIO_CODEC="aac"
 AUDIO_ARGS="-ar 48000 -ab 224k"
+
+HEAD_TITLE=""
+
+typeset -i REPLACE_HEADER
+typeset -i EPISODE_NUM
+APPEND_HEADER="NONE"
+REPLACE_HEADER=0
+EPISODE_NUM=1
+
+typeset -i USE_10BIT 
+USE_10BIT=1
+FILTER_STRING=""
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -188,6 +206,49 @@ for x in "$@"; do \
 	  shift
 	  continue
         ;;
+        --episode-num )
+	  shift
+	  EPISODE_NUM=$1
+	  shift
+	  continue
+        ;;
+        --replace-header )
+	  shift
+	  REPLACE_HEADER=1
+	  continue
+        ;;
+        --no-replace-header | --fixed-header )
+	  shift
+	  REPLACE_HEADER=0
+	  continue
+        ;;
+        --head-title )
+	  shift
+	  HEAD_TITLE="$1"
+	  shift
+	  continue
+        ;;
+        --no-head-title | --reset-head-title )
+	  shift
+	  HEAD_TITLE=""
+	  REPLACE_HEADER=0
+	  continue
+        ;;
+	--append-head-only )
+	  shift
+	  APPEND_HEADER="HEAD_ONLY"
+	  continue
+	;;
+	--append-head-with-number )
+	  shift
+	  APPEND_HEADER="NUMERIC"
+	  continue
+	;;
+	--without-head | --no-append-head )
+	  shift
+	  APPEND_HEADER="NONE"
+	  continue
+	;;
         --with-database | -d1 )
 	  USE_DATABASE=1
 	  shift
@@ -233,6 +294,28 @@ for x in "$@"; do \
 	  shift
 	  continue
         ;;
+        --crf-max )
+	  shift
+	  CRF_MAX=$1
+	  shift
+	  continue
+        ;;
+        --crf-min )
+	  shift
+	  CRF_MIN=$1
+	  shift
+	  continue
+        ;;
+        --reset-crf-max )
+	  shift
+	  CRF_MAX=""
+	  continue
+        ;;
+        --reset-crf-min )
+	  shift
+	  CRF_MIN=""
+	  continue
+        ;;
         --vbv-maxrate | --vbv-max )
 	  shift
 	  VBV_VALUE=$1
@@ -247,6 +330,12 @@ for x in "$@"; do \
         --aq-value )
 	  shift
 	  AQ_VALUE=$1
+	  shift
+	  continue
+        ;;
+        --aq-mode )
+	  shift
+	  AQ_MODE=$1
 	  shift
 	  continue
         ;;
@@ -317,7 +406,13 @@ for x in "$@"; do \
 	;;
     esac
 
+# ToDo
 
+FILTER_STRING_1="${FILTER_STRING_1}"
+
+if [ "___x___${BASEFILE}" = "___x___" ] ; then
+   exit 0
+fi
     ARG_METADATA=""
     ARG_DESC=""
     ARG_SUBTITLE=""
@@ -528,6 +623,7 @@ __AWK_STREAMDESC="
 	   STREAM_NUM=\"\";
 	   gsub(/#/, \"\", __ST_NUM[1]);
 	   gsub(/\\(.*\\)/, \"\", __ST_NUM[2]);
+	   gsub(/\\[.*\\]/, \"\", __ST_NUM[2]); #Todo
 	   
 	   STREAM_NUM=__ST_NUM[1] \":\" __ST_NUM[2];
 	   _ARG_STREAM[inum] = STREAM_NUM;
@@ -554,6 +650,26 @@ __AWK_STREAMDESC="
 	   }
 	}
 	"
+
+declare -a ARG_SUBTITLES
+declare -a ARG_MAPCOPY_SUBS
+typeset -i __sb_num
+__sb_num=1;
+BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
+for __sb in "ass" "ASS" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do 
+    __tmp_sb=""
+    ARG_SUBTITLES[$__sb_num]=""
+    ARG_MAPCOPY_SUBS[$__sb_num]=""
+    if [ -e "${BASEFILE3}.${__sb}" ] ; then
+       __tmp_sb="${BASEFILE3}.${__sb}"
+       ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
+       ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
+      __sb_num=__sb_num+1
+    fi
+done
+#echo ${ARG_SUBTITLES}
+#exit 1
+
 ARG_FPS=""
 ARG_STREAM=`echo "${FFPROBE_RESULT}" | grep "Stream"`
 if [ ${COPY_AUDIOS} -ne 0 ] ; then
@@ -561,6 +677,8 @@ if [ ${COPY_AUDIOS} -ne 0 ] ; then
 else
     ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=0 -v AUDIO_CODEC="${AUDIO_CODEC}" -v AUDIO_ARGS="${AUDIO_ARGS}" "${__AWK_STREAMDESC}"`
 fi
+
+
 ARG_FPS=`echo "${ARG_STREAM}" | gawk "${__AWK_GETFPS}"`
 
 case "${ARG_FPS}" in
@@ -578,6 +696,7 @@ esac
 #echo "${ARG_COPYMAP}"
 #echo
 #exit 1
+
 
 TUNE_ARG=""
 if test "__n__${TUNE_VALUE}" != "__n__" ; then
@@ -597,8 +716,19 @@ fi
 QP_ADAPTATIVE_ARG=""    
 __X265_PARAMS="pools=${POOL_THREADS}:frame_threads=${FRAME_THREADS}"
 __X265_PARAMS="${__X265_PARAMS}:hevc-aq=true"
-#__X265_PARAMS="${__X265_PARAMS}:${AQ_ARG}:aq-mode=4:aq-motion=true"
-__X265_PARAMS="${__X265_PARAMS}:${AQ_ARG}:aq-mode=3"
+
+case "${AQ_MODE}" in
+   "4" )
+      __X265_PARAMS="${__X265_PARAMS}:aq-mode=4:aq-motion=true:${AQ_ARG}"       
+      ;;
+   "1" | "2" | "3" | "0" )
+      __X265_PARAMS="${__X265_PARAMS}:aq-mode=${AQ_MODE}:${AQ_ARG}"
+      ;;
+   * )
+      __X265_PARAMS="${__X265_PARAMS}:aq-mode=3:${AQ_ARG}"
+      ;;
+esac
+
 if test "__n__${QP_ADAPTATIVE_VALUE}" != "__n__" ; then
     __X265_PARAMS="${__X265_PARAMS}:qp-adaptation-range=${QP_ADAPTATIVE_VALUE}"
 fi
@@ -607,6 +737,13 @@ if test "__n__${VBV_VALUE}" != "__n__" ; then
 fi
 #    __X265_PARAMS="${__X265_PARAMS}:pme=true:pmode=true"
 
+if [ "__n__${CRF_MIN}" != "__n__" ] ; then
+    __X265_PARAMS="${__X265_PARAMS}:crf-min=${CRF_MIN}"
+fi
+if [ "__n__${CRF_MAX}" != "__n__" ] ; then
+    __X265_PARAMS="${__X265_PARAMS}:crf-max=${CRF_MAX}"
+fi
+
 __X265_DISP_PARAMS=""
 if test "__n__${PRESET_VALUE}" != "__n__" ; then
     __X265_DISP_PARAMS=":preset=${PRESET_VALUE}"
@@ -614,12 +751,35 @@ fi
 if test "__n__${TUNE_VALUE}" != "__n__" ; then
     __X265_DISP_PARAMS=":tune=${TUNE_VALUE}${__X265_DISP_PARAMS}"
 fi    
-__X265_DISP_PARAMS="crf=${CRF_VALUE}${__X265_DISP_PARAMS}:${__X265_PARAMS}"
+__X265_DISP_PARAMS="crf=${CRF_VALUE}:${__X265_PARAMS}${__X265_DISP_PARAMS}"
 
 
 __START_DATE=`date -Iseconds`
 
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
+EPSTR=""
+TMP_BASE1=""
+TMP_BASE2=""
+
+if [ "__x__${HEAD_TITLE}" != "__x__" ] ; then
+   EPSTR=`printf "%03d" ${EPISODE_NUM}`
+   TMP_BASE1="${HEAD_TITLE}_#${EPSTR} "   
+   TMP_BASE2="${HEAD_TITLE} "   
+fi
+if [ ${REPLACE_HEADER} -ne 0 ] ; then
+   BASEFILE3="${TMP_BASE1}"
+else 
+   case "${APPEND_HEADER}" in
+       NUMERIC )
+         BASEFILE3="${TMP_BASE1}${BASEFILE3}"
+	 ;;
+       HEAD_ONLY )
+         BASEFILE3="${TMP_BASE2}${BASEFILE3}"
+	 ;;
+       * )
+         ;;
+    esac
+fi
 
 if [ "__x__${ARG_FPS}" != "__n__" ] ; then
 	if [ ${FORCE_FPS} -ne 0 ] ; then
@@ -631,13 +791,31 @@ else
 	FPS_VAL=${BASE_FPS}
 fi
 
+APPEND_ARGS_INPUT=""
+APPEND_ARGS_MAPS=""
+#APPEND_ARGS_INPUT=$( for __xx in "${ARG_SUBTITLES[@]}" ; do if [ "__xx__${__xx}" != "__xx__" ] ; then echo "-i \"${__xx}\"" ; fi ; done )
+#echo ${APPEND_ARGS_INPUT}
+#exit 1
+if [ ${USE_10BIT} -ne 0 ] ; then
+   FILTER_FORMAT="format=yuv420p10le"
+   PROFILE_ARG="main10"
+else
+   FILTER_FORMAT="format=yuv420p"
+   PROFILE_ARG="main"
+fi
+if [ "__xx__" != "__xx__${FILTER_STRING_1}" ] ; then
+   FILTER_ARG="${FILTER_STRING_1}:${FILTER_FORMAT}"
+else
+   FILTER_ARG="${FILTER_FORMAT}"
+fi
+
 ${FFMPEG_CMD} -i "${BASEFILE}" \
 			  ${ARG_COPYMAP} \
-			  -vf "format=yuv420p10le" \
+			  -vf "${FILTER_ARG}" \
 			  -threads 4 -filter_complex_threads 4 -filter_threads 4 \
 			  -map_chapters 0 \
 			  -c:v libx265 \
-			  -profile:v main10 \
+			  -profile:v ${PROFILE_ARG} \
 			  -r:v ${FPS_VAL} \
 			  -crf ${CRF_VALUE}  \
 			  ${PRESET_ARG}  \
@@ -650,8 +828,10 @@ ${FFMPEG_CMD} -i "${BASEFILE}" \
 			  -metadata:s:v source="${BASEFILE}" \
 			  -metadata:s:a source="${BASEFILE}" \
 			  -metadata:s:v x265_params="${__X265_DISP_PARAMS}" \
-			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv"
+			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv"\
 
+
+EPISODE_NUM=EPISODE_NUM+1
 
 shift
 done
