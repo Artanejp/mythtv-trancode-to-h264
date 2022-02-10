@@ -965,7 +965,7 @@ x=$ENCMODE
 
 case "$x" in
    "ANIME" | "ANIME_HW" )
-   VIDEO_QUANT=24
+   VIDEO_QUANT=22.2
    VIDEO_MINQ=15
    VIDEO_MAXQ=28
    VIDEO_AQSTRENGTH=0.65
@@ -979,7 +979,7 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
-   VIDEO_QUANT=22.5
+   VIDEO_QUANT=21.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH=0.36
@@ -1012,7 +1012,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=22.5
+   VIDEO_QUANT=22.0
    VIDEO_MINQ=14
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.48
@@ -1051,7 +1051,7 @@ case "$x" in
 
    ;;
    "LIVE_HIGH" | "LIVE_HIGH_HW" )
-   VIDEO_QUANT=24
+   VIDEO_QUANT=21.0
    VIDEO_MINQ=12
    VIDEO_MAXQ=29
    VIDEO_AQSTRENGTH=0.7
@@ -1070,7 +1070,7 @@ case "$x" in
    #VIDEO_FILTERCHAIN_VAAPI_TAIL="hwdownload"
    ;;
    "LIVE_SD_HIGH" | "LIVE_SD_HIGH_HW" | "LIVE_SD_HIGH_HW2" )
-   VIDEO_QUANT=21
+   VIDEO_QUANT=20.5
    VIDEO_MINQ=12
    VIDEO_MAXQ=27
    VIDEO_AQSTRENGTH=0.95
@@ -1093,7 +1093,7 @@ case "$x" in
    VIDEO_QUANT=26.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=57
-   VIDEO_AQSTRENGTH=0.95
+   VIDEO_AQSTRENGTH=1.00
    VIDEO_QCOMP=0.40
    VIDEO_SCENECUT=48
    VIDEO_REF_FRAMES=3
@@ -1161,7 +1161,7 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-     X265_AQ_STRENGTH=1.1
+     X265_AQ_STRENGTH=0.9
      X265_QP_ADAPTATION_RANGE=1.25
    ;;
    ANIME_HW )
@@ -1188,7 +1188,7 @@ case "$x" in
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
      X265_AQ_STRENGTH=0.70
-     X265_QP_ADAPTATION_RANGE=1.15
+     X265_QP_ADAPTATION_RANGE=1.10
 #     X265_PARAMS="ref=4"
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
@@ -1225,12 +1225,12 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-     X265_PRESET="fast"
+     X265_PRESET="veryfast"
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
-     X265_AQ_STRENGTH=0.85
-     X265_QP_ADAPTATION_RANGE=1.5
+     X265_AQ_STRENGTH=0.80
+     X265_QP_ADAPTATION_RANGE=1.20
      
      HW_SCALING="No"
      HWACCEL_DEC="NONE"
@@ -1246,13 +1246,13 @@ case "$x" in
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     X265_PRESET="faster"
+     X265_PRESET="veryfast"
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
-     X265_AQ_STRENGTH=0.80
-     X265_QP_ADAPTATION_RANGE=1.20
+     X265_AQ_STRENGTH=0.90
+     X265_QP_ADAPTATION_RANGE=1.25
      
      #HW_SCALING="No"
      #HWACCEL_DEC="vaapi"
@@ -1325,7 +1325,7 @@ case "$x" in
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.2:0.6"
      
-     X265_AQ_STRENGTH=0.8
+     X265_AQ_STRENGTH=0.75
      X265_QP_ADAPTATION_RANGE=1.2
      
      HWENC_PARAM=" -coder cavlc -qp 23 -quality 2"
@@ -1371,8 +1371,8 @@ case "$x" in
      FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
      
-     X265_AQ_STRENGTH=0.8
-     X265_QP_ADAPTATION_RANGE=1.0
+     X265_AQ_STRENGTH=0.70
+     X265_QP_ADAPTATION_RANGE=1.05
      
      HWENC_PARAM=" -coder cavlc -aspect ${VIDEO_ASPECT} -qp 21 -quality 4 "
      HW_SCALING="No"
@@ -1466,7 +1466,7 @@ case "$x" in
          X265_PRESET="faster"
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
-     X265_QP_ADAPTATION_RANGE=1.35
+     X265_QP_ADAPTATION_RANGE=1.50
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
