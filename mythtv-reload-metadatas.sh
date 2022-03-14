@@ -408,7 +408,7 @@ for x in "$@"; do \
 
 # ToDo
 
-FILTER_STRING_1="${FILTER_STRING_1}"
+FILTER_STRING_1="${FILTER_STRING}"
 
 if [ "___x___${BASEFILE}" = "___x___" ] ; then
    exit 0
@@ -595,6 +595,7 @@ __AWK_GETFPS="
 	   FS=\",\";
    }
    \$1~/^.*Video:/ {
+	  if(match(\$0, /^.*Video:.*\\(attached.*\\)\$/) == 0) {
    	  for(i = 1; i < NF; i++ ) {
 	      if(match(\$i, /^.*fps/)) {
 		  	 gsub(/ /, \"\", \$i);
@@ -608,6 +609,7 @@ __AWK_GETFPS="
 		     printf(\"%s\\n\", \$i);
 		     break;
 	       }
+	       }
 	  }
     }
 "
@@ -619,6 +621,11 @@ __AWK_STREAMDESC="
 	   ST_NUM=\$2;
 	   ST_TYPE=\$3;
 	   
+	   if(match(\$0, /^.*Video:.*\\(attached.*\\)\$/) != 0) {
+	       _ARG_TYPE[inum] = \"Attachment_PIC\";
+	   } else {
+	       _ARG_TYPE[inum] = ST_TYPE;
+           }
 	   N_NUM = split(ST_NUM, __ST_NUM, \":\");
 	   STREAM_NUM=\"\";
 	   gsub(/#/, \"\", __ST_NUM[1]);
@@ -626,8 +633,8 @@ __AWK_STREAMDESC="
 	   gsub(/\\[.*\\]/, \"\", __ST_NUM[2]); #Todo
 	   
 	   STREAM_NUM=__ST_NUM[1] \":\" __ST_NUM[2];
+	   
 	   _ARG_STREAM[inum] = STREAM_NUM;
-	   _ARG_TYPE[inum] = ST_TYPE;
 	   inum++;
 	   next;
 	}
@@ -644,6 +651,8 @@ __AWK_STREAMDESC="
 		   }
               } else if(match(_ARG_TYPE[i], \"Subtitle\") != 0) {
 	           printf(\"-map:s %s -c:s subrip \", _ARG_STREAM[i]);
+              } else if(match(_ARG_TYPE[i], \"Attachment_PIC\") != 0) {
+	           printf(\"-map:v %s -c:%d copy  \", _ARG_STREAM[i], i - 1);
               } else if(match(_ARG_TYPE[i], \"Attachment\") != 0) {
 	           printf(\"-map:t %s -c:t copy  \", _ARG_STREAM[i]);
               }
@@ -803,20 +812,22 @@ else
    FILTER_FORMAT="format=yuv420p"
    PROFILE_ARG="main"
 fi
+
 if [ "__xx__" != "__xx__${FILTER_STRING_1}" ] ; then
-   FILTER_ARG="${FILTER_STRING_1}:${FILTER_FORMAT}"
+   FILTER_ARG="${FILTER_STRING_1},${FILTER_FORMAT}"
 else
    FILTER_ARG="${FILTER_FORMAT}"
 fi
+#echo -i "${BASEFILE}" \
 
 ${FFMPEG_CMD} -i "${BASEFILE}" \
 			  ${ARG_COPYMAP} \
-			  -vf "${FILTER_ARG}" \
-			  -threads 4 -filter_complex_threads 4 -filter_threads 4 \
+			  -threads 8 -filter_complex_threads 8 -filter_threads 8 \
 			  -map_chapters 0 \
-			  -c:v libx265 \
-			  -profile:v ${PROFILE_ARG} \
-			  -r:v ${FPS_VAL} \
+			  -c:v:0 libx265 \
+			  -profile:v:0 ${PROFILE_ARG} \
+			  -r:v:0 ${FPS_VAL} \
+			  -filter:v:0 "${FILTER_ARG}" \
 			  -crf ${CRF_VALUE}  \
 			  ${PRESET_ARG}  \
 			  ${TUNE_ARG} \
@@ -830,7 +841,7 @@ ${FFMPEG_CMD} -i "${BASEFILE}" \
 			  -metadata:s:v x265_params="${__X265_DISP_PARAMS}" \
 			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv"\
 
-
+#exit 0
 EPISODE_NUM=EPISODE_NUM+1
 
 shift
