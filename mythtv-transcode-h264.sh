@@ -1763,9 +1763,15 @@ esac
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 
-${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
-       $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  \
-       -y $TEMPDIR/v1tmp.srt 
+#${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
+#       $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  \
+#       -c:s webvtt \
+#       -y $TEMPDIR/v1tmp.srt 
+
+${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
+       -fix_sub_duration $VIDEO_SKIP  -i "$DIRNAME2/$SRC2"  \
+       -c:s ass -f ass \
+       -y $TEMPDIR/v1tmp.ass
 
 ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn -metadata:s:a:0 real_encoder=aac"
 
@@ -1843,6 +1849,7 @@ if test $FFMPEG_ENC -ne 0; then
 		      -threads ${ENCTHREADS} \
 		      -c:a aac \
 		      -ab 224k -ar 48000 -ac 2 \
+		      -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		      ${ARG_METADATA} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		      -y $TEMPDIR/v1tmp.mkv  
@@ -1868,6 +1875,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -threads ${ENCTHREADS} \
 		  -c:a aac \
 		  -ab 224k -ar 48000 -ac 2 \
+		  -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		  $ARG_METADATA \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv 
@@ -1940,6 +1948,7 @@ elif test $HWENC -ne 0; then
 		       -threads:1 8 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
+		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		       $ARG_METADATA \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
@@ -1999,6 +2008,7 @@ elif test $HWENC -ne 0; then
 		       -threads:1 4 \
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
+		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		       ${ARG_METADATA} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
@@ -2062,8 +2072,8 @@ if test $ERRFLAGS -ne 0; then
 fi
 
 
-if test -s "$TEMPDIR/v1tmp.srt" ; then
-    ARG_SUBTXT="-i $TEMPDIR/v1tmp.srt"
+if test -s "$TEMPDIR/v1tmp.ass" ; then
+    ARG_SUBTXT="-f ass -i $TEMPDIR/v1tmp.ass "
     ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
                  -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
 		 -metadata:s:a:0 language=jpn"
