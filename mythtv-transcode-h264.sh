@@ -578,7 +578,7 @@ echo "${__tmpv1}"
 }
 
 # Not substitude slash.
-function change_arg_file2() {
+function change_arg_description() {
 # $1 = str
 __SRCFILE="$1"
 __TMPF=${TEMPDIR}/__tmpfile
@@ -590,9 +590,11 @@ s/'/’/g
 s/!/！/g
 s/?/？/g
 s/\#/＃/g
+s/\//／/g
 s/=/＝/g
 s/ /　/g
 s/"\\"/＼/g
+s/:/：/g
 s/\;/；/g
 s/)/）/g
 s/(/（/g
@@ -601,8 +603,8 @@ s/"\"/＼/g
 s/\]/］/g
 s/</＜/g
 s/>/＞/g
-s/"\n"/_/g
 EOF
+
 __tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript12"`
 #rm ${TEMPDIR}/__tmpscript12
 echo "${__tmpv1}"
@@ -715,7 +717,7 @@ mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$T
 #      logging ${ARG_GENRE}
     fi
     if [ -n "${__N_DESC}" ] ; then
-      ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
+      ARG_DESC=$(change_arg_description "$TEMPDIR/desc.txt")
       ARG_METADATA+=(-metadata:g)
       ARG_METADATA+=(description="${ARG_DESC}")
 #      logging ${ARG_DESC}
@@ -759,13 +761,13 @@ fi
 
 
 logging "TITLE:"
-logging ${ARG_TITLE}
+logging "${ARG_TITLE}"
 logging "START:"
-logging ${ARG_STARTTIME}
+logging "${ARG_STARTTIME}"
 logging "SUBTITLE:"
-logging ${ARG_SUBTITLE}
-logging "DESCRIPTION:"
-logging ${ARG_DESC}
+logging "${ARG_SUBTITLE}"
+#logging "DESCRIPTION:"
+#logging "${ARG_DESC}"
 
 
 
@@ -1871,6 +1873,7 @@ if test $FFMPEG_ENC -ne 0; then
 	echo "${ARG_METADATA[@]}"
 
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+		      -map:v 0:0 -map:a 0:1 \
 	              -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
@@ -1902,6 +1905,7 @@ if test $FFMPEG_ENC -ne 0; then
 	logging "${ARG_METADATA[@]}"
     
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	          -map:v 0:0 -map:a 0:1 \
 	          -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
@@ -1982,6 +1986,7 @@ elif    test $HWENC -ne 0; then
 	logging "${ARG_METADATA[@]}"
 	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+		      -map:v 0:0 -map:a 0:1 \
 		       -r:v ${FRAMERATE} \
 		       -filter_complex ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v h264_vaapi \
@@ -2040,6 +2045,7 @@ elif    test $HWENC -ne 0; then
 
 	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+  		       -map:v 0:0 -map:a 0:1 \
 	               -profile:v ${X265_PROFILE} \
 		       -aud 1 -level 51 \
 		       -r:v ${FRAMERATE} \
