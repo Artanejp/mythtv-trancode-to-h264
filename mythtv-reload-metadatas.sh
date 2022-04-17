@@ -2,6 +2,7 @@
 
 BASEFILE=$1;
 
+declare -A ARG_METADATA
 #!/bin/bash
 POOL_THREADS=5
 FRAME_THREADS=5
@@ -28,6 +29,7 @@ AUDIO_CODEC="aac"
 AUDIO_ARGS="-ar 48000 -ab 224k"
 
 HEAD_TITLE=""
+COMMENTS=""
 
 typeset -i REPLACE_HEADER
 typeset -i EPISODE_NUM
@@ -413,7 +415,7 @@ FILTER_STRING_1="${FILTER_STRING}"
 if [ "___x___${BASEFILE}" = "___x___" ] ; then
    exit 0
 fi
-    ARG_METADATA=""
+    unset ARG_METADATA[@]
     ARG_DESC=""
     ARG_SUBTITLE=""
     ARG_EPISODE=""
@@ -528,51 +530,50 @@ ARG_CHANID=$(change_arg_file "$TEMPDIR/chanid.txt")
 ARG_REALTITLE=${ARG_TITLE}
 ARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}"
 
-ARG_METADATA="-map_metadata:g 0 "
 
-if [ "__x__${ARG_TITLE}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g title=${ARG_TITLE} "
-fi
 if [ "__x__${ARG_SUBTITLE}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g subtitle=${ARG_SUBTITLE} "
-fi
-if [ "__x__${ARG_DESC}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g description=${ARG_DESC} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
 fi
 if [ "__x__${ARG_REALTITLE}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g realtitle=${ARG_REALTITLE} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(realtitle="${ARG_REALTITLE}")
 fi
 if [ "__x__${ARG_EPISODE}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g episode=${ARG_EPISODE} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(episode="${ARG_EPISODE}")
 fi
 if [ "__x__${ARG_SEASON}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g season=${ARG_SEASON} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(season="${ARG_SEASON}")
 fi
 if [ "__x__${ARG_GENRE}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g genre=${ARG_GENRE} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(genre="${ARG_GENRE}")
 fi
 if [ "__x__${RECID}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g recordedid=${RECID} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(recordedid="${RECID}")
 fi
 if [ "__x__${ARG_CHANID}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g channel_id=${ARG_CHANID} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(channel_id="${ARG_CHANID}")
 fi
 if [ "__x__${ARG_STARTTIME}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g starttime_utc=${ARG_STARTTIME} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(starttime_utc="${ARG_STARTTIME}")
 fi
 if [ "__x__${ARG_ENDTIME}" != "__x__" ] ; then
-   ARG_METADATA="${ARG_METADATA} -metadata:g endtime_utc=${ARG_ENDTIME} "
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=(endtime_utc="${ARG_ENDTIME}")
 fi
 fi
 else
-	# WITHOUT DATABASE
-	ARG_METADATA="-map_metadata:g 0 "
-	
-	#ARG_TITLE="${ARG_KEY}"
-	if [ "__x__${ARG_TITLE}" != "__x__" ] ; then
-		ARG_METADATA="${ARG_METADATA} -metadata:g title=${ARG_TITLE} "
-	fi
-
+    # WITHOUT DATABASE
+    if [ "___x___${COMMENTS}" != "___x___" ] ; then
+        echo "${COMMENTS}" >> $TEMPDIR/desc.txt
+        ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
+    fi    
 fi
 cat <<EOF >${TEMPDIR}/__tmpscript14
 s/\ /　/g
@@ -664,16 +665,17 @@ declare -a ARG_SUBTITLES
 declare -a ARG_MAPCOPY_SUBS
 typeset -i __sb_num
 __sb_num=1;
+
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
 for __sb in "ass" "ASS" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do 
     __tmp_sb=""
     ARG_SUBTITLES[$__sb_num]=""
     ARG_MAPCOPY_SUBS[$__sb_num]=""
     if [ -e "${BASEFILE3}.${__sb}" ] ; then
-       __tmp_sb="${BASEFILE3}.${__sb}"
-       ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
-       ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
-      __sb_num=__sb_num+1
+	__tmp_sb="${BASEFILE3}.${__sb}"
+	ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
+	ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
+	__sb_num=__sb_num+1
     fi
 done
 #echo ${ARG_SUBTITLES}
@@ -772,9 +774,22 @@ TMP_BASE2=""
 
 if [ "__x__${HEAD_TITLE}" != "__x__" ] ; then
    EPSTR=`printf "%03d" ${EPISODE_NUM}`
-   TMP_BASE1="${HEAD_TITLE}_#${EPSTR} "   
-   TMP_BASE2="${HEAD_TITLE} "   
+   TMP_BASE1="${HEAD_TITLE}_#${EPSTR}"   
+   TMP_BASE2="${HEAD_TITLE}"   
 fi
+
+if [ "__x__${ARG_TITLE}" = "__x__" ] ; then
+    if [ "__x__${TMP_BASE2}" != "__x__" ] ; then
+#         ARG_METADATA="-metadata:g title=\"${TMP_BASE2}\" ${ARG_METADATA} "
+         ARG_TITLE=`echo -e "${TMP_BASE2}"`
+    fi
+fi
+
+if [ "__x__${ARG_DESC}" != "__x__" ] ; then
+   ARG_DESC=`echo -e "${ARG_DESC}"`
+fi
+
+
 if [ ${REPLACE_HEADER} -ne 0 ] ; then
    BASEFILE3="${TMP_BASE1}"
 else 
@@ -790,21 +805,34 @@ else
     esac
 fi
 
-if [ "__x__${ARG_FPS}" != "__n__" ] ; then
-	if [ ${FORCE_FPS} -ne 0 ] ; then
-		FPS_VAL=${BASE_FPS}
-	else
-		FPS_VAL=${ARG_FPS}
-	fi
+if [ ${FORCE_FPS} -eq 0 ] ; then
+    if [ "__x__" != "__x__${FILTER_STRING_1}" ] ; then
+	FILTER_STRING_1="${FILTER_STRING_1},vfrdet"
+    else
+	FILTER_STRING_1="vfrdet"
+    fi
+    FPS_VAL="-vsync vfr"
+    ARG_METADATA+=(-metadata:s:v) 
+    ARG_METADATA+=(framerate_type=vfr)
 else
-	FPS_VAL=${BASE_FPS}
+    if [ "__x__${ARG_FPS}" != "__n__" ] ; then
+	FPS_VAL="-r ${ARG_FPS}"
+	ARG_METADATA+=(-metadata:s:v) 
+	ARG_METADATA+=(framerate_type=fixed,"${ARG_FPS}") 
+    else
+	FPS_VAL="-r ${BASE_FPS}"
+	ARG_METADATA+=(-metadata:s:v)
+	ARG_METADATA+=(framerate_type=fixed,$"{BASE_FPS}")
+    fi
 fi
+
 
 APPEND_ARGS_INPUT=""
 APPEND_ARGS_MAPS=""
 #APPEND_ARGS_INPUT=$( for __xx in "${ARG_SUBTITLES[@]}" ; do if [ "__xx__${__xx}" != "__xx__" ] ; then echo "-i \"${__xx}\"" ; fi ; done )
-#echo ${APPEND_ARGS_INPUT}
+#echo ${BASEFILE3}
 #exit 1
+
 if [ ${USE_10BIT} -ne 0 ] ; then
    FILTER_FORMAT="format=yuv420p10le"
    PROFILE_ARG="main10"
@@ -818,32 +846,48 @@ if [ "__xx__" != "__xx__${FILTER_STRING_1}" ] ; then
 else
    FILTER_ARG="${FILTER_FORMAT}"
 fi
-#echo -i "${BASEFILE}" \
 
+ARG_METADATA+=(-metadata:g)
+ARG_METADATA+=(source="${BASEFILE}")
+ARG_METADATA+=(-metadata:s:v)
+ARG_METADATA+=(source="${BASEFILE}")
+ARG_METADATA+=(-metadata:s:a)
+ARG_METADATA+=(source="${BASEFILE}")
+
+echo ${ARG_METADATA[@]}
+
+if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
+    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(filter_params="${FILTER_ARG}")
+fi
+if [ "__xx__" != "__xx__${__X265_DISP_PARAMS}" ] ; then
+    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(x265_params="${__X265_DISP_PARAMS}")
+fi
+echo "${BASEFILE}" \
+     
 ${FFMPEG_CMD} -i "${BASEFILE}" \
 			  ${ARG_COPYMAP} \
 			  -threads 8 -filter_complex_threads 8 -filter_threads 8 \
 			  -map_chapters 0 \
 			  -c:v:0 libx265 \
 			  -profile:v:0 ${PROFILE_ARG} \
-			  -r:v:0 ${FPS_VAL} \
-			  -filter:v:0 "${FILTER_ARG}" \
+			  ${FPS_VAL} \
+			  -filter:v "${FILTER_ARG}" \
 			  -crf ${CRF_VALUE}  \
 			  ${PRESET_ARG}  \
 			  ${TUNE_ARG} \
 			  -x265-params "${__X265_PARAMS}" \
 			  -map_metadata:g 0 \
 			  -map_chapters 0 \
-			  ${ARG_METADATA} \
-			  -metadata:g source="${BASEFILE}" \
-			  -metadata:s:v source="${BASEFILE}" \
-			  -metadata:s:a source="${BASEFILE}" \
-			  -metadata:s:v x265_params="${__X265_DISP_PARAMS}" \
-			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv"\
+			  -metadata:g title="${ARG_TITLE}" \
+			  -metadata:g description="${ARG_DESC}" \
+			  ${ARG_METADATA[@]} \
+			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
 
-#exit 0
+
+#exit 1
 EPISODE_NUM=EPISODE_NUM+1
 
 shift
 done
-
