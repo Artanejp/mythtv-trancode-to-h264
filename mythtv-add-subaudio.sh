@@ -72,8 +72,8 @@ __AWK_AUDIODESC="
 	   gsub(/\\(.*\\)/, \"\", __ST_NUM[2]);
 	   gsub(/\\[.*\\]/, \"\", __ST_NUM[2]); #Todo
 
-	   gsub(/.*\\[/, \"\", __ST_ID); #Todo
-	   gsub(/\\].*/, \"\", __ST_ID); #Todo
+	   gsub(/\\[.*/, \"\", __ST_ID); #Todo
+	   //gsub(/\\].*/, \"\", __ST_ID); #Todo
 
 	   STREAM_NUM=__ST_NUM[1] \":\" __ST_NUM[2];
 	   
@@ -86,7 +86,7 @@ __AWK_AUDIODESC="
 	   for(i = 1; i <= inum; i++) {
 	      
 	      if(match(_ARG_TYPE[i], \"Audio\") != 0) {
-	         if(match(_ARG_AID[i], \"0x111\") != 0) {
+	         if(_ARG_AID[i] >= 2) {
 	                printf(\"-map:a %s  \", _ARG_STREAM[i]);
 	         }
 	       }
