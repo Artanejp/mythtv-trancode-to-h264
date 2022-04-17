@@ -1,13 +1,14 @@
 #
 USEOPENCL=0
 DATABASEUSER="mythtv"
-DATABASEPASSWORD=""
+DATABASEPASSWORD="xxxxxxxxxx"
 
-ENCTHREADS=5
-POOLTHREADS=6
-FRAME_THREADS=6
+ENCTHREADS=6
+POOLTHREADS=7
+FRAME_THREADS=7
 FILTER_THREADS=4
 FILTER_COMPLEX_THREADS=4
+
 
 NICE_VALUE=19
 IONICE_ARGS="-n 7"
@@ -17,6 +18,5 @@ IONICE_ARGS="-n 7"
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 #FFMPEG_CMD="taskset --cpu-list 3,4,5,9,10,11 /usr/bin/ffmpeg"
-#FFMPEG_CMD="taskset --cpu-list 0,2,4,6,8,10 /usr/bin/ffmpeg"
 #FFMPEG_CMD="taskset 0xfbe /usr/local/bin/ffmpeg-arib"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
