@@ -75,11 +75,11 @@ X264_BITRATE="2000"
 X264_PROFILE="high"
 
 X265_PROFILE="main"
-X265_PRESET="fast"
+X265_PRESET="faster"
 X265_PARAMS=""
 X265_AQ_STRENGTH=1.0
 X265_QP_ADAPTATION_RANGE=1.0
-
+X265_AQ_MODE=3
 
 FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE} -preset medium"
 FFMPEG_X265_FRAMES1=""
@@ -609,7 +609,7 @@ echo "${__tmpv1}"
 }
 
 
-ARG_METADATA=""
+typeset -A ARG_METADATA
 
 ARG_DESC=""
 ARG_SUBTITLE=""
@@ -619,21 +619,26 @@ ARG_ONAIR=""
 __N_TITLE=""
 
 
+unset ARG_METADATA[@]
 if [ -n "${VIDEO_DESC}" ] ; then
    ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
-   ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
+   ARG_METADATA+=(-metadata:g)
+   ARG_METADATA+=(description="${ARG_DESC}")
 fi
 if [ -n "${VIDEO_EPISODE}" ] ; then
    ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata episode_id=\"${ARG_EPISODE}\""
+   ARG_METADATA+=(-metadata:g)
+   ARG_METADATA+=(episode="${ARG_EPISODE}")
 fi
 if [ -n "${VIDEO_SUBTITLE}" ] ; then
    ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
-   ARG_METADATA="${ARG_METADATA} -metadata subtitle=\"${ARG_SUBTITLE}\""
+   ARG_METADATA+=(-metadata:g)
+   ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
 fi
 if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_ONAIR="${VIDEO_ONAIR}"
-   ARG_METADATA="${ARG_METADATA} -metadata date=\"${ARG_ONAIR}\""
+   ARG_METADATA+=(-metadata:g)
+   ARG_METADATA+=(date="${ARG_ONAIR}")
 fi
 if test $N_QUERY_ID -gt 0; then
   logging "QUERY JOBQUEUE id ${N_QUERY_ID}"
@@ -645,7 +650,7 @@ if test $N_QUERY_ID -gt 0; then
   echo "SELECT chanid from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getchanid.query.sql"
   #logging `cat "$TEMPDIR/getchanid.query.sql"`
   mysql -B -N --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" >"$TEMPDIR/chanid.txt"
-  loggind "SID:"
+  logging "SID:"
   logging `cat "$TEMPDIR/chanid.txt"`
 
   echo "SELECT starttime from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/getstarttime.query.sql"
@@ -699,17 +704,20 @@ mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$T
 #    if [ -n "${__N_TITLE}" ] ; then
 #      change_arg_file "$TEMPDIR/title.txt"
       ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata real_title=\"${ARG_TITLE}\""
+      ARG_METADATA+=(-metadata:g)
+      ARG_METADATA+=(real_title="${ARG_TITLE}")
 #      logging ${ARG_TITLE}
 #    fi
     if [ -n "${__N_GENRE}" ] ; then
       ARG_GENRE=$(change_arg_file "$TEMPDIR/category.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata genre=\"${ARG_GENRE}\""
+      ARG_METADATA+=(-metadata:g)
+      ARG_METADATA+=(genre="${ARG_GENRE}")
 #      logging ${ARG_GENRE}
     fi
     if [ -n "${__N_DESC}" ] ; then
       ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
-      ARG_METADATA="${ARG_METADATA} -metadata description=\"${ARG_DESC}\""
+      ARG_METADATA+=(-metadata:g)
+      ARG_METADATA+=(description="${ARG_DESC}")
 #      logging ${ARG_DESC}
     fi
     if [ -n "${__N_SUBTITLE}" ] ; then
@@ -720,10 +728,13 @@ mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$T
 #      __TMPARG_TITLE=`echo "${__TMPARG_TITLE}" | cut -c -16 -z`
         __TMPARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}" 
 
-      ARG_METADATA="${ARG_METADATA} -metadata title=\"${__TMPARG_TITLE}\""
-      ARG_METADATA="${ARG_METADATA} -metadata subtitle=\"${ARG_SUBTITLE}\""
+	ARG_METADATA+=(-metadata:g)
+	ARG_METADATA+=(title="${__TMPARG_TITLE}")
+	ARG_METADATA+=(-metadata:g)
+	ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
     else
-      ARG_METADATA="${ARG_METADATA} -metadata title=\"${ARG_TITLE}\""
+	ARG_METADATA+=(-metadata)
+	ARG_METADATA+=(title="${ARG_TITLE}")
 #      logging ${ARG_SUBTITLE}
     fi
     if [ $F_CHANID -eq 0 ]; then
@@ -739,11 +750,12 @@ fi
 if [ -z "${ARG_STARTTIME}" ] ; then
     ARG_STARTTIME="${I_STARTTIME}"
 fi
-    if [ -n "${__N_RECID}" ] ; then
+if	 [ -n "${__N_RECID}" ] ; then
       ARG_RECID=${__N_RECID}
-      ARG_METADATA="${ARG_METADATA} -metadata recorded_id=${ARG_RECID}"
+      ARG_METADATA+=(-metadata:g)
+      ARG_METADATA+=(recorded_id="${ARG_RECID}")
 #      logging ${ARG_GENRE}
-    fi
+fi
 
 
 logging "TITLE:"
@@ -1187,8 +1199,11 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
+     X265_PRESET="faster"
      X265_AQ_STRENGTH=0.70
      X265_QP_ADAPTATION_RANGE=1.10
+     X265_AQ_MODE=4
+
 #     X265_PARAMS="ref=4"
      #HW_SCALING="Yes"
      #HWACCEL_DEC="vaapi"
@@ -1225,7 +1240,7 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-     X265_PRESET="veryfast"
+     X265_PRESET="faster"
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
@@ -1246,13 +1261,17 @@ case "$x" in
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     X265_PRESET="veryfast"
-
+#     if [ $USE_60FPS -ne 0 ] ; then
+#         X265_PRESET="faster"
+#     else
+#         X265_PRESET="veryfast"
+#     fi
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
      X265_AQ_STRENGTH=0.90
      X265_QP_ADAPTATION_RANGE=1.25
+     X265_AQ_MODE=3
      
      #HW_SCALING="No"
      #HWACCEL_DEC="vaapi"
@@ -1467,6 +1486,7 @@ case "$x" in
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
+     X265_AQ_MODE=2
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -1761,6 +1781,7 @@ esac
 
 
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
+
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 
 #${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
@@ -1773,17 +1794,23 @@ ${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
        -c:s ass -f ass \
        -y $TEMPDIR/v1tmp.ass
 
-ARG_METADATA="${ARG_METADATA} -metadata:s:a:0 language=jpn -metadata:s:a:0 real_encoder=aac"
+ARG_METADATA+=(-metadata:s:a:0)
+ARG_METADATA+=(language=jpn)
+ARG_METADATA+=(-metadata:s:a:0)
+ARG_METADATA+=(real_encoder=aac)
 
 DISPLAY_SINK_PARAM="filter_threads=${FILTER_THREADS}:filter_complex_threads=${FILTER_COMPLEX_THREADS}"
-DISPLAY_SINK_PARAM="-metadata:s:v:0 encode_threads=\"${DISPLAY_SINK_PARAM}\""
-ARG_METADATA="${ARG_METADATA}  -metadata:g source=\"${SRC2}\""
+
+ARG_METADATA+=(-metadata:g)
+ARG_METADATA+=(source="${SRC2}")
 
 __ENCODE_START_DATE=`date --rfc-3339=ns`
 
 DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
+
+
+
 if test $FFMPEG_ENC -ne 0; then
-    DISPLAY_FILTERCHAIN="-metadata:s:v:0 filterchains=\"vf:${DISPLAY_FILTERCHAIN}\""
     
     if test ${USE_X265} -ne 0; then
     
@@ -1797,10 +1824,11 @@ if test $FFMPEG_ENC -ne 0; then
 	X265_THREAD_PARAMS="frame-threads=${FRAME_THREADS}:pools=${POOLTHREADS}"
 	#X265_THREAD_PARAMS="${X265_THREAD_PARAMS}:pme=true:pmode=true"
 	
-	X265_AQ_PARAMS="hevc-aq=true:aq-mode=4"
+	X265_AQ_PARAMS="hevc-aq=true:aq-mode=${X265_AQ_MODE}"
 	X265_AQ_PARAMS="${X265_AQ_PARAMS}:aq-strength=${X265_AQ_STRENGTH}"
 	X265_AQ_PARAMS="${X265_AQ_PARAMS}:qp-adaptation-range=${X265_QP_ADAPTATION_RANGE}"
 	#X265_AQ_PARAMS="${X265_AQ_PARAMS}:aq-motion=true"
+	
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 		X265_PARAMS="${X265_PARAMS}:"
 	fi
@@ -1823,20 +1851,25 @@ if test $FFMPEG_ENC -ne 0; then
 	if test "__n__${X265_PARAMS}" != "__n__"; then
 	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
 	fi
-	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=libx265"
-	
-	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params="
-	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}\"profile=${X265_PROFILE}"
+
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(real_encoder=libx265)
+
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:profile=${X265_PROFILE}"
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:preset=${X265_PRESET}"
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${__QUANT_TYPE}=${VIDEO_QUANT}"
-	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${X265_PARAMS}\""
-
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
-	logging ${ARG_METADATA}
+	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${X265_PARAMS}"
 	
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
+
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	echo "${ARG_METADATA[@]}"
+
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 	              -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
@@ -1850,18 +1883,23 @@ if test $FFMPEG_ENC -ne 0; then
 		      -c:a aac \
 		      -ab 224k -ar 48000 -ac 2 \
 		      -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
-		      ${ARG_METADATA} \
+		      ${ARG_METADATA[@]} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		      -y $TEMPDIR/v1tmp.mkv  
+		      -y $TEMPDIR/v1tmp.mkv
+	
     else
-	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=libx264"
-	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}\""
+	
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(real_encoder=libx264)
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_params="profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}")
 
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
-	logging ${ARG_METADATA}
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	
+	logging "${ARG_METADATA[@]}"
     
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 	          -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
@@ -1871,19 +1909,21 @@ if test $FFMPEG_ENC -ne 0; then
 		  $FFMPEG_X264_HEAD \
 		  $FFMPEG_X264_FRAMES1 \
 		  $FFMPEG_X264_AQ \
-		  -x264-params $FFMPEG_X264_PARAM \
+		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
 		  -c:a aac \
 		  -ab 224k -ar 48000 -ac 2 \
 		  -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
-		  $ARG_METADATA \
+		  ${ARG_METADATA[@]} \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv 
-
-    #    -filter_complex_threads 4 -filter_threads 4 \
 	fi
-elif test $HWENC -ne 0; then
-    DISPLAY_FILTERCHAIN="-metadata:s:v:0 filterchains=\"filter_complex:${DISPLAY_FILTERCHAIN}\""
+    
+    #    -filter_complex_threads 4 -filter_threads 4 \
+elif    test $HWENC -ne 0; then
+	DISPLAY_FILTERCHAIN="filter_complex:${DISPLAY_FILTERCHAIN}"
+	
+    
     __HWENC_AWK=" 
     BEGIN { 
     } 
@@ -1904,6 +1944,7 @@ elif test $HWENC -ne 0; then
              printf(\"%s\", __OUTSTR);
 	 }
 	 "
+    
     if test $IS_HWENC_USE_HEVC -eq 0; then
 
         HWENC_PARAM=""
@@ -1926,14 +1967,19 @@ elif test $HWENC -ne 0; then
 	HWENC_PARAM="${HWENC_PARAM} -bufsize ${VIDEO_BUFSIZE}"
 	
 	DISPLAY_HWENC_PARAM=`echo "${HWENC_PARAM}" | gawk "${__HWENC_AWK}"`
-	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}\""
+	DISPLAY_ENCODER_PARAMS="profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}"
 
-	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=h264_vaapi"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
-	logging ${ARG_METADATA}
+
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(real_encoder=h264_vaapi)
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	
+	logging "${ARG_METADATA[@]}"
 	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 		       -r:v ${FRAMERATE} \
@@ -1949,11 +1995,12 @@ elif test $HWENC -ne 0; then
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
 		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
-		       $ARG_METADATA \
+		       ${ARG_METADATA[@]} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    
-	    #    -c:v hevc_vaapi \
+		       #    -c:v hevc_vaapi \
+			   
     else
 	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
         HWENC_PARAM=""
@@ -1977,20 +2024,19 @@ elif test $HWENC -ne 0; then
 	HWENC_PARAM="${HWENC_PARAM} -bufsize ${VIDEO_BUFSIZE}"
 	
 	DISPLAY_HWENC_PARAM=`echo "${HWENC_PARAM}" | gawk "${__HWENC_AWK}"`
-	DISPLAY_ENCODER_PARAMS="-metadata:s:v:0 encode_params=\"profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}\""
-
-	
 	DISPLAY_SINK_PARAM="${DISPLAY_SINK_PARAM}:threads(0)=4:threads(1)=4"
-	echo
-	echo "${DISPLAY_HWENC_PARAM}"
-	echo
 	
-	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FFMPEG_ENCODER}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_SINK_PARAM}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_ENCODER_PARAMS}"
-	ARG_METADATA="${ARG_METADATA} ${DISPLAY_FILTERCHAIN}"
-	logging ${ARG_METADATA}
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(real_encoder=hevc_vaapi)
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_params="profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}")
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA+=(-metadata:s:v:0)
+	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	
+
+	logging "${ARG_METADATA[@]}"
 
 	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
@@ -2009,12 +2055,13 @@ elif test $HWENC -ne 0; then
 		       -r:v ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
 		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
-		       ${ARG_METADATA} \
+		       ${ARG_METADATA[@]} \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		       -y $TEMPDIR/v1tmp.mkv  \
-	    
-	    #    -c:v hevc_vaapi \
-    fi
+		       -y $TEMPDIR/v1tmp.mkv 
+
+	
+ #    -c:v hevc_vaapi \
+		      fi
 fi
 
 #DEC_VIDEO_PID=$!
