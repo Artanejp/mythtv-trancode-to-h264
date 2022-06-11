@@ -115,7 +115,7 @@ for i in ${__TSLIST} ; do
       if [ $__xnum -eq 1 ] ; then
          ARG_MAP="-ss 00:00:15 ${ARG_MAP}"
       fi
-      ${FFMPEG_CMD} -i "${i}" ${ARG_MAP} -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 -y "${WAVNAME}"
+      ${FFMPEG_CMD} -i "${i}" ${ARG_MAP} -ac 2 -ar 48000 -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 -y "${WAVNAME}"
       if [ -e "${WAVNAME}" ] ; then
          __WAVLIST="${__WAVLIST} ${WAVNAME}"
 	 __slcount=1
