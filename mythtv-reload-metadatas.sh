@@ -29,6 +29,7 @@ AUDIO_CODEC="aac"
 AUDIO_ARGS="-ar 48000 -ab 224k"
 
 HEAD_TITLE=""
+META_TITLE=""
 COMMENTS=""
 
 typeset -i REPLACE_HEADER
@@ -37,9 +38,13 @@ APPEND_HEADER="NONE"
 REPLACE_HEADER=0
 EPISODE_NUM=1
 
+EPISODES_LIST_FILE=""
+
 typeset -i USE_10BIT 
 USE_10BIT=1
 FILTER_STRING=""
+typeset -i PREFETCH_FILE
+PREFETCH_FILE=0
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -57,7 +62,12 @@ elif [ -e $HOME/.mythtv-reload-metadatas ]; then
    . $HOME/.mythtv-reload-metadatas
 fi
 
-
+if [ "__x__${EPISODES_LIST_FILE}" = "__x__" ] ; then
+    if [ -e "$PWD/episodes_list.txt" ]; then
+       EPISODES_LIST_FILE="$PWD/episodes_list.txt"
+    fi
+fi
+ 
 function logging() {
    __str="$@"
    echo ${__str} | logger -t "MYTHTV.RENAME[${BASHPID}]"
@@ -128,6 +138,135 @@ echo "${__tmpv1}"
 }
 
 #"
+__AWK_EPLIST_GETDEFINES="
+	function check_define(type, defstr, defnum, src, ans) {
+		ans=\"\";
+		if(isarray(src)) {
+			ii=1;
+			for(ss in defstr) {
+				#printf(\"%s %s\\n\\r\", type, defstr[ss]);
+				if(match(defstr[ss], type)) {
+					#if(src[defnum[ii]] != \"\") { 
+						ans=src[defnum[ii]];	  
+						return ans;
+					#}	
+				}
+				ii++;				
+			}
+		}
+		return ans;
+	}
+    BEGIN {
+		GET_BEGIN=0;
+		__DEFINES=1;
+		__EP_FIELDS=0;
+		__TITLE_FIELDS=0;
+		FS=\"[\t ]+\";
+	}
+	/@DEFINE.*\$/ {
+		if(GET_BEGIN == 0) {
+			if(NF >= 3) {
+				__DEFNUM[__DEFINES] = \$2;
+				__DEFSTR[__DEFINES] = \$3;
+				__DEFINES++;
+				#printf(\"@DEFINE %s=%s\\n\\r\", __DEFNUM[__DEFINES-1], __DEFSTR[__DEFINES-1]); 
+			}
+		}
+		next;
+	}
+	/@BEGIN.*\$/ {
+		if(GET_BEGIN == 0) {
+			if(match(\$2, \"EPISODES\")) {
+				delete __EPISODES_ARRAY;
+				FS=\"[\\t ]+\";
+				GET_BEGIN=1;
+				GET_TITLE=0;
+			} else if(match(\$2, \"DEFINE\")) {
+				# GET TITLE
+				delete __TITLE_ARRAY;
+				FS=\"[\\t ]+\";
+				GET_BEGIN=1;
+				GET_TITLE=1;		
+			} 
+		}
+		next;
+	}	
+	/^@END/ {
+		if(GET_BEGIN != 0) {
+			FS=\" \";
+			GET_BEGIN=0;
+			GET_TITLE=0;
+		}
+		#print \"end\\n\";
+		next;
+	}
+	/^#.*$/ {
+		#print \"comment x\\n\";
+	}  
+	/^#$/ {
+		#print \"comment 0\\n\";
+	}  
+	{
+		if(GET_BEGIN != 0) {
+			if(GET_TITLE != 0) {
+				for(xx = 1; xx <= NF; xx++) {
+					__TITLE_ARRAY[xx]=\$xx;
+					#printf(\"%s\\n\\r\", \$xx);
+				}
+				if(NF >= 1) {
+					__TITLE_FIELDS=NF;
+				}
+			} else {
+				NUM=\$1;
+				if(NUM==__EPNUM) {
+					for(xx = 1; xx <= NF; xx++) {
+						__EPISODES_ARRAY[xx]=\$xx;
+						#printf(\"%s\\n\\r\", \$xx);
+					}
+					if(NF > 1) {
+						__EP_FIELDS=NF;
+					}
+				}
+			}  
+		}
+		next;		
+	}
+	END {
+		#if(!isarray(__EPISODES_ARRAY)) {
+		#	exit 1;
+		#}
+		#if(!isarray(__TITLE_ARRAY)) {
+		#	exit 1;
+		#}
+		#for(xx in __TITLE_ARRAY) {
+		#	printf(\"%s\\n\\r\", __EPISODES_ARRAY[xx]);
+		#}
+		#exit 0;
+		ans=\"\";
+		if(match(_TYPE, \"description\")) {
+			ii=1;
+			for(xx in __TITLE_ARRAY) {
+				ans = ans  __TITLE_ARRAY[xx]  \":\\t\" __EPISODES_ARRAY[xx]  \"\\n\\r\";
+				ii++;
+			}
+			for(ij = ii ; ij <= __EPISODE_FIELDS; ij++) {
+				ans = ans  \"\\t\" __EPISODES_ARRAY[ij]  \"\\n\\r\";
+			}
+			printf(\"%s\", ans);
+		} else if(match(_TYPE, \"title\")) {
+			ans=check_define(\"SUBTITLE\", __DEFSTR, __DEFNUM, __EPISODES_ARRAY, ans);
+			printf(\"%s\", ans);
+		} else if(match(_TYPE, \"date\")) {
+			ans=check_define(\"BROADCAST_DATE\", __DEFSTR, __DEFNUM, __EPISODES_ARRAY, ans);
+			printf(\"%s\", ans);
+		} else if(match(_TYPE, \"episode_num\")) {
+			ans=check_define(\"EPNUM\", __DEFSTR, __DEFNUM, __EPISODES_ARRAY, ans);
+			printf(\"%s\", ans);
+		}
+	}
+	"
+# TEST
+
 function change_arg_file() {
 # $1 = str
 __SRCFILE="$1"
@@ -197,7 +336,7 @@ for x in "$@"; do \
     case "$1" in
         --num | -n )
 	  shift
-	  EPNUM=$1
+	  EPISODE_NUM=$1
 	  HAS_EPNUM=1
 	  shift
 	  continue
@@ -234,6 +373,17 @@ for x in "$@"; do \
 	  shift
 	  HEAD_TITLE=""
 	  REPLACE_HEADER=0
+	  continue
+        ;;
+        --meta-title )
+	  shift
+	  META_TITLE="$1"
+	  shift
+	  continue
+        ;;
+        --no-meta-title | --reset-meta-title )
+	  shift
+	  META_TITLE=""
 	  continue
         ;;
 	--append-head-only )
@@ -772,38 +922,94 @@ EPSTR=""
 TMP_BASE1=""
 TMP_BASE2=""
 
-if [ "__x__${HEAD_TITLE}" != "__x__" ] ; then
-   EPSTR=`printf "%03d" ${EPISODE_NUM}`
-   TMP_BASE1="${HEAD_TITLE}_#${EPSTR}"   
+EP_DESC=""
+EP_SUBTTL=""
+EP_DATE=""
+EP_EPNUM=""
+if [ -e "$EPISODES_LIST_FILE" ] ; then
+	EP_DESC=`cat "$EPISODES_LIST_FILE" | gawk -v _TYPE=description -v __EPNUM=${EPISODE_NUM} "${__AWK_EPLIST_GETDEFINES}"`
+	EP_SUBTTL=`cat "$EPISODES_LIST_FILE" | gawk -v _TYPE=title -v __EPNUM=${EPISODE_NUM} "${__AWK_EPLIST_GETDEFINES}"`
+	EP_DATE=`cat "$EPISODES_LIST_FILE" | gawk -v _TYPE=date -v __EPNUM=${EPISODE_NUM} "${__AWK_EPLIST_GETDEFINES}"`
+	EP_EPNUM=`cat "$EPISODES_LIST_FILE" | gawk -v _TYPE=episode_num -v __EPNUM=${EPISODE_NUM} "${__AWK_EPLIST_GETDEFINES}"`
+#	EP_DATA=`cat "$EPISODES_LIST_FILE"`
+#	echo "${EP_DATA}"
+#	echo "${EP_EPNUM}"
+	echo "${EP_SUBTTL}"
+#	echo "${EP_DATE}"
+fi
+
+
+if [ "__x__${HEAD_TITLE}" = "__x__" ] ; then
+    EPSTR=""
+    if [ "__x__${APPEND_HEADER}" = "__x__NUMERIC" ] ; then
+        EPSTR=`printf "%02d" ${EPISODE_NUM}`
+		TMP_BASE1="${HEAD_TITLE} #${EPSTR} " 
+    else
+		TMP_BASE1="${HEAD_TITLE}"
+    fi
+else
+   EPSTR=`printf "%02d" ${EPISODE_NUM}`
+   TMP_BASE1="${HEAD_TITLE} #${EPSTR} "   
    TMP_BASE2="${HEAD_TITLE}"   
 fi
 
+if [ "__x__${META_TITLE}" != "__x__" ] ; then
+    EPSTR=""
+	if [ "__x__${APPEND_HEADER}" = "__x__NUMERIC" ] ; then
+		EPSTR=`printf "%02d" ${EPISODE_NUM}`
+		ARG_TITLE="${META_TITLE} #${EPSTR}"
+	else
+		ARG_TITLE="${META_TITLE}"
+	fi
+fi    
 if [ "__x__${ARG_TITLE}" = "__x__" ] ; then
     if [ "__x__${TMP_BASE2}" != "__x__" ] ; then
-#         ARG_METADATA="-metadata:g title=\"${TMP_BASE2}\" ${ARG_METADATA} "
          ARG_TITLE=`echo -e "${TMP_BASE2}"`
-    fi
+    fi	
+fi
+#?
+
+if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
+	ARG_TITLE="${ARG_TITLE} 「${EP_SUBTTL}」"
 fi
 
+#if [ "__x__${ARG_TITLE}" != "__x__" ] ; then
+#	ARG_METADATA+=(-metadata:g)
+#	ARG_METADATA+=(title="${ARG_TITLE}")
+#fi
+
 if [ "__x__${ARG_DESC}" != "__x__" ] ; then
-   ARG_DESC=`echo -e "${ARG_DESC}"`
+	ARG_DESC=`echo -e "${ARG_DESC}"`
 fi
+if [ "__x__${EP_DESC}" != "__x__" ] ; then
+	ARG_DESC=`echo -e "${ARG_DESC} \n${EP_DESC}"`
+fi
+#ARG_METADATA+=(-metadata:g)
+#ARG_METADATA+=(description=$"{ARG_DESC}")
 
 
 if [ ${REPLACE_HEADER} -ne 0 ] ; then
-   BASEFILE3="${TMP_BASE1}"
+	if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
+		BASEFILE3="${TMP_BASE1}「${EP_SUBTTL}」"
+	else
+		BASEFILE3="${TMP_BASE1}"
+	fi
 else 
    case "${APPEND_HEADER}" in
        NUMERIC )
          BASEFILE3="${TMP_BASE1}${BASEFILE3}"
-	 ;;
+		 ;;
        HEAD_ONLY )
          BASEFILE3="${TMP_BASE2}${BASEFILE3}"
 	 ;;
        * )
          ;;
     esac
+	 if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
+		 BASEFILE3="${BASEFILE3}「${EP_SUBTTL}」"
+	 fi
 fi
+
 
 if [ ${FORCE_FPS} -eq 0 ] ; then
     if [ "__x__" != "__x__${FILTER_STRING_1}" ] ; then
@@ -822,7 +1028,7 @@ else
     else
 	FPS_VAL="-r ${BASE_FPS}"
 	ARG_METADATA+=(-metadata:s:v)
-	ARG_METADATA+=(framerate_type=fixed,$"{BASE_FPS}")
+	ARG_METADATA+=(framerate_type=fixed,"${BASE_FPS}")
     fi
 fi
 
@@ -847,15 +1053,19 @@ else
    FILTER_ARG="${FILTER_FORMAT}"
 fi
 
+BASEFILE4=`echo "${BASEFILE}" | sed 's/\ /　/g'`
+#echo ${BASEFILE}
+echo ${BASEFILE4}
+#exit 1
 ARG_METADATA+=(-metadata:g)
-ARG_METADATA+=(source="${BASEFILE}")
+ARG_METADATA+=(source="${BASEFILE4}")
 ARG_METADATA+=(-metadata:s:v)
-ARG_METADATA+=(source="${BASEFILE}")
+ARG_METADATA+=(source="${BASEFILE4}")
 ARG_METADATA+=(-metadata:s:a)
-ARG_METADATA+=(source="${BASEFILE}")
+ARG_METADATA+=(source="${BASEFILE4}")
 
-echo ${ARG_METADATA[@]}
-
+#echo ${ARG_METADATA[@]}
+#exit 0
 if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
     ARG_METADATA+=(-metadata:s:v)
     ARG_METADATA+=(filter_params="${FILTER_ARG}")
@@ -864,10 +1074,20 @@ if [ "__xx__" != "__xx__${__X265_DISP_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:v)
     ARG_METADATA+=(x265_params="${__X265_DISP_PARAMS}")
 fi
-echo "${BASEFILE}" \
-     
-${FFMPEG_CMD} -i "${BASEFILE}" \
+#echo "${BASEFILE}" \
+
+
+declare -a PREFETCH_ARGS
+unset PREFETCH_ARGS[@]
+
+if [ ${PREFETCH_FILE} -ne 0 ] ; then
+    PREFETCH_ARGS+=(-read_ahead_limit)
+    PREFETCH_ARGS+=("${PREFETCH_FILE}")
+fi
+ffmpeg -i \
+		"${BASEFILE}" \
 			  ${ARG_COPYMAP} \
+			  ${PREFETCH_ARGS[@]} \
 			  -threads 8 -filter_complex_threads 8 -filter_threads 8 \
 			  -map_chapters 0 \
 			  -c:v:0 libx265 \
