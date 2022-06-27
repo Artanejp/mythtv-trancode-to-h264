@@ -683,7 +683,7 @@ if test $N_QUERY_ID -gt 0; then
 #  logging "SUBTITLE:"
   echo "SELECT description from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getdesc.query.sql"
 #  logging `cat "$TEMPDIR/getdesc.query.sql"`
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt"
+  mysql -B -N --raw  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt"
 #  logging `cat "$TEMPDIR/desc.txt"`
 
 #  logging "TITLE:"
@@ -718,8 +718,8 @@ mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$T
     fi
     if [ -n "${__N_DESC}" ] ; then
       ARG_DESC=$(change_arg_description "$TEMPDIR/desc.txt")
-      ARG_METADATA+=(-metadata:g)
-      ARG_METADATA+=(description="${ARG_DESC}")
+#      ARG_METADATA+=(-metadata:g)
+#      ARG_METADATA+=(description="${ARG_DESC}")
 #      logging ${ARG_DESC}
     fi
     if [ -n "${__N_SUBTITLE}" ] ; then
@@ -769,7 +769,10 @@ logging "${ARG_SUBTITLE}"
 #logging "DESCRIPTION:"
 #logging "${ARG_DESC}"
 
-
+if [ "__x__${ARG_DESC}" = "__x__" ] ; then
+   ARG_DESC=" "
+fi
+ARG_DESC2=`echo -e "${ARG_DESC}"`
 
 BASENAME=""
 if [ $N_DIRSET -ne 0 ] ; then
@@ -1092,7 +1095,7 @@ case "$x" in
    VIDEO_SCENECUT=40
    VIDEO_REF_FRAMES=5
    VIDEO_BFRAMES=5
-   OUT_WIDTH=640
+   OUT_WIDTH=720
    OUT_HEIGHT=480
    SCALER_MODE="lanczos"
    
@@ -1835,7 +1838,7 @@ if test $FFMPEG_ENC -ne 0; then
 		X265_PARAMS="${X265_PARAMS}:"
 	fi
 	if test "__n__${X265_AQ_PARAMS}" != "__n__"; then
-		X265_PARAMS="${X265_PARAMS}${X265_AQ_PARAMS}:"
+		X265_PARAMS="${X265_PARAMS}${X265_AQ_PARAMS}"
 	fi
 		
 	if test "__n__${X265_PARAMS}" != "__n__"; then
@@ -1887,6 +1890,7 @@ if test $FFMPEG_ENC -ne 0; then
 		      -ab 224k -ar 48000 -ac 2 \
 		      -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		      ${ARG_METADATA[@]} \
+		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		      -y $TEMPDIR/v1tmp.mkv
 	
@@ -1919,6 +1923,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -ab 224k -ar 48000 -ac 2 \
 		  -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		  ${ARG_METADATA[@]} \
+	          -metadata:g description="${ARG_DESC2}" \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv 
 	fi
@@ -2001,7 +2006,8 @@ elif    test $HWENC -ne 0; then
 		       -ab 224k -ar 48000 -ac 2 \
 		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		       ${ARG_METADATA[@]} \
-		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
+		       -metadata:g description="${ARG_DESC2}" \
+		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    
 		       #    -c:v hevc_vaapi \
@@ -2062,6 +2068,7 @@ elif    test $HWENC -ne 0; then
 		       -ab 224k -ar 48000 -ac 2 \
 		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
 		       ${ARG_METADATA[@]} \
+       		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv 
 
