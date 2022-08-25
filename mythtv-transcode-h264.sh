@@ -1029,7 +1029,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=22.0
+   VIDEO_QUANT=21.5
    VIDEO_MINQ=14
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.48
@@ -1266,16 +1266,16 @@ case "$x" in
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-#     if [ $USE_60FPS -ne 0 ] ; then
-#         X265_PRESET="faster"
-#     else
-#         X265_PRESET="veryfast"
-#     fi
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="faster"
+     else
+         X265_PRESET="veryfast"
+     fi
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
-     X265_AQ_STRENGTH=0.90
-     X265_QP_ADAPTATION_RANGE=1.25
+     X265_AQ_STRENGTH=0.88
+     X265_QP_ADAPTATION_RANGE=1.28
      X265_AQ_MODE=3
      
      #HW_SCALING="No"
@@ -1290,7 +1290,7 @@ case "$x" in
      IS_CRF=0
      VIDEO_QUANT=25
      VIDEO_MINQ=14
-     VIDEO_MAXQ=36
+     VIDEO_MAXQ=40
      VIDEO_QCOMP=0.40
      VIDEO_QDIFF=6
      VIDEO_BFRAMES=4
