@@ -14,6 +14,10 @@ typeset -i AQ_MODE
 AQ_MODE=3
 APPEND_X265_MODE=""
 
+FILTER_THREADS=16
+FILTER_COMPLEX_THREADS=16
+FFMPEG_THREADS=16
+
 #TUNE_VALUE=grain
 AQ_VALUE=0.95
 QP_ADAPTATIVE_VALUE=1.20
@@ -49,6 +53,17 @@ PREFETCH_FILE=0
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
 
+# Example:
+# FFMPEG_APPEND_ARGS_PRE+=(__EPISODE_001) # Episode Number, this set __EPISODE_ALL to all episode(default)
+# FFMPEG_APPEND_ARGS_PRE+=(-metadata:s:a:1) # Arg1
+# FFMPEG_APPEND_ARGS_PRE+=(language=jpn) # Arg2
+
+declare -a FFMPEG_APPEND_ARGS_PRE
+unset FFMPEG_APPEND_ARGS_PRE[@]
+
+declare -a FFMPEG_APPEND_ARGS_POST
+unset FFMPEG_APPEND_ARGS_POST[@]
+
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
 fi
@@ -67,7 +82,8 @@ if [ "__x__${EPISODES_LIST_FILE}" = "__x__" ] ; then
        EPISODES_LIST_FILE="$PWD/episodes_list.txt"
     fi
 fi
- 
+
+
 function logging() {
    __str="$@"
    echo ${__str} | logger -t "MYTHTV.RENAME[${BASHPID}]"
@@ -1084,11 +1100,75 @@ if [ ${PREFETCH_FILE} -ne 0 ] ; then
     PREFETCH_ARGS+=(-read_ahead_limit)
     PREFETCH_ARGS+=("${PREFETCH_FILE}")
 fi
-ffmpeg -i \
+
+declare -a __APPEND_ARGS_PRE
+unset __APPEND_ARGS_PRE[@]
+__EPISODE_NUM_FOR_APPENDED_ARGS=__EPISODE_ALL
+
+for _xx in "${FFMPEG_APPEND_ARGS_PRE[@]}" ; do
+   case "${_xx}" in
+     __EPISODE_ALL | __EPISODE_[0-9]+ )
+        __EPISODE_NUM_FOR_APPENDED_ARGS=${_xx}
+	continue
+	;;
+     * )
+        ;;
+   esac
+   __TMP_NUM=`printf "%03d" ${EPISODE_NUM}`
+   case "${__EPISODE_NUM_FOR_APPENDED_ARGS}" in
+       __EPISODE_ALL )
+          __APPEND_ARGS_PRE+=(${_xx})
+	  ;;
+       __EPISODE_[0-9]+ )
+         if [ __x__"${__EPISODE_NUM_FOR_APPENDED_ARGS}" = __x__"__EPISODE_"${__TMP_NUM} ] ; then
+          __APPEND_ARGS_PRE+=(${_xx})
+         fi
+	 ;;
+       * )
+         ;;
+   esac
+#    fi
+done
+
+
+declare -a __APPEND_ARGS_POST
+unset __APPEND_ARGS_POST[@]
+__EPISODE_NUM_FOR_APPENDED_ARGS="__EPISODE_ALL"
+
+for _xx in "${FFMPEG_APPEND_ARGS_POST[@]}" ; do
+   case "${_xx}" in
+     __EPISODE_ALL | __EPISODE_[0-9]+ )
+        __EPISODE_NUM_FOR_APPENDED_ARGS=${_xx}
+	continue
+	;;
+     * )
+        ;;
+   esac
+   __TMP_NUM=`printf "%03d" ${EPISODE_NUM}`
+   case "${__EPISODE_NUM_FOR_APPENDED_ARGS}" in
+       __EPISODE_ALL )
+          __APPEND_ARGS_POST+=(${_xx})
+	  ;;
+       __EPISODE_[0-9]+ )
+         if [ __x__"${__EPISODE_NUM_FOR_APPENDED_ARGS}" = __x__"__EPISODE_"${__TMP_NUM} ] ; then
+          __APPEND_ARGS_POST+=(${_xx})
+         fi
+	 ;;
+       * )
+         ;;
+   esac
+#    fi
+done
+
+#echo \
+ffmpeg -fix_sub_duration -i \
 		"${BASEFILE}" \
+			  ${__APPEND_ARGS_PRE[@]} \
 			  ${ARG_COPYMAP} \
 			  ${PREFETCH_ARGS[@]} \
-			  -threads 8 -filter_complex_threads 8 -filter_threads 8 \
+			  -threads ${FFMPEG_THREADS} \
+			  -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
+			  -filter_threads ${FILTER_THREADS} \
 			  -map_chapters 0 \
 			  -c:v:0 libx265 \
 			  -profile:v:0 ${PROFILE_ARG} \
@@ -1098,6 +1178,7 @@ ffmpeg -i \
 			  ${PRESET_ARG}  \
 			  ${TUNE_ARG} \
 			  -x265-params "${__X265_PARAMS}" \
+			  ${__APPEND_ARGS_POST[@]} \
 			  -map_metadata:g 0 \
 			  -map_chapters 0 \
 			  -metadata:g title="${ARG_TITLE}" \
