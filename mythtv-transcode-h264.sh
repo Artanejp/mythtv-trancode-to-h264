@@ -100,6 +100,8 @@ N_QUERY_ID=0;
 NICE_VALUE=19
 IONICE_ARGS="-n 7"
 
+IGNORE_DECODE_ERRORS=0
+
 NICE_CMD=/usr/bin/nice
 RENICE_CMD=/usr/bin/renice
 IONICE_CMD=/usr/bin/ionice
@@ -134,6 +136,7 @@ ENCMODE="DEFAULT"
 NOENCODE=0
 NEED_X264="Yes"
 USE_60FPS=0
+IS_VFR=0
 TESTMODE=0
 VIDEO_DESC=""
 VIDEO_SUBTITLE=""
@@ -177,6 +180,10 @@ for x in "$@" ; do
 	--jobid | --job-id )
 	    shift
 	    N_QUERY_ID="$1"
+	    shift
+	    ;;
+	--ignore-errors | --ignore-decode-errors )
+	    IGNORE_DECODE_ERRORS=1
 	    shift
 	    ;;
 	--desc | --video-desc )
@@ -241,6 +248,18 @@ for x in "$@" ; do
 	--threads | --thread | -thread | -threads )
 	    shift
 	    ENCTHREADS="$1"
+	    POOLTHREADS="$1"
+	    FRAME_THREADS="$1"
+	    shift
+	    ;;
+	--pool-threads | --pool-thread | --pools | -pools | -pool-thread | -pool-threads )
+	    shift
+	    POOLTHREADS="$1"
+	    shift
+	    ;;
+	--frame-threads | --frame-thread | --frames | -frames | -frame-thread | -frame-threads )
+	    shift
+	    FRAME_THREADS="$1"
 	    shift
 	    ;;
 	--db | --use-db | --with-db )
@@ -454,6 +473,30 @@ for x in "$@" ; do
 	--fps60 | --60fps )
 	    shift
 	    USE_60FPS=1
+	    ;;
+	--vfr | --vfr60 )
+	    shift
+	    USE_60FPS=1
+	    IS_VFR=1
+	    ;;
+	--vfr30 )
+	    shift
+	    USE_60FPS=0
+	    IS_VFR=1
+	    ;;
+	--cfr )
+	    shift
+	    IS_VFR=0
+	    ;;
+	--cfr30 )
+	    shift
+	    USE_60FPS=0
+	    IS_VFR=0
+	    ;;
+	--cfr60 )
+	    shift
+	    USE_60FPS=1
+	    IS_VFR=0
 	    ;;
 	--norm | --no-remove | --no-remove-source | --NO-REMOVE-SOURCE )
 	    shift
@@ -814,6 +857,7 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo " -o | --dst | --o Output-File             : Set output file. You must set to MP4 File."
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
+    echo " --ignore-decode-errors | --ignore-errors : Make movie even some errors happened."
     echo " --noskip   | --no-skip                   : Not skip (mostly 15Sec.) from head of source."
     echo " --skip_sec | --skip-sec sec              : Skip sec  from head of source."
     echo " --jobid [MYTHTV's JOBID]                 : Set JOBID from MythTV.Query some metadatas from MythTV's Database."
@@ -1146,16 +1190,26 @@ case "$x" in
 esac
 
 
-
-if test $USE_60FPS -eq 0 ; then
-   FRAMERATE=30000/1001
-   VIDEO_FILTERCHAIN_DEINT="yadif"
-#   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=weave"
-   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=motion_adaptive"
+if test $IS_VFR -eq 0; then
+    if test $USE_60FPS -eq 0 ; then
+        FRAMERATE="-r:v 30000/1001"
+        VIDEO_FILTERCHAIN_DEINT="yadif"
+        VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=motion_adaptive"
+    else
+        FRAMERATE="-r:v 60000/1001"
+        VIDEO_FILTERCHAIN_DEINT="yadif=mode=send_field"
+        VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=rate=frame"
+    fi
 else
-   FRAMERATE=60000/1001
-   VIDEO_FILTERCHAIN_DEINT="yadif=mode=send_field"
-   VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=rate=frame"
+    if test $USE_60FPS -eq 0 ; then
+        FRAMERATE="-fps_mode vfr"
+        VIDEO_FILTERCHAIN_DEINT="yadif,vfrdet"
+        VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=mode=motion_adaptive,vfrdet"
+    else
+        FRAMERATE="-fps_mode vfr"
+        VIDEO_FILTERCHAIN_DEINT="yadif=mode=send_field,vfrdet"
+        VIDEO_FILTERCHAIN_DEINT_VAAPI="deinterlace_vaapi=rate=frame,vfrdet"
+    fi
 fi
 
 VIDEO_FILTERCHAIN_VAAPI_SCALE="scale_vaapi=w=${OUT_WIDTH}:h=${OUT_HEIGHT}:mode=${VAAPI_SCALER_MODE}"
@@ -1752,16 +1806,16 @@ if test $VIDEO_FILTERCHAIN_NOCROP -eq 0 ; then
 fi
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
 
-DECODE_APPEND=""
+DECODE_APPEND="-resync_size 5242880"
 
 
 case "$HWACCEL_DEC" in
     "VDPAU" | "vdpau" )
-	DECODE_APPEND="-hwaccel vdpau"
+	DECODE_APPEND="${DECODE_APPEND} -hwaccel vdpau"
 	;;
     "VAAPI" | "vaapi" )
       HWDECODE_TAG=VAAPI_${MYPID}
-      DECODE_APPEND="-vaapi_device:${HWDECODE_TAG} /dev/dri/renderD128" 
+      DECODE_APPEND="${DECODE_APPEND} -vaapi_device:${HWDECODE_TAG} /dev/dri/renderD128" 
       if test $HWDEC -ne 0 ; then
 #	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi -hwaccel_output_format vaapi"
 	  DECODE_APPEND="${DECODE_APPEND} -hwaccel:${HWDECODE_TAG} vaapi"
@@ -1874,10 +1928,12 @@ if test $FFMPEG_ENC -ne 0; then
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	echo "${ARG_METADATA[@]}"
+#		      -af aresample=async=1 \
+#		      -af aresample=async=1:first_pts=0 \
 
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 		      -map:v 0:0 -map:a 0:1 \
-	              -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+	              ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
 		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1888,7 +1944,7 @@ if test $FFMPEG_ENC -ne 0; then
 		      -threads ${ENCTHREADS} \
 		      -c:a aac \
 		      -ab 224k -ar 48000 -ac 2 \
-		      -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
+		      -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
 		      ${ARG_METADATA[@]} \
 		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -1910,7 +1966,7 @@ if test $FFMPEG_ENC -ne 0; then
     
 	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 	          -map:v 0:0 -map:a 0:1 \
-	          -r:v ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+	          ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
 		  -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
@@ -1921,7 +1977,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  -threads ${ENCTHREADS} \
 		  -c:a aac \
 		  -ab 224k -ar 48000 -ac 2 \
-		  -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
+		  -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
 		  ${ARG_METADATA[@]} \
 	          -metadata:g description="${ARG_DESC2}" \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -1992,7 +2048,7 @@ elif    test $HWENC -ne 0; then
 	
 	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
 		      -map:v 0:0 -map:a 0:1 \
-		       -r:v ${FRAMERATE} \
+		       ${FRAMERATE} \
 		       -filter_complex ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v h264_vaapi \
 		       -filter_threads ${FILTER_THREADS} \
@@ -2002,9 +2058,9 @@ elif    test $HWENC -ne 0; then
 		       -threads:0 8 \
 		       -c:a aac \
 		       -threads:1 8 \
-		       -r:v ${FRAMERATE} \
+		       ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
-		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
+		       -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
 		       ${ARG_METADATA[@]} \
 		       -metadata:g description="${ARG_DESC2}" \
 		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -2054,7 +2110,7 @@ elif    test $HWENC -ne 0; then
   		       -map:v 0:0 -map:a 0:1 \
 	               -profile:v ${X265_PROFILE} \
 		       -aud 1 -level 51 \
-		       -r:v ${FRAMERATE} \
+		       ${FRAMERATE} \
 		       -filter_complex $VIDEO_FILTERCHAIN_HWACCEL \
 		       -c:v hevc_vaapi \
 		       -filter_threads ${FILTER_THREADS} \
@@ -2064,9 +2120,9 @@ elif    test $HWENC -ne 0; then
 		       -threads:0 4 \
 		       -c:a aac \
 		       -threads:1 4 \
-		       -r:v ${FRAMERATE} \
+		       ${FRAMERATE} \
 		       -ab 224k -ar 48000 -ac 2 \
-		       -af aresample=async=1:min_hard_comp=0.100000:first_pts=0 \
+		       -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
 		       ${ARG_METADATA[@]} \
        		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -2125,10 +2181,14 @@ fi
 fi
 
 if test $ERRFLAGS -ne 0; then
-  cd ../..
-  rm -rf $TEMPDIR
-  logging "ERROR ${ERRFLAGS}"
-  exit 2
+    if test $IGNORE_DECODE_ERRORS -ne 0; then
+        logging "WARNING: ERROR on encoding, but try to make encoding; ERROR = ${ERRFLAGS}"
+    else
+        cd ../..
+        rm -rf $TEMPDIR
+        logging "ERROR ${ERRFLAGS}"
+        exit 2
+    fi
 fi
 
 
