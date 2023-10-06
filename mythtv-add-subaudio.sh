@@ -6,6 +6,7 @@ TARGETFILE=$2
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FAAC_CMD="/usr/bin/faac"
 SOX_CMD="/usr/bin/sox"
+#TSSPLITTER_EXE="$HOME/bin/TsSplitter.exe"
 TSSPLITTER_EXE="$HOME/bin/TsSplitter.exe"
 
 if [ -e /etc/mythtv/mythtv-add-subaudio ]; then
@@ -44,7 +45,7 @@ EOF
 BASE_BASE=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
 #echo ${BASE_BASE}
 
-"${TSSPLITTER_EXE}" -SEP3 "${BASEFILE}"
+wine "${TSSPLITTER_EXE}" -SEP3 "${BASEFILE}"
 
 find -name ${BASE_BASE}_HD.\* -print > "${TEMPDIR}/__tslist"
 find -name ${BASE_BASE}_HD-[0-9].\* -print | sort -n >> "${TEMPDIR}/__tslist"
