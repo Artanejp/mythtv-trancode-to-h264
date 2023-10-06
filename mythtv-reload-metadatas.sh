@@ -2,7 +2,7 @@
 
 BASEFILE=$1;
 
-declare -A ARG_METADATA
+declare -a ARG_METADATA
 #!/bin/bash
 POOL_THREADS=5
 FRAME_THREADS=5
@@ -49,6 +49,12 @@ USE_10BIT=1
 FILTER_STRING=""
 typeset -i PREFETCH_FILE
 PREFETCH_FILE=0
+
+typeset -i DUMP_SUB_FROM_SOURCE
+DUMP_SUB_FROM_SOURCE=0
+
+typeset -i ADD_SUB_IF_EXISTS
+ADD_SUB_IF_EXISTS=1
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -552,7 +558,26 @@ for x in "$@"; do \
 	  shift
 	  continue
         ;;
-
+	--dump-sub-from-source )
+	  shift
+	  DUMP_SUB_FROM_SOURCE=1
+	  continue
+	;;
+	--add-subs-if-exists )
+	  shift
+	  ADD_SUB_IF_EXISTS=1
+	  continue
+	;;
+	--no-dump-sub-from-source )
+	  shift
+	  DUMP_SUB_FROM_SOURCE=0
+	  continue
+	;;
+	--no-add-subs-if-exists )
+	  shift
+	  ADD_SUB_IF_EXISTS=0
+	  continue
+	;;
     --fps )
 	  shift
 	  BASE_FPS=$1
@@ -826,22 +851,52 @@ __AWK_STREAMDESC="
 	   }
 	}
 	"
+declare -a __APPEND_ARGS_SUBTITLES
+unset __APPEND_ARGS_SUBTITLES[@]
+declare -a __APPEND_FILES_SUBTITLES
+unset __APPEND_FILES_SUBTITLES[@]
 
 declare -a ARG_SUBTITLES
 declare -a ARG_MAPCOPY_SUBS
 typeset -i __sb_num
 __sb_num=1;
 
+
+
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
+if [ ${DUMP_SUB_FROM_SOURCE} -ne 0 ] ; then
+   ${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
+						-fix_sub_duration -i "${BASEFILE}"  \
+       -c:s ass -f ass \
+       -y "${TEMPDIR}/v1tmp.ass"
+   
+    if [ -s "${TEMPDIR}/v1tmp.ass" ] ; then
+		__tmp_sb="${TEMPDIR}/v1tmp.ass"
+		__APPEND_FILES_SUBTITLES+=(-i)
+		__APPEND_FILES_SUBTITLES+=("${TEMPDIR}/v1tmp.ass")
+		__APPEND_ARGS_SUBTITLES+=(-map:s)
+		__APPEND_ARGS_SUBTITLES+=(${__sb_num}:0)
+		__APPEND_ARGS_SUBTITLES+=(-c:s)
+		__APPEND_ARGS_SUBTITLES+=(subrip)
+		__sb_num=__sb_num+1
+	fi
+fi
+
 for __sb in "ass" "ASS" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do 
     __tmp_sb=""
     ARG_SUBTITLES[$__sb_num]=""
     ARG_MAPCOPY_SUBS[$__sb_num]=""
-    if [ -e "${BASEFILE3}.${__sb}" ] ; then
-	__tmp_sb="${BASEFILE3}.${__sb}"
-	ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
-	ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
-	__sb_num=__sb_num+1
+    if [ -s "${BASEFILE3}.${__sb}" ] ; then
+		__tmp_sb="${BASEFILE3}.${__sb}"
+		ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
+		ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
+		__APPEND_FILES_SUBTITLES+=(-i)
+		__APPEND_FILES_SUBTITLES+=(${__tmp_sb})
+		__APPEND_ARGS_SUBTITLES+=(-map:s)
+		__APPEND_ARGS_SUBTITLES+=(${__sb_num}:0)
+		__APPEND_ARGS_SUBTITLES+=(-c:s)
+		__APPEND_ARGS_SUBTITLES+=(subrip)
+		__sb_num=__sb_num+1
     fi
 done
 #echo ${ARG_SUBTITLES}
@@ -1033,7 +1088,8 @@ if [ ${FORCE_FPS} -eq 0 ] ; then
     else
 	FILTER_STRING_1="vfrdet"
     fi
-    FPS_VAL="-vsync vfr"
+#    FPS_VAL="-vsync vfr"
+    FPS_VAL="-fps_mode vfr"
     ARG_METADATA+=(-metadata:s:v) 
     ARG_METADATA+=(framerate_type=vfr)
 else
@@ -1163,8 +1219,10 @@ done
 #echo \
 ffmpeg -fix_sub_duration -i \
 		"${BASEFILE}" \
+			  ${__APPEND_FILES_SUBTITLES[@]} \
 			  ${__APPEND_ARGS_PRE[@]} \
 			  ${ARG_COPYMAP} \
+			  ${__APPEND_ARGS_SUBTITLES[@]} \
 			  ${PREFETCH_ARGS[@]} \
 			  -threads ${FFMPEG_THREADS} \
 			  -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
