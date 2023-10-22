@@ -433,6 +433,12 @@ for x in "$@"; do \
 	  shift
 	  continue
         ;;
+	--prefetch | --prefetch-bytes )
+	  shift
+	  PREFETCH_FILE=$1
+	  shift
+	  continue
+	;;
         --frame-threads )
 	  shift
 	  FRAME_THREADS=$1
