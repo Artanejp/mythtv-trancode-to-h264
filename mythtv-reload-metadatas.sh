@@ -321,6 +321,15 @@ __tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript1"`
 echo "${__tmpv1}"
 }
 
+function change_arg_comment() {
+# $1 = str
+__SRCFILE="$1"
+
+__tmpv03=`cat ${__SRCFILE}`
+echo "${__tmpv03}"
+}
+
+
 # Not substitude slash.
 function change_arg_file2() {
 # $1 = str
@@ -769,7 +778,7 @@ else
     # WITHOUT DATABASE
     if [ "___x___${COMMENTS}" != "___x___" ] ; then
         echo "${COMMENTS}" >> $TEMPDIR/desc.txt
-        ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
+        ARG_DESC=$(change_arg_comment "$TEMPDIR/desc.txt")
     fi    
 fi
 cat <<EOF >${TEMPDIR}/__tmpscript14
