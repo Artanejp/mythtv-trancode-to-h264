@@ -36,10 +36,13 @@ HEAD_TITLE=""
 META_TITLE=""
 COMMENTS=""
 
+typeset -i REPLACE_TITLE
 typeset -i REPLACE_HEADER
 typeset -i EPISODE_NUM
+
 APPEND_HEADER="NONE"
 REPLACE_HEADER=0
+REPLACE_TITLE=0
 EPISODE_NUM=1
 
 EPISODES_LIST_FILE=""
@@ -389,9 +392,19 @@ for x in "$@"; do \
 	  REPLACE_HEADER=1
 	  continue
         ;;
+        --replace-title )
+	  shift
+	  REPLACE_TITLE=1
+	  continue
+        ;;
         --no-replace-header | --fixed-header )
 	  shift
 	  REPLACE_HEADER=0
+	  continue
+        ;;
+        --no-replace-title )
+	  shift
+	  REPLACE_TITLE=0
 	  continue
         ;;
         --head-title )
@@ -734,8 +747,15 @@ ARG_CHANID=$(change_arg_file "$TEMPDIR/chanid.txt")
 
 
 ARG_REALTITLE=${ARG_TITLE}
-ARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}"
-
+if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then
+   if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
+       ARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}"
+   fi
+else
+   if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
+       ARG_TITLE="${ARG_SUBTITLE}"
+   fi
+fi
 
 if [ "__x__${ARG_SUBTITLE}" != "__x__" ] ; then
     ARG_METADATA+=(-metadata:g)
@@ -925,9 +945,7 @@ else
     ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=0 -v AUDIO_CODEC="${AUDIO_CODEC}" -v AUDIO_ARGS="${AUDIO_ARGS}" "${__AWK_STREAMDESC}"`
 fi
 
-
 ARG_FPS=`echo "${ARG_STREAM}" | gawk "${__AWK_GETFPS}"`
-
 case "${ARG_FPS}" in
      "23.98" )
        ARG_FPS="24000/1001"
@@ -998,7 +1016,7 @@ fi
 if test "__n__${TUNE_VALUE}" != "__n__" ; then
     __X265_DISP_PARAMS=":tune=${TUNE_VALUE}${__X265_DISP_PARAMS}"
 fi    
-__X265_DISP_PARAMS="crf=${CRF_VALUE}:${__X265_PARAMS}${__X265_DISP_PARAMS}"
+__X265_DISP_PARAMS="crf=${CRF_VALUE}:${__X265_DISP_PARAMS}"
 
 
 __START_DATE=`date -Iseconds`
@@ -1059,10 +1077,43 @@ if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
 	ARG_TITLE="${ARG_TITLE} 「${EP_SUBTTL}」"
 fi
 
-#if [ "__x__${ARG_TITLE}" != "__x__" ] ; then
-#	ARG_METADATA+=(-metadata:g)
-#	ARG_METADATA+=(title="${ARG_TITLE}")
-#fi
+if [ ${REPLACE_TITLE} -ne 0 ] ; then
+    typeset -i ARG_META_TITLE_LINES
+    ARG_META_TITLE=`echo "${FFPROBE_RESULT}" | grep -e "title[[:space:]]\+:[[:space:]]"`
+    ARG_META_TITLE_LINES=`echo "${ARG_META_TITLE}" | wc -l`
+    #echo "${ARG_META_TITLE_LINES}"
+    #exit 1
+
+    if [ ${ARG_META_TITLE_LINES} -gt 0 ] ; then 
+        __TMPS=`echo "${ARG_META_TITLE}" | sed -E "s/[[:space:]]+title.*:[[:space:]]+//g"`
+	if [ "__xx__${ARG_TITLE}" != "__xx__" ] ; then
+	    ARG_TITLE="${__TMPS} (${ARG_TITLE})"
+	else
+	    ARG_TITLE="${__TMPS}"
+	fi
+    fi
+    if [ "__x__${ARG_TITLE}" = "__x__" ] ; then
+    ARG_TITLE=" "
+    fi
+fi
+
+typeset -i ARG_META_TITLE_COMMENTS
+ARG_META_COMMENT=`echo "${FFPROBE_RESULT}" | grep -e "comment[[:space:]]\+:[[:space:]]"`
+ARG_META_COMMENT_LINES=`echo "${ARG_META_COMMENT}" | wc -l`
+
+ARG_ARG_COMMENT=""
+if [ ${ARG_META_COMMENT_LINES} -gt 0 ] ; then 
+   __TMPS=`echo "${ARG_META_COMMENT}" | sed -E "s/[[:space:]]+comment.*:[[:space:]]+//g"`
+   if [ "__xxx__${__TMPS}" != "__xxx__" ] ; then
+       ARG_ARG_COMMENT="-metadata:g source-comment=\"${__TMPS}\""
+   fi
+fi
+   
+
+
+if [ "__x__${ARG_DESC}" != "__x__" ] ; then
+   ARG_DESC=" "
+fi
 
 if [ "__x__${ARG_DESC}" != "__x__" ] ; then
 	ARG_DESC=`echo -e "${ARG_DESC}"`
@@ -1070,9 +1121,6 @@ fi
 if [ "__x__${EP_DESC}" != "__x__" ] ; then
 	ARG_DESC=`echo -e "${ARG_DESC} \n${EP_DESC}"`
 fi
-#ARG_METADATA+=(-metadata:g)
-#ARG_METADATA+=(description=$"{ARG_DESC}")
-
 
 if [ ${REPLACE_HEADER} -ne 0 ] ; then
 	if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
@@ -1157,9 +1205,13 @@ if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
     ARG_METADATA+=(-metadata:s:v)
     ARG_METADATA+=(filter_params="${FILTER_ARG}")
 fi
+if [ "__xx__" != "__xx__${__X265_PARAMS}" ] ; then
+    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(x265_params="${__X265_PARAMS}")
+fi
 if [ "__xx__" != "__xx__${__X265_DISP_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:v)
-    ARG_METADATA+=(x265_params="${__X265_DISP_PARAMS}")
+    ARG_METADATA+=(x265_params_any="${__X265_DISP_PARAMS}")
 fi
 #echo "${BASEFILE}" \
 
@@ -1167,9 +1219,15 @@ fi
 declare -a PREFETCH_ARGS
 unset PREFETCH_ARGS[@]
 
-if [ ${PREFETCH_FILE} -ne 0 ] ; then
+__PREFETCH_TMPS=""
+if [ ${PREFETCH_FILE} -gt 0 ] ; then
+    __PREFETCH_TMPS=`calc -d "${PREFETCH_FILE} * 1024 * 1024"`
+elif [ ${PREFETCH_FILE} -lt 0 ] ; then 
+    __PREFETCH_TMPS="-1"
+fi
+if [ "__xxx__${__PREFETCH_TMPS}" != "__xxx__" ] ; then
     PREFETCH_ARGS+=(-read_ahead_limit)
-    PREFETCH_ARGS+=("${PREFETCH_FILE}")
+    PREFETCH_ARGS+=("${__PREFETCH_TMPS}")
 fi
 
 declare -a __APPEND_ARGS_PRE
@@ -1232,6 +1290,8 @@ for _xx in "${FFMPEG_APPEND_ARGS_POST[@]}" ; do
 done
 
 #echo \
+#echo ${ARG_METADATA[@]}
+#exit 1
 ffmpeg -fix_sub_duration -i \
 		"${BASEFILE}" \
 			  ${__APPEND_FILES_SUBTITLES[@]} \
@@ -1256,10 +1316,12 @@ ffmpeg -fix_sub_duration -i \
 			  -map_chapters 0 \
 			  -metadata:g title="${ARG_TITLE}" \
 			  -metadata:g description="${ARG_DESC}" \
+			  ${ARG_ARG_COMMENT} \
 			  ${ARG_METADATA[@]} \
 			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
+#
 
-
+#
 #exit 1
 EPISODE_NUM=EPISODE_NUM+1
 
