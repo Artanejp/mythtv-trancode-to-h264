@@ -81,6 +81,13 @@ X265_AQ_STRENGTH=1.0
 X265_QP_ADAPTATION_RANGE=1.0
 X265_AQ_MODE=3
 
+typeset -i IS_DROP_ERROR_FRAMES
+typeset -i USE_ADVANCED_ERROR_DETECT
+# Decoder
+IS_DROP_ERROR_FRAMES=0
+USE_ADVANCED_ERROR_DETECT=0
+PREFETCH_MB=0
+
 FFMPEG_X265_HEAD="-profile:v ${X265_PROFILE} -preset medium"
 FFMPEG_X265_FRAMES1=""
 FFMPEG_X265_AQ=""
@@ -88,7 +95,7 @@ FFMPEG_X265_PARAMS=""
 EXTRA_X265_PARAMS=""
 HWENC_APPEND=""
 
-VIDEO_SKIP="-ss 15"
+VIDEO_SKIP="15"
 
 FFMPEG_ENC=1
 HWENC=0
@@ -242,7 +249,7 @@ for x in "$@" ; do
 	    ;;
 	--skip_sec | --skip-sec )
 	    shift
-	    VIDEO_SKIP="-ss $1"
+	    VIDEO_SKIP="$1"
 	    shift
 	    ;;
 	--threads | --thread | -thread | -threads )
@@ -265,6 +272,19 @@ for x in "$@" ; do
 	--db | --use-db | --with-db )
 	    shift
 	    USE_DATABASE=1
+	    ;;
+	--prefetch-mb | --prefetch | -pf | --pf )
+	    shift
+	    PREFETCH_MB=$1
+	    shift
+	    ;;
+	--drop-broken | --drop-broken-frames | --drop-corrupts | -d_b | --d_b )
+	    IS_DROP_ERROR_FRAMES=1
+	    shift
+	    ;;
+	--no-drop-broken | --no-drop-broken-frames | --no-drop-corrupts | -nd_b | --nd_b )
+	    IS_DROP_ERROR_FRAMES=0
+	    shift
 	    ;;
 	--hwaccel-vaapi )
 	    shift
@@ -295,16 +315,16 @@ for x in "$@" ; do
 	    shift
 	    USEOPENCL=1
 	    ;;
-	--use-x265 | --USE-X265 | --x265 | --X265)
+	--use-x265 | --USE-X265 | --x265 | --X265 | --hevc )
 	    shift
 	    USE_X265=1
 	    ;;
-	--use-x265-10 | --USE-X265-10 | --x265-10 | --X265-10)
+	--use-x265-10 | --use-x265_10 | --USE-X265-10 | --USE-X265_10 | --x265-10 | --x265_10 | --X265_10 | --X265-10 )
 	    shift
 	    USE_X265=1
 	    X265_PROFILE="main10"
 	    ;;
-	--no-opencl | --no-OpenCL | --NO-OpenCL | --NO-OPENCL)
+	--no-opencl | --no-OpenCL | --NO-OpenCL | --NO-OPENCL )
 	    shift
 	    USEOPENCL=0
 	    ;;
@@ -570,7 +590,7 @@ s/!/！/g
 s/?/？/g
 s/\#/＃/g
 s/=/＝/g
-s/ /　/g
+s/[[:blank:]]/　/g
 s/"\\"/＼/g
 s/\;/；/g
 s/)/）/g
@@ -602,7 +622,7 @@ s/?/？/g
 s/\#/＃/g
 s/\//／/g
 s/=/＝/g
-s/ /　/g
+s/[[:blank:]]/　/g
 s/"\\"/＼/g
 s/:/：/g
 s/\;/；/g
@@ -635,7 +655,7 @@ s/?/？/g
 s/\#/＃/g
 s/\//／/g
 s/=/＝/g
-s/ /　/g
+s/[[:blank:]]/　/g
 s/"\\"/＼/g
 s/:/：/g
 s/\;/；/g
@@ -654,7 +674,7 @@ echo "${__tmpv1}"
 }
 
 
-typeset -A ARG_METADATA
+declare -a  ARG_METADATA
 
 ARG_DESC=""
 ARG_SUBTITLE=""
@@ -857,9 +877,16 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo " -o | --dst | --o Output-File             : Set output file. You must set to MP4 File."
     echo " -c | --chanid chanid                     : Set channel-id written in database."
     echo " -t | --starttime starttime               : Set start time written in database."
+    echo " "
     echo " --ignore-decode-errors | --ignore-errors : Make movie even some errors happened."
+    echo " --drop-broken | -d_b                     : Drop corrupt (broken) frame(s) when encoding."
+    echo " --no-drop-broken | -nd_b                 : Dont drop corrupt (broken) frame(s) when encoding (default)."
+    echo " --10bit                                  : Encode 10bit per pixel encoding (default disabled)."
+    echo " --x265                                   : Use X265 for encoding (default x264)."
+    echo " --x265-10                                : Use X265 (HEVC) 10bit per pixel encoding (default disabled)."
     echo " --noskip   | --no-skip                   : Not skip (mostly 15Sec.) from head of source."
     echo " --skip_sec | --skip-sec sec              : Skip sec  from head of source."
+    echo " --prefetch MB | --prefetch-mb MB         : Prefetch source video up to MB mega bytes.(default 0)." 
     echo " --jobid [MYTHTV's JOBID]                 : Set JOBID from MythTV.Query some metadatas from MythTV's Database."
     echo " --title 'title'                          : Set title for output movie,"
     echo " --desc 'DESCRIPTION'                     : Set DESCRIPTION for output movie,"
@@ -869,7 +896,9 @@ if [ ${IS_HELP} -ne 0 ] ; then
     echo " --no-cmcut : DO NOT Perform CM CUT.(Default)"
     echo " --db    : Use MythTV's database to manage trancoded video.(Default)"
     echo " --nodb  : Don't use MythTV's database and not manage trancoded video.(not default, useful for manual transcoding)"
-    echo " --threads threads : Set threads for x264 video encoder. (Default = 4)"
+    echo " --threads threads : Set threads for x264/x265 video encoder. (Default = 4)"
+    echo " --pool-threads threads : Set pool threads for x265 video encoder. (Default = 4)"
+    echo " --frame-threads threads : Set frame threads for x265 video encoder. (Default = 4)"
     echo " --opencl    : Use OpenCL on video encoding."
     echo " --no-opencl : DO NOT Use OpenCL on video encoding.(Default)"
     echo " --hwaccel-vaapi : Use VAAPI to decode video ."
@@ -1808,6 +1837,45 @@ echo "Filter chain = $VIDEO_FILTERCHAIN"
 
 DECODE_APPEND="-resync_size 5242880"
 
+declare -a  ARG_DECODE_GENERAL_FLAGS
+unset ARG_DECODE_GENERAL_FLAGS[@]
+
+declare -a ARG_DECODE_SUB_FLAGS
+unset ARG_DECODE_SUB_FLAGS[@]
+
+declare -a ARG_ENCODE_SUB_FLAGS
+unset ARG_ENCODE_SUB_FLAGS[@]
+
+if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
+    ARG_DECODE_GENERAL_FLAGS+=(-fflags)
+    ARG_DECODE_GENERAL_FLAGS+=(+discardcorrupt)
+    ARG_DECODE_GENERAL_FLAGS+=(-err_detect)
+    ARG_DECODE_GENERAL_FLAGS+=(+compliant)
+fi
+if [ ${PREFETCH_MB} -gt 0 ] ; then
+    __XXXTMPS=`calc -d "1024 * 1024 * ${PREFETCH_MB}"`
+    if [ "___xxx___${__XXXTMPS}" != "___xxx___" ] ; then
+	ARG_ENCODE_GENERAL_FLAGS+=(-read_ahead_limit)
+        ARG_ENCODE_GENERAL_FLAGS+=(${__XXXTMPS})
+    fi
+elif [ ${PREFETCH_MB} -lt 0 ] ; then
+    ARG_ENCODE_GENERAL_FLAGS+=(-read_ahead_limit)
+    ARG_ENCODE_GENERAL_FLAGS+=(-1)
+fi
+
+if [ "___xxx___${VIDEO_SKIP}" != "___xxx___" ] ; then
+   ARG_DECODE_GENERAL_FLAGS+=(-ss)
+   ARG_DECODE_GENERAL_FLAGS+=(${VIDEO_SKIP})
+   #VIDEO_SKIP="-ss ${VIDEO_SKIP}"
+fi
+
+#echo ${ARG_DECODE_GENERAL_FLAGS[@]}
+#echo 
+#echo ${ARG_DECODE_SUB_FLAGS[@]}
+
+#exit 1
+ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
+ARG_DECODE_SUB_FLAGS+=(false)
 
 case "$HWACCEL_DEC" in
     "VDPAU" | "vdpau" )
@@ -1844,12 +1912,13 @@ echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 
 #${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
-#       $VIDEO_SKIP -i "$DIRNAME2/$SRC2"  \
+#       $ARG_DECODE_GENERAL_FLAGS[@] -i "$DIRNAME2/$SRC2"  \
 #       -c:s webvtt \
 #       -y $TEMPDIR/v1tmp.srt 
 
-${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
-       -fix_sub_duration $VIDEO_SKIP  -i "$DIRNAME2/$SRC2"  \
+${FFMPEG_SUBTXT_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} \
+       -fix_sub_duration   -i "$DIRNAME2/$SRC2"  \
+       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
        -c:s ass -f ass \
        -y $TEMPDIR/v1tmp.ass
 
@@ -1863,6 +1932,25 @@ DISPLAY_SINK_PARAM="filter_threads=${FILTER_THREADS}:filter_complex_threads=${FI
 ARG_METADATA+=(-metadata:g)
 ARG_METADATA+=(source="${SRC2}")
 
+
+__TMPS_DECODER=`echo ${ARG_DECODE_GENERAL_FLAGS[@]}`
+__TMPS_DECODER_SUB=`echo ${ARG_DECODE_SUB_FLAGS[@]}`
+__TMPS_ENCODER=`echo ${ARG_ENCODE_GENERAL_FLAGS[@]}`
+
+if [ "___xxx___${__TMPS_DECODER}" != "___xxx___" ] ; then
+   __TMPS_X=`echo ${__TMPS_DECODER} | sed -e s/[[:blank:]]/　/g`
+   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+   ARG_METADATA+=(-metadata:g)
+   ARG_METADATA+=(decoder_options=${__TMPS_X})
+fi
+if [ "___xxx___${__TMPS_ENCODER}" != "___xxx___" ] ; then
+   __TMPS_X=`echo ${__TMPS_ENCODER} | sed -e s/[[:blank:]]/　/g`
+   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+   ARG_METADATA+=(-metadata:s:v)
+   ARG_METADATA+=(v_encoder_options=${__TMPS_X})
+fi
+#echo "${ARG_METADATA[@]}"
+#exit
 __ENCODE_START_DATE=`date --rfc-3339=ns`
 
 DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
@@ -1931,7 +2019,9 @@ if test $FFMPEG_ENC -ne 0; then
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
 
-	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	               $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
 		      -map:v 0:0 -map:a 0:1 \
 	              ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
@@ -1964,7 +2054,10 @@ if test $FFMPEG_ENC -ne 0; then
 	
 	logging "${ARG_METADATA[@]}"
     
-	${FFMPEG_CMD} -loglevel info $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	          $DECODE_APPEND \
+		  -i "$DIRNAME2/$SRC2" \
+		  ${ARG_ENCODE_GENERAL_FLAGS[@]} \
 	          -map:v 0:0 -map:a 0:1 \
 	          ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
@@ -2046,7 +2139,9 @@ elif    test $HWENC -ne 0; then
 	
 	logging "${ARG_METADATA[@]}"
 	
-	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	              $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+		      ${ARG_ENCODE_GENERAL_FLAGS[@]} \
 		      -map:v 0:0 -map:a 0:1 \
 		       ${FRAMERATE} \
 		       -filter_complex ${VIDEO_FILTERCHAIN_HWACCEL} \
@@ -2106,7 +2201,9 @@ elif    test $HWENC -ne 0; then
 	logging "${ARG_METADATA[@]}"
 
 	
-	${FFMPEG_CMD}  $VIDEO_SKIP $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	               $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
   		       -map:v 0:0 -map:a 0:1 \
 	               -profile:v ${X265_PROFILE} \
 		       -aud 1 -level 51 \
@@ -2191,12 +2288,16 @@ if test $ERRFLAGS -ne 0; then
     fi
 fi
 
-
 if test -s "$TEMPDIR/v1tmp.ass" ; then
     ARG_SUBTXT="-f ass -i $TEMPDIR/v1tmp.ass "
     ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
                  -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
 		 -metadata:s:a:0 language=jpn"
+    if [ "___xxx___${__TMPS_DECODER_SUB}" != "___xxx___" ] ; then
+        __TMPS_X=`echo ${__TMPS_DECODER_SUB} | sed -e s/[[:blank:]]/　/g`
+        __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+	ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=${__TMPS_X}" 
+    fi
     ${FFMPEG_CMD} -i $TEMPDIR/v1tmp.mkv \
                   ${ARG_SUBTXT} \
 		  ${ARG_SUBTXT2} \
