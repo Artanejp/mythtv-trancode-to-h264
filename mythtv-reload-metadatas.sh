@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEFILE=$1;
+BASEFILE="$1"
 
 declare -a ARG_METADATA
 #!/bin/bash
@@ -23,7 +23,17 @@ AQ_VALUE=0.95
 QP_ADAPTATIVE_VALUE=1.20
 USE_DATABASE=1
 BASE_FPS="30000/1001"
+
+typeset -i FORCE_FPS
+typeset -i DETECT_VFR
+typeset -i PASSTHROUGH_FPS
+
+PASSTHROUGH_FPS=0
 FORCE_FPS=0
+DETECT_VFR=1
+MAXIMUM_FPS="60000/1001"
+
+
 VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
 
@@ -58,6 +68,9 @@ DUMP_SUB_FROM_SOURCE=0
 
 typeset -i ADD_SUB_IF_EXISTS
 ADD_SUB_IF_EXISTS=1
+
+declare -a MUXER_OPTIONS
+unset MUXER_OPTIONS[@]
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -365,9 +378,88 @@ echo "${__tmpv1}"
 }
 
 
-for x in "$@"; do \
+function print_help() {
+
+echo "mythtv-reload-metadatas.sh [ARGUMENTS | FILES]"
+echo "Reload metadata / Re-Transcode MOVIES."
+echo
+echo "ARGUMENTS:"
+echo "--help                       : This help."
+echo
+echo "Around episode and metadata:"
+echo "--num EPISODE_NUMBER         : Start from episode EPISODE_NUMBER (numeric)"
+echo "-n EPISODE_NUMBER            : Alias of --num."
+echo "--episode-num EPISODE_NUMBER : Change EPISODE_NUMBER at next."
+echo "--replace-header             : Replace File name.Not keep original file name."
+echo "--no-replace-header          : Not replace Filename.Adding to original filename."
+echo "--replace-title              : Replace title (only metadata).Maybe not keep original title."
+echo "--no-replace-title           : Not replace title (only metadata).Adding title to original title."
+echo "--head-title TITLE           : Set file name to FILENAME."
+echo "--reset-head-title           : Reset FILENAME before setting."
+echo "--meta-title TITLE           : Set title to TITLE."
+echo "--reset-meta-title           : Reset TITLE before setting."
+echo "--append-head-only           : Append set FILENAME to original filename.Not counting numeric (caution!)."
+echo "--append-head-with-number    : Append set FILENAME and numeric number to original filename."
+echo
+echo "Database:"
+echo "--database [0|1]       : Use database of Mythtv for metadata."
+echo "-d [0|1]               : Alias of --database."
+echo "--with-database        : Use databese from next."
+echo "-d1                    : alias of --with-database ."
+echo "  --without-database   : Not use databese from next."
+echo "  --db-user  USER      : Login database as USER."
+echo "  --db-passwd PASSWORD : Login database with PASSWORD."
+echo
+echo "Job controlling:"
+echo "  --prefetch-mb  MB    : Allow prefetch source file up to MB Megabytes.Useful for fast transcoding."
+echo "  --pool-threads  THREADS : Set thread pool to THREADS. See manual of x265."
+echo "  --frame-threads THREADS : Set frame threads to THREADS. See manual of x265."
+echo "  --threads       THREADS : Set both thread pool and frame thread to THREADS. See manual of x265."
+echo 
+echo "Important around transcoding:"
+echo "  --encode-audio          : Encode audio to another codec, bitrate."
+echo "  --copy-audio            : Not encode (=COPY) audio to another codec, bitrate.Keep original."
+echo "  --preset   TYPE         : Set preset type (i.e. veryfast, faster, fast, slower...) to TYPE. See manual of x265."
+echo "  --tune     TYPE         : Set tune type (i.e. grain, animation...) to TYPE. See manual of x265."
+echo "  --crf VALUE             : Set CRF quant value to VALUE. See manual of x265."
+echo "  --aq-value VALUE        : Set adaptive quant value to VALUE. See manual of x265."
+echo "  --aq-mode MODE          : Set adaptive quant mode to MODE. See manual of x265."
+echo "  --qp-adaptive VALUE     : Set QP adaptive value to VALUE. See manual of x265."
+echo "  --reset-aq-value        : Reset adaptive quant value to default (normally 1.0)."
+echo "  --reset-qp-adaptive     : Reet QP adaptive value to default (normally 1.0). See manual of x265."
+echo "  --fps FPS               : Set base framerate to FPS."
+echo "  --force-fps             : Force to set framerate before setting."
+echo "  --no-force-fps          : Not force to set framerate before setting."
+echo "  --detect-vfr            : Detect variable framerate of source with 'vfrdet' filter. See ffmpeg's manual and -help filter=vfrdet."
+echo "  --no-detect-vfr         : Not detect variable framerate of source."
+echo "  --same-frame-rate       : Encode framerate as same as source (even source has variable framerate)." 
+echo "  --auto-frame-rate       : Encode framerate as setting (even source has variable framerate)." 
+echo
+echo "Around Subtitle:"
+echo "  --dump-sub-from-source     : Add subtitle(s) (teletexts) from source movie file."
+echo "  --no-dump-sub-from-source  : DON't add subtitle(s) (teletexts) from source movie file."
+echo "  --add-subs-if-exists       : Add subtitle(s) (teletexts) from external files."
+echo "  --no-add-subs-if-exists    : DON't add subtitle(s) (teletexts) from external files."
+echo
+echo "Rate controlling:"
+echo "  --crf-max VALUE         : Set maximum CRF quant value to VALUE. See manual of x265."
+echo "  --crf-min VALUE         : Set minimum CRF quant value to VALUE. See manual of x265."
+echo "  --reset-crf-max         : Reset maximum CRF quant value to default."
+echo "  --reset-crf-min         : Reset minimum CRF quant value to default."
+echo "  --vbv-maxrate VALUE     : Set VBV MAX RATE value to VALUE. See manual of x265."
+echo "  --reset-vbv-maxrate     : Reset VBV MAX RATE value to default."
+echo ""
+
+}
+
+for x in $@ ; do \
 
     case "$1" in
+        --help | -h )
+	  print_help
+	  shift
+	  exit 0
+	  ;;
         --num | -n )
 	  shift
 	  EPISODE_NUM=$1
@@ -455,7 +547,7 @@ for x in "$@"; do \
 	  shift
 	  continue
         ;;
-	--prefetch | --prefetch-bytes )
+	--prefetch | --prefetch-bytes | --prefetch-mb )
 	  shift
 	  PREFETCH_FILE=$1
 	  shift
@@ -620,6 +712,26 @@ for x in "$@"; do \
     --no-force-fps | --auto-fps )
 		shift
 		FORCE_FPS=0
+		continue
+        ;;
+    --detect-vfr | --detect-variable-frame-rate )
+		shift
+		DETECT_VFR=1
+		continue
+        ;;
+    --no-detect-vfr | --no-detect-variable-frame-rate )
+		shift
+		DETECT_VFR=0
+		continue
+        ;;
+    --same-fps-as-source | --same-frame-rate )
+		shift
+		PASSTHROUGH_FPS=1
+		continue
+        ;;
+    --auto-fps | --auto-frame-rate )
+		shift
+		PASSTHROUGH_FPS=0
 		continue
         ;;
 	* )
@@ -843,6 +955,8 @@ __AWK_GETFPS="
 __AWK_STREAMDESC="
 	BEGIN {
 	   inum=1;
+	   video_count=0;
+	   audio_count=0;
 	}
 	{
 	   ST_NUM=\$2;
@@ -867,15 +981,16 @@ __AWK_STREAMDESC="
 	}
 	END {
 	   for(i = 1; i <= inum; i++) {
-	      
 	      if(match(_ARG_TYPE[i], \"Video\") != 0) {
-	           printf(\"-map:v %s \", _ARG_STREAM[i]);
+	           printf(\"-map:v %s -c:V:%d libx265 \", _ARG_STREAM[i], video_count);
+		   video_count++;
 	      } else if(match(_ARG_TYPE[i], \"Audio\") != 0) {
 	           if(AUDIO_COPY != 0) {
-	                printf(\"-map:a %s -c:a copy \", _ARG_STREAM[i]);
+	                printf(\"-map:a %s -c:a:%d copy \", _ARG_STREAM[i], audio_count);
 		   } else {
-		        printf(\"-map:a %s -c:a %s %s \", _ARG_STREAM[i], AUDIO_CODEC, AUDIO_ARGS);
+		        printf(\"-map:a %s -c:a:%d %s %s \", _ARG_STREAM[i],  audio_count, AUDIO_CODEC, AUDIO_ARGS);
 		   }
+		   audio_count++;
               } else if(match(_ARG_TYPE[i], \"Subtitle\") != 0) {
 	           printf(\"-map:s %s -c:s subrip \", _ARG_STREAM[i]);
               } else if(match(_ARG_TYPE[i], \"Attachment_PIC\") != 0) {
@@ -888,8 +1003,7 @@ __AWK_STREAMDESC="
 	"
 declare -a __APPEND_ARGS_SUBTITLES
 unset __APPEND_ARGS_SUBTITLES[@]
-declare -a __APPEND_FILES_SUBTITLES
-unset __APPEND_FILES_SUBTITLES[@]
+__APPEND_FILES_SUBTITLES=""
 
 declare -a ARG_SUBTITLES
 declare -a ARG_MAPCOPY_SUBS
@@ -907,8 +1021,7 @@ if [ ${DUMP_SUB_FROM_SOURCE} -ne 0 ] ; then
    
     if [ -s "${TEMPDIR}/v1tmp.ass" ] ; then
 		__tmp_sb="${TEMPDIR}/v1tmp.ass"
-		__APPEND_FILES_SUBTITLES+=(-i)
-		__APPEND_FILES_SUBTITLES+=("${TEMPDIR}/v1tmp.ass")
+		__APPEND_FILES_SUBTITLES="${__APPEND_FILES_SUBTITLES} -i \"${__tmp_sb}\""
 		__APPEND_ARGS_SUBTITLES+=(-map:s)
 		__APPEND_ARGS_SUBTITLES+=(${__sb_num}:0)
 		__APPEND_ARGS_SUBTITLES+=(-c:s)
@@ -917,7 +1030,7 @@ if [ ${DUMP_SUB_FROM_SOURCE} -ne 0 ] ; then
 	fi
 fi
 
-for __sb in "ass" "ASS" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do 
+for __sb in "ass" "ASS" "smi" "SMI" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do 
     __tmp_sb=""
     ARG_SUBTITLES[$__sb_num]=""
     ARG_MAPCOPY_SUBS[$__sb_num]=""
@@ -925,8 +1038,7 @@ for __sb in "ass" "ASS" "srt" "SRT" "ttml" "TTML" "vtt" "VTT" ; do
 		__tmp_sb="${BASEFILE3}.${__sb}"
 		ARG_SUBTITLES[$__sb_num]="${__tmp_sb}"
 		ARG_MAPCOPY_SUBS[$__sb_num]="-map:s ${__sb_num}:0 -c:s subrip"
-		__APPEND_FILES_SUBTITLES+=(-i)
-		__APPEND_FILES_SUBTITLES+=(${__tmp_sb})
+		__APPEND_FILES_SUBTITLES="${__APPEND_FILES_SUBTITLES} -i ${BASEFILE3}.${__sb}"
 		__APPEND_ARGS_SUBTITLES+=(-map:s)
 		__APPEND_ARGS_SUBTITLES+=(${__sb_num}:0)
 		__APPEND_ARGS_SUBTITLES+=(-c:s)
@@ -1144,25 +1256,40 @@ else
 	 fi
 fi
 
+if [ ${PASSTHROUGH_FPS} -ne 0 ] ; then
+    FORCE_FPS=0
+    DETECT_VFR=0
+fi
 
 if [ ${FORCE_FPS} -eq 0 ] ; then
-    if [ "__x__" != "__x__${FILTER_STRING_1}" ] ; then
-	FILTER_STRING_1="${FILTER_STRING_1},vfrdet"
-    else
-	FILTER_STRING_1="vfrdet"
+    if [ ${DETECT_VFR} -eq 0 ] ; then 
+	FPS_VAL="-fps_mode:V:0 passthrough -copyts"
+	MUXER_OPTIONS+=(-enc_time_base:V:0)
+	MUXER_OPTIONS+=(demux)
+        ARG_METADATA+=(-metadata:s:V:0) 
+        ARG_METADATA+=(framerate_type=passthrough)
+        ARG_METADATA+=(-metadata:s:V:0) 
+        ARG_METADATA+=(enc_time_base=demux)
+    else 
+        if [ "__x__" != "__x__${FILTER_STRING_1}" ] ; then
+	    FILTER_STRING_1="${FILTER_STRING_1},vfrdet"
+        else
+	    FILTER_STRING_1="vfrdet"
+        fi
+        FPS_VAL="-fps_mode vfr"
+	ARG_METADATA+=(-metadata:s:V:0) 
+	ARG_METADATA+=(framerate_type=vfr)
+	#MUXER_OPTIONS+=(-enc_time_base:V:0)
+	#MUXER_OPTIONS+=(filter)
     fi
-#    FPS_VAL="-vsync vfr"
-    FPS_VAL="-fps_mode vfr"
-    ARG_METADATA+=(-metadata:s:v) 
-    ARG_METADATA+=(framerate_type=vfr)
 else
     if [ "__x__${ARG_FPS}" != "__n__" ] ; then
 	FPS_VAL="-r ${ARG_FPS}"
-	ARG_METADATA+=(-metadata:s:v) 
+	ARG_METADATA+=(-metadata:s:V:0) 
 	ARG_METADATA+=(framerate_type=fixed,"${ARG_FPS}") 
     else
 	FPS_VAL="-r ${BASE_FPS}"
-	ARG_METADATA+=(-metadata:s:v)
+	ARG_METADATA+=(-metadata:s:V:0)
 	ARG_METADATA+=(framerate_type=fixed,"${BASE_FPS}")
     fi
 fi
@@ -1194,7 +1321,7 @@ echo ${BASEFILE4}
 #exit 1
 ARG_METADATA+=(-metadata:g)
 ARG_METADATA+=(source="${BASEFILE4}")
-ARG_METADATA+=(-metadata:s:v)
+ARG_METADATA+=(-metadata:s:V:0)
 ARG_METADATA+=(source="${BASEFILE4}")
 ARG_METADATA+=(-metadata:s:a)
 ARG_METADATA+=(source="${BASEFILE4}")
@@ -1202,15 +1329,15 @@ ARG_METADATA+=(source="${BASEFILE4}")
 #echo ${ARG_METADATA[@]}
 #exit 0
 if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
-    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(-metadata:s:V:0)
     ARG_METADATA+=(filter_params="${FILTER_ARG}")
 fi
 if [ "__xx__" != "__xx__${__X265_PARAMS}" ] ; then
-    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(-metadata:s:V:0)
     ARG_METADATA+=(x265_params="${__X265_PARAMS}")
 fi
 if [ "__xx__" != "__xx__${__X265_DISP_PARAMS}" ] ; then
-    ARG_METADATA+=(-metadata:s:v)
+    ARG_METADATA+=(-metadata:s:V:0)
     ARG_METADATA+=(x265_params_any="${__X265_DISP_PARAMS}")
 fi
 #echo "${BASEFILE}" \
@@ -1292,33 +1419,36 @@ done
 #echo \
 #echo ${ARG_METADATA[@]}
 #exit 1
-ffmpeg -fix_sub_duration -i \
-		"${BASEFILE}" \
-			  ${__APPEND_FILES_SUBTITLES[@]} \
-			  ${__APPEND_ARGS_PRE[@]} \
-			  ${ARG_COPYMAP} \
-			  ${__APPEND_ARGS_SUBTITLES[@]} \
-			  ${PREFETCH_ARGS[@]} \
-			  -threads ${FFMPEG_THREADS} \
-			  -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
-			  -filter_threads ${FILTER_THREADS} \
-			  -map_chapters 0 \
-			  -c:v:0 libx265 \
-			  -profile:v:0 ${PROFILE_ARG} \
-			  ${FPS_VAL} \
-			  -filter:v "${FILTER_ARG}" \
-			  -crf ${CRF_VALUE}  \
-			  ${PRESET_ARG}  \
-			  ${TUNE_ARG} \
-			  -x265-params "${__X265_PARAMS}" \
-			  ${__APPEND_ARGS_POST[@]} \
-			  -map_metadata:g 0 \
-			  -map_chapters 0 \
-			  -metadata:g title="${ARG_TITLE}" \
-			  -metadata:g description="${ARG_DESC}" \
-			  ${ARG_ARG_COMMENT} \
-			  ${ARG_METADATA[@]} \
-			  -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
+#echo "${BASEFILE}"
+#echo ${__APPEND_FILES_SUBTITLES}
+#shift
+#continue
+ffmpeg  -fix_sub_duration -i "${BASEFILE}" \
+		 ${__APPEND_FILES_SUBTITLES} \
+		 ${__APPEND_ARGS_PRE[@]} \
+		 ${ARG_COPYMAP} \
+		 ${__APPEND_ARGS_SUBTITLES[@]} \
+		 ${PREFETCH_ARGS[@]} \
+		 -threads ${FFMPEG_THREADS} \
+		 -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
+		 -filter_threads ${FILTER_THREADS} \
+		 -map_chapters 0 \
+		 -profile:V:0 ${PROFILE_ARG} \
+		 ${FPS_VAL} \
+		 -filter:V:0 "${FILTER_ARG}" \
+		 -crf ${CRF_VALUE}  \
+		 ${PRESET_ARG}  \
+		 ${TUNE_ARG} \
+		 -x265-params "${__X265_PARAMS}" \
+		 ${__APPEND_ARGS_POST[@]} \
+		 -map_metadata:g 0 \
+		 -map_chapters 0 \
+		 -metadata:g title="${ARG_TITLE}" \
+		 -metadata:g description="${ARG_DESC}" \
+		 ${ARG_ARG_COMMENT} \
+		 ${ARG_METADATA[@]} \
+		 ${MUXER_OPTIONS[@]} \
+		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
 #
 
 #
