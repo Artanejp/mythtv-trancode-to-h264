@@ -6,6 +6,13 @@ REPLACE_HEADER=0
 
 ### About HEAD TITLE
 HEAD_TITLE="Sample String(foo)[bar]"
+META_TITLE="Sample String(foo)[bar]"
+
+COMMENTS="
+ANY COMMENTS
+
+"
+
 # MAY SET BELOW VALUES:
 # "NONE"      : Don't append/replace header title
 # "NUMERIC"   : HEAD TITLE with episode-number (automatically increments)
@@ -43,7 +50,7 @@ QP_ADAPTATIVE_VALUE=1.20
 
 # Encode parameters (mostly not need to change)
 #VBV_VALUE=3000
-
+PREFETCH_FILE=2048
 
 # Initial (prefix) filter string. See ffmpeg's -vf option.
 FILTER_STRING=""
@@ -55,9 +62,13 @@ USE_DATABASE=0
 #FORCE_FPS=1
 #BASE_FPS="60000/1001"
 
+# Or:
+#FORCE_FPS=0
+#DETECT_VFR=0
+#PASSTHROUGH_FPS=1
+
 # Using stream number (of FFMPEG) if has multiple video tracks.
 #VIDEO_STREAM="0x1"
-
 
 # Set 1 to copy all audio tracks, 0 to re-encode all audio tracks.
 COPY_AUDIOS=0
