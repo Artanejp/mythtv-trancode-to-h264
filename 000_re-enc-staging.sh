@@ -91,14 +91,34 @@ for xx in ${MOVIE_DIRS[@]} ; do
    fi
    #echo "${xx}"  "${SCRIPT_ARGS[@]}"
    unset XLIST[@]
+   declare -i j
+   declare -a __TMPF
+   unset __TMPF[@]
+   j=0
    for yy in ${MOVIE_EXTS[@]} ; do
        __TMPS=""
-       __TMPS=`find . -maxdepth 1 -iname \*.${yy} -print`
-       if [ __xxx__"${__TMPS}" != ___xxx___ ] ; then
-          XLIST+=("${__TMPS}")
-       fi
+       __TMPF=(`find . -maxdepth 1 -iname \*.${yy} -print | sort -n`)
+       #__TMPS=`find . -maxdepth 1 -iname \*.${yy} -printf "%f\n" | sort -n` 
+       #if [ __xxx__"${__TMPS}" != ___xxx___ ] ; then
+       #   XLIST+=("${__TMPS}")
+       #fi
+       for __TMPS in ${__TMPF[@]} ; do
+           __TMPS2=`echo "${__TMPS}" | sed "s/.\///g"`
+           XLIST+=("${__TMPS2}")
+	   j=j+1
+       done
    done
-   #echo ${XLIST[@]}
+   for xy in ${XLIST[@]} ; do
+       echo ${xy}
+   done
+
+   #declare -i j
+   #j=0
+   #declare -i k
+   #k=${#XLIST[@]}
+   #while [ $j -lt $k ] ; do
    ${EXEC_PROG} ${SCRIPT_ARGS[@]} ${XLIST[@]}
+   #    j=j+1
+   #done
    cd "${X_PWD}"
 done
