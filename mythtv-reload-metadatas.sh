@@ -957,11 +957,12 @@ __AWK_STREAMDESC="
 	   inum=1;
 	   video_count=0;
 	   audio_count=0;
+	   sub_count=0;
 	}
 	{
 	   ST_NUM=\$2;
 	   ST_TYPE=\$3;
-	   
+	   _ARG_EXTRA[inum]=\$0;
 	   if(match(\$0, /^.*Video:.*\\(attached.*\\)\$/) != 0) {
 	       _ARG_TYPE[inum] = \"Attachment_PIC\";
 	   } else {
@@ -992,7 +993,12 @@ __AWK_STREAMDESC="
 		   }
 		   audio_count++;
               } else if(match(_ARG_TYPE[i], \"Subtitle\") != 0) {
-	           printf(\"-map:s %s -c:s subrip \", _ARG_STREAM[i]);
+	           if(match(_ARG_EXTRA[i], \"hdmv_pgs_subtitle\") != 0) {
+	               printf(\"-map:s %s -c:s:%d copy \", _ARG_STREAM[i], sub_count);
+		   } else {
+	               printf(\"-map:s %s -c:s:%d subrip \", _ARG_STREAM[i], sub_count);
+		   }
+		   sub_count++;
               } else if(match(_ARG_TYPE[i], \"Attachment_PIC\") != 0) {
 	           printf(\"-map:v %s -c:%d copy  \", _ARG_STREAM[i], i - 1);
               } else if(match(_ARG_TYPE[i], \"Attachment\") != 0) {
@@ -1418,6 +1424,7 @@ done
 
 #echo \
 #echo ${ARG_METADATA[@]}
+#echo ${ARG_COPYMAP}
 #exit 1
 #echo "${BASEFILE}"
 #echo ${__APPEND_FILES_SUBTITLES}
