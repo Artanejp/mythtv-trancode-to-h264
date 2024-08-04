@@ -115,6 +115,7 @@ IONICE_CMD=/usr/bin/ionice
 
 EXECUTE_PREFIX_CMD=""
 FFMPEG_CMD="/usr/bin/ffmpeg"
+FFPROBE_CMD="/usr/bin/ffprobe"
 #FFMPEG_CMD="/usr/local/bin/ffmpeg-arib"
 #FFMPEG_SUBTXT_CMD="/usr/local/bin/ffmpeg-arib"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
@@ -991,6 +992,56 @@ if test $USE_DATABASE -ne 0 ; then
   mysql -v -v -v --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < update-database_$MYPID.sql
 fi
 
+## Check soruce
+X_FFPROBE_STREAM=`${FFPROBE_CMD} -i "$DIRNAME2/$SRC2" 2>&1 | grep Stream`
+declare -a __STREAMS
+declare -a _AUDIO_ARGS
+declare -a _VIDEO_ARGS
+
+readarray __STREAMS <<< ${X_FFPROBE_STREAM}
+declare -a __TMP_X
+
+_AUDIO_STREAMS=1
+_VIDEO_STREAMS=0
+
+## Check stream(s)
+for _x in "${__STREAMS[@]}" ; do
+    __IS_AUDIO=`echo "${_x}" | grep Audio`
+    if [ "__x__${__IS_AUDIO}" != "__x__" ] ; then
+        readarray -d "," __TMP_X <<< ${__IS_AUDIO}
+	__TMP_AUDIO_CH=`echo ${__TMP_X[2]}`
+	case "$__TMP_AUDIO_CH" in
+	    "5.1," )
+	       _AUDIO_ARGS+=(-c:a:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(aac)
+	       _AUDIO_ARGS+=(-ar:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(48000)
+	       _AUDIO_ARGS+=(-ac:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(6)
+	       _AUDIO_ARGS+=(-ab:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(512k)
+	       ;;
+           *)
+	       _AUDIO_ARGS+=(-c:a:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(aac)
+	       _AUDIO_ARGS+=(-ar:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(48000)
+	       _AUDIO_ARGS+=(-ac:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(2)
+	       _AUDIO_ARGS+=(-ab:$_AUDIO_STREAMS)
+	       _AUDIO_ARGS+=(224k)
+	       ;;
+	esac
+	let _AUDIO_STREAMS++
+    fi
+done
+_AUDIO_ARGS+=(-af)
+_AUDIO_ARGS+=(aresample=async=1:min_hard_comp=0.1:first_pts=0)
+
+__AUDIO_ARGS=`echo ${_AUDIO_ARGS[@]}`
+#exit 1
+
+
 if test $NOENCODE -eq 0; then
 x=$ENCMODE
 case "$x" in
@@ -1051,7 +1102,6 @@ X264_BITRATE=0
 IS_CONSTANT_QUALITY=0
 #Determine override presets when set to mode
 x=$ENCMODE
-
 
 case "$x" in
    "ANIME" | "ANIME_HW" )
@@ -1217,6 +1267,8 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
 esac
+
+
 
 
 if test $IS_VFR -eq 0; then
@@ -1672,7 +1724,6 @@ case "$x" in
      ;;
 esac
 
-
 #FFMPEG_X264_HEAD="-profile:v high -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
 
 FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
@@ -2015,6 +2066,7 @@ if test $FFMPEG_ENC -ne 0; then
 
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	echo "${_AUDIO_ARGS[@]}"
 	echo "${ARG_METADATA[@]}"
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
@@ -2026,15 +2078,14 @@ if test $FFMPEG_ENC -ne 0; then
 	              ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		      -c:v libx265 \
+		      -c:a aac \
 		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
 		      ${FFMPEG_X265_HEAD} \
 		      ${FFMPEG_X265_FRAMES1} \
 		      ${FFMPEG_X265_AQ} \
 		      ${FFMPEG_X265_PARAMS} \
 		      -threads ${ENCTHREADS} \
-		      -c:a aac \
-		      -ab 224k -ar 48000 -ac 2 \
-		      -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
+		      ${_AUDIO_ARGS[@]} \
 		      ${ARG_METADATA[@]} \
 		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -2068,9 +2119,7 @@ if test $FFMPEG_ENC -ne 0; then
 		  $FFMPEG_X264_AQ \
 		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
-		  -c:a aac \
-		  -ab 224k -ar 48000 -ac 2 \
-		  -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
+		  ${__AUDIO_ARGS} \
 		  ${ARG_METADATA[@]} \
 	          -metadata:g description="${ARG_DESC2}" \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -2151,11 +2200,9 @@ elif    test $HWENC -ne 0; then
 		       $HWENC_PARAM \
 		       -aspect ${VIDEO_ASPECT} \
 		       -threads:0 8 \
-		       -c:a aac \
 		       -threads:1 8 \
 		       ${FRAMERATE} \
-		       -ab 224k -ar 48000 -ac 2 \
-		       -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
+		       ${__AUDIO_ARGS} \
 		       ${ARG_METADATA[@]} \
 		       -metadata:g description="${ARG_DESC2}" \
 		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
@@ -2215,11 +2262,9 @@ elif    test $HWENC -ne 0; then
 		       $HWENC_PARAM \
 		       -aspect ${VIDEO_ASPECT} \
 		       -threads:0 4 \
-		       -c:a aac \
 		       -threads:1 4 \
 		       ${FRAMERATE} \
-		       -ab 224k -ar 48000 -ac 2 \
-		       -af aresample=async=1:min_hard_comp=0.1:first_pts=0 \
+		       ${__AUDIO_ARGS} \
 		       ${ARG_METADATA[@]} \
        		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
