@@ -1,0 +1,41 @@
+## Setting files for mythtv-reload-metadatas.sh .
+
+# SET NOT 0 to REPLACE FILENAME with HEADER.
+# SET 0 to APPEND HEADER to FILENAME.
+REPLACE_HEADER=0
+
+HEAD_TITLE="FOO"
+META_TITLE="FOO BAR"
+
+### About HEAD TITLE
+
+# MAY SET BELOW VALUES:
+# "NONE"      : Don't append/replace header title
+# "NUMERIC"   : HEAD TITLE with episode-number (automatically increments)
+#               ,as "#xxx" .
+#               SHOULD SET EPISODE_NUM.
+# "HEAD_ONLY" : HEAD TITLE without episode-number.
+APPEND_HEADER="HEAD_ONLY"
+
+# Initial episode number if needed.
+EPISODE_NUM=01
+
+# Around encoding (mainly for libx265)
+# Threading
+FFMPEG_THREADS=6
+
+PREFETCH_FILE=1024
+
+
+# Set 1 to copy all audio tracks, 0 to re-encode all audio tracks.
+COPY_AUDIOS=0
+# Audio codec when re-encoding .
+AUDIO_CODEC="aac"
+# Encode parameter (see FFMpeg's manuals) of audio codec
+#AUDIO_ARGS="-ac:1 2 -ar:1 48000 -ab:1 192k -ac:2 1 ar:2 44100 -ab:2 80k"
+AUDIO_ARGS="-ac 2 -ar 48000 -ab 192k"
+
+# Commands
+#FFMPEG_CMD="/usr/bin/ffmpeg"
+#FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+    
