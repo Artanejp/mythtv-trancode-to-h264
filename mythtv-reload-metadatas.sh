@@ -12,7 +12,12 @@ CRF_MIN=""
 CRF_MAX=""
 typeset -i AQ_MODE
 AQ_MODE=3
-APPEND_X265_MODE=""
+
+declare -a APPEND_X265_PARAMETERS_PRE
+unset APPEND_X265_PARAMETERS_PRE[@]
+
+declare -a APPEND_X265_PARAMETERS_POST
+unset APPEND_X265_PARAMETERS_POST[@]
 
 FILTER_THREADS=16
 FILTER_COMPLEX_THREADS=16
@@ -1229,7 +1234,7 @@ fi
    
 
 
-if [ "__x__${ARG_DESC}" != "__x__" ] ; then
+if [ "__x__${ARG_DESC}" = "__x__" ] ; then
    ARG_DESC=" "
 fi
 
@@ -1334,6 +1339,34 @@ ARG_METADATA+=(source="${BASEFILE4}")
 
 #echo ${ARG_METADATA[@]}
 #exit 0
+
+__X265_PARAMS_PRE=""
+__X265_PARAMS_POST=""
+for xx in "${APPEND_X265_PARAMETERS_PRE[@]}" ; do
+    if [ "__xx__${xx}" != "__xx__" ] ; then
+         if [ "__xx__${__X265_PARAMS_PRE}" != "__xx__" ] ; then
+	     __X265_PARAMS_PRE="${__X265_PARAMS_PRE}:"
+	 fi
+	 __X265_PARAMS_PRE="${__X265_PARAMS_PRE}${xx}"
+    fi
+done
+for xx in "${APPEND_X265_PARAMETERS_POST[@]}" ; do
+    if [ "__xx__${xx}" != "__xx__" ] ; then
+         if [ "__xx__${__X265_PARAMS_POST}" != "__xx__" ] ; then
+	     __X265_PARAMS_POST="${__X265_PARAMS_POST}:"
+	 fi
+	 __X265_PARAMS_POST="${__X265_PARAMS_POST}${xx}"
+    fi
+done
+
+if [ "__xx__${__X265_PARAMS_PRE}" != "__xx__" ] ; then
+    __X265_PARAMS="${__X265_PARAMS_PRE}:${__X265_PARAMS}"
+fi
+if [ "__xx__${__X265_PARAMS_POST}" != "__xx__" ] ; then
+    __X265_PARAMS="${__X265_PARAMS}:${__X265_PARAMS_POST}"
+fi
+
+
 if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
     ARG_METADATA+=(filter_params="${FILTER_ARG}")
@@ -1451,7 +1484,7 @@ ffmpeg  -fix_sub_duration -i "${BASEFILE}" \
 		 -map_metadata:g 0 \
 		 -map_chapters 0 \
 		 -metadata:g title="${ARG_TITLE}" \
-		 -metadata:g description="${ARG_DESC}" \
+		 -metadata:g DESCRIPTION="${ARG_DESC}" \
 		 ${ARG_ARG_COMMENT} \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
