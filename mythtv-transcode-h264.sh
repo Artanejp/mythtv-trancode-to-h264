@@ -97,6 +97,11 @@ HWENC_APPEND=""
 
 VIDEO_SKIP="15"
 
+typeset -i USE_HDR_DEFAULT
+typeset -i USE_HDR
+USE_HDR_DEFAULT=0
+
+
 FFMPEG_ENC=1
 HWENC=0
 HWDEC=0
@@ -165,6 +170,7 @@ function logging() {
 
 logging "$@"
 
+USE_HDR=${USE_HDR_DEFAULT}
 # Parse ARGS
 for x in "$@" ; do
     SS="$1"
@@ -316,6 +322,18 @@ for x in "$@" ; do
 	    shift
 	    USEOPENCL=1
 	    ;;
+	--hdr | --HDR | --hdr10 | --HDR10 | --hdr12 | --HDR12 )
+	    shift
+	    USE_HDR=1
+	    ;;
+	--no-hdr | --NO-HDR | --no-hdr10 | --NO-HDR10 | --no-hdr12 | --NO-HDR12 )
+	    shift
+	    USE_HDR=0
+	    ;;
+	--default-hdr | --DEFAULT-HDR | --defaulut-hdr10 | --DEFAULT-HDR10 | --default-hdr12 | --DEFAAULT-HDR12 )
+	    shift
+	    USE_HDR=${USE_HDR_DEFAULT}
+	    ;;
 	--use-x265 | --USE-X265 | --x265 | --X265 | --hevc )
 	    shift
 	    USE_X265=1
@@ -323,6 +341,12 @@ for x in "$@" ; do
 	--use-x265-10 | --use-x265_10 | --USE-X265-10 | --USE-X265_10 | --x265-10 | --x265_10 | --X265_10 | --X265-10 )
 	    shift
 	    USE_X265=1
+	    X265_PROFILE="main10"
+	    ;;
+	--use-x265-hdr10 | --use-x265_hdr10 | --USE-X265-HDR10 | --USE-X265_HDR10 | --x265-hdr10 | --x265_HDR10 | --X265_10 | --X265-HDR10 )
+	    shift
+	    USE_X265=1
+	    USE_HDR=1
 	    X265_PROFILE="main10"
 	    ;;
 	--no-opencl | --no-OpenCL | --NO-OpenCL | --NO-OPENCL )
@@ -379,6 +403,11 @@ for x in "$@" ; do
 	    # Optimize for anime
 	    shift
 	    ENCMODE="ANIME_HIGH_HW"
+	    ;;
+	--anime_sd_high | --anime-sd-high )
+	    # Optimize for anime
+	    shift
+	    ENCMODE="ANIME_SD_HIGH"
 	    ;;
 	--live_hd_high | --live-hd-high)
 	    # for Live, HD, high quality.
@@ -1049,7 +1078,7 @@ case "$x" in
 #   AUDIOBITRATE=192
 #   AUDIOCUTOFF=20000
 #   ;;
-   "ANIME_HIGH" | "LIVE_HIGH" | "LIVE_HD_HIGH"  | "LIVE_HD_MID" | "LIVE_SD_HIGH" )
+   "ANIME_HIGH" | "LIVE_HIGH" | "LIVE_HD_HIGH"  | "LIVE_HD_MID" | "LIVE_SD_HIGH" | "ANIME_SD_HIGH" )
    AUDIOBITRATE=224
    AUDIOCUTOFF=22050
    ;;
@@ -1105,7 +1134,7 @@ x=$ENCMODE
 
 case "$x" in
    "ANIME" | "ANIME_HW" )
-   VIDEO_QUANT=22.2
+   VIDEO_QUANT=23.0
    VIDEO_MINQ=15
    VIDEO_MAXQ=28
    VIDEO_AQSTRENGTH=0.65
@@ -1119,7 +1148,7 @@ case "$x" in
    #X264_FILTPARAM="--vf resize:width=1280,height=720,method=bicubic"
    ;;
    "ANIME_HIGH" | "ANIME_HIGH_HW" )
-   VIDEO_QUANT=21.5
+   VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
    VIDEO_AQSTRENGTH=0.36
@@ -1152,9 +1181,9 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=21.5
+   VIDEO_QUANT=21.8
    VIDEO_MINQ=14
-   VIDEO_MAXQ=33
+   VIDEO_MAXQ=35
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
    VIDEO_SCENECUT=60
@@ -1172,7 +1201,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOSCALE=1
    ;;
    "LIVE_HD_HIGH" | "LIVE_HD_HIGH_HW" )
-   VIDEO_QUANT=20.5
+   VIDEO_QUANT=21.0
    VIDEO_MINQ=12
    VIDEO_MAXQ=33
    VIDEO_AQSTRENGTH=0.75
@@ -1214,6 +1243,44 @@ case "$x" in
    VIDEO_MINQ=12
    VIDEO_MAXQ=27
    VIDEO_AQSTRENGTH=0.95
+   VIDEO_QCOMP=0.75
+   VIDEO_SCENECUT=40
+   VIDEO_REF_FRAMES=5
+   VIDEO_BFRAMES=5
+   OUT_WIDTH=720
+   OUT_HEIGHT=480
+   SCALER_MODE="lanczos"
+   
+  #X264_BITRATE=3500
+   VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
+   VIDEO_FILTERCHAINX=""
+   VIDEO_FILTERCHAIN_NOSCALE=0
+   VIDEO_FILTERCHAIN_NOCROP=1
+   ;;
+   "ANIME_SD_HIGH" )
+   VIDEO_QUANT=20.5
+   VIDEO_MINQ=12
+   VIDEO_MAXQ=28
+   VIDEO_AQSTRENGTH=0.70
+   VIDEO_QCOMP=0.75
+   VIDEO_SCENECUT=25
+   VIDEO_REF_FRAMES=6
+   VIDEO_BFRAMES=4
+   OUT_WIDTH=720
+   OUT_HEIGHT=480
+   SCALER_MODE="lanczos"
+   
+  #X264_BITRATE=3500
+   VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
+   VIDEO_FILTERCHAINX=""
+   VIDEO_FILTERCHAIN_NOSCALE=0
+   VIDEO_FILTERCHAIN_NOCROP=1
+   ;;
+   "LIVE_SD_MID" )
+   VIDEO_QUANT=22.0
+   VIDEO_MINQ=12
+   VIDEO_MAXQ=27
+   VIDEO_AQSTRENGTH=1.00
    VIDEO_QCOMP=0.75
    VIDEO_SCENECUT=40
    VIDEO_REF_FRAMES=5
@@ -1315,6 +1382,11 @@ case "$x" in
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
      X265_AQ_STRENGTH=0.9
      X265_QP_ADAPTATION_RANGE=1.25
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="superfast"
+     else
+         X265_PRESET="veryfast"
+     fi
    ;;
    ANIME_HW )
      HWENC_PARAM="-profile:v ${X265_PROFILE} -level 51 \
@@ -1339,9 +1411,13 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
      
-     X265_PRESET="faster"
-     X265_AQ_STRENGTH=0.70
-     X265_QP_ADAPTATION_RANGE=1.10
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="veryfast"
+     else
+         X265_PRESET="faster"
+     fi
+     X265_AQ_STRENGTH=0.80
+     X265_QP_ADAPTATION_RANGE=1.18
      X265_AQ_MODE=4
 
 #     X265_PARAMS="ref=4"
@@ -1380,7 +1456,11 @@ case "$x" in
      X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-     X265_PRESET="faster"
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="superfast"
+     else
+         X265_PRESET="veryfast"
+     fi
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
@@ -1402,14 +1482,14 @@ case "$x" in
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      if [ $USE_60FPS -ne 0 ] ; then
-         X265_PRESET="faster"
+         X265_PRESET="superfast"
      else
          X265_PRESET="veryfast"
      fi
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
-     X265_AQ_STRENGTH=0.88
+     X265_AQ_STRENGTH=0.92
      X265_QP_ADAPTATION_RANGE=1.28
      X265_AQ_MODE=3
      
@@ -1474,6 +1554,11 @@ case "$x" in
    LIVE1 )
      X264_DIRECT="--direct auto"
      X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2"
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="superfast"
+     else
+         X265_PRESET="veryfast"
+     fi
    ;;
    LIVE_HIGH )
      X264_DIRECT="--direct spatial --aq-mode 3"
@@ -1486,6 +1571,11 @@ case "$x" in
      
      X265_AQ_STRENGTH=0.75
      X265_QP_ADAPTATION_RANGE=1.2
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="veryfast"
+     else
+         X265_PRESET="faster"
+     fi
      
      HWENC_PARAM=" -coder cavlc -qp 23 -quality 2"
      FFMPEG_ENC=1
@@ -1532,6 +1622,27 @@ case "$x" in
      
      X265_AQ_STRENGTH=0.70
      X265_QP_ADAPTATION_RANGE=1.05
+     X265_PRESET="faster"
+     
+     HWENC_PARAM=" -coder cavlc -aspect ${VIDEO_ASPECT} -qp 21 -quality 4 "
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
+     FFMPEG_ENC=1
+     HWENC=0
+     HWDEC=0
+   ;;
+   ANIME_SD_HIGH )
+     X264_DIRECT="--direct spatial --aq-mode 3"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 25 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
+     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
+     FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
+     
+     X265_AQ_STRENGTH=0.70
+     X265_QP_ADAPTATION_RANGE=1.30
+     X265_PRESET="fast"
      
      HWENC_PARAM=" -coder cavlc -aspect ${VIDEO_ASPECT} -qp 21 -quality 4 "
      HW_SCALING="No"
@@ -1609,6 +1720,26 @@ case "$x" in
      HWENC=0
      HWDEC=0
    ;;
+   LIVE_SD_MID )
+     X264_DIRECT="--direct spatial --aq-mode 3"
+     X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
+     X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
+     X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
+     FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
+     FFMPEG_X264_FRAMES1="-b-pyramid strict  -b-bias -1 -me_method umh -weightp smart"
+     FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
+     
+     X265_AQ_STRENGTH=1.00
+     X265_QP_ADAPTATION_RANGE=1.25
+     X265_PRESET="faster"
+     
+     HWENC_PARAM=" -coder cavlc -aspect ${VIDEO_ASPECT} -qp 21 -quality 4 "
+     HW_SCALING="No"
+     HWACCEL_DEC="NONE"
+     FFMPEG_ENC=1
+     HWENC=0
+     HWDEC=0
+   ;;
    LIVE_MID | LIVE_MID_FAST )
      IS_CRF=1
 
@@ -1620,9 +1751,9 @@ case "$x" in
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
      
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
-         X265_PRESET="veryfast"
+         X265_PRESET="ultrafast"
      else
-         X265_PRESET="faster"
+         X265_PRESET="superfast"
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
@@ -1700,6 +1831,8 @@ case "$x" in
      X264_BFRAMES="--bframes 8 --b-bias 0 --b-adapt 2"
      X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset medium --8x8dct --partitions all"
+     X265_PRESET="ultrafast"
+
    ;;
    LIVE_LOW_HW )
      IS_CRF=0
@@ -1891,6 +2024,7 @@ DECODE_APPEND="-resync_size 5242880"
 declare -a  ARG_DECODE_GENERAL_FLAGS
 unset ARG_DECODE_GENERAL_FLAGS[@]
 
+
 declare -a ARG_DECODE_SUB_FLAGS
 unset ARG_DECODE_SUB_FLAGS[@]
 
@@ -1925,8 +2059,12 @@ fi
 #echo ${ARG_DECODE_SUB_FLAGS[@]}
 
 #exit 1
+#ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
+#ARG_DECODE_SUB_FLAGS+=(0)
+
 ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
-ARG_DECODE_SUB_FLAGS+=(false)
+ARG_DECODE_SUB_FLAGS+=(1)
+
 
 case "$HWACCEL_DEC" in
     "VDPAU" | "vdpau" )
@@ -1962,16 +2100,20 @@ echo ${VIDEO_FILTERCHAIN_HWACCEL}
 
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
 
+
 #${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
 #       $ARG_DECODE_GENERAL_FLAGS[@] -i "$DIRNAME2/$SRC2"  \
 #       -c:s webvtt \
 #       -y $TEMPDIR/v1tmp.srt 
 
-${FFMPEG_SUBTXT_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} \
+${FFMPEG_SUBTXT_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]}  \
+       ${ARG_DECODE_SUB_FLAGS[@]} \
        -fix_sub_duration   -i "$DIRNAME2/$SRC2"  \
        ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-       -c:s ass -f ass \
-       -y $TEMPDIR/v1tmp.ass
+       -c:s ssa -f ass -y $TEMPDIR/v1tmp.ssa
+
+#       -c:s srt -f srt \
+
 
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(language=jpn)
@@ -2039,6 +2181,19 @@ if test $FFMPEG_ENC -ne 0; then
 	else
 		X265_PARAMS="${X265_THREAD_PARAMS}"
 	fi 
+	if test ${USE_HDR} -ne 0 ; then
+	    case "${X265_PROFILE}" in
+	        "main10" )
+		if test "__n__${X265_PARAMS}" != "__n__"; then
+			X265_PARAMS="${X265_PARAMS}:hdr10=true:hdr10-opt=true"
+		else
+			X265_PARAMS="hdr10=true:hdr10-opt=true"
+		fi
+		;;
+		* )
+		;;
+	   esac
+	fi
 	if test "__n__${EXTRA_X265_PARAMS}" != "__n__"; then
 		if test "__n__${X265_PARAMS}" != "__n__"; then
 			X265_PARAMS="${X265_PARAMS}:${EXTRA_X265_PARAMS}"
@@ -2333,8 +2488,12 @@ if test $ERRFLAGS -ne 0; then
     fi
 fi
 
-if test -s "$TEMPDIR/v1tmp.ass" ; then
-    ARG_SUBTXT="-f ass -i $TEMPDIR/v1tmp.ass "
+ARG_SUB_DELAY_FLAGS=""
+if [ "___xxx___${VIDEO_SKIP}" != "___xxx___" ] ; then
+    ARG_SUB_DELAY_FLAGS="-itsoffset -${VIDEO_SKIP}"
+fi
+if test -s "$TEMPDIR/v1tmp.ssa" ; then
+    ARG_SUBTXT="${ARG_SUB_DELAY_FLAGS} -f ass -i $TEMPDIR/v1tmp.ssa "
     ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
                  -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
 		 -metadata:s:a:0 language=jpn"
