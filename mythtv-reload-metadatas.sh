@@ -19,6 +19,9 @@ unset APPEND_X265_PARAMETERS_PRE[@]
 declare -a APPEND_X265_PARAMETERS_POST
 unset APPEND_X265_PARAMETERS_POST[@]
 
+
+
+
 FILTER_THREADS=16
 FILTER_COMPLEX_THREADS=16
 FFMPEG_THREADS=16
@@ -63,7 +66,9 @@ EPISODE_NUM=1
 EPISODES_LIST_FILE=""
 
 typeset -i USE_10BIT 
+typeset -i USE_HDR10
 USE_10BIT=1
+USE_HDR10=0
 FILTER_STRING=""
 typeset -i PREFETCH_FILE
 PREFETCH_FILE=0
@@ -110,6 +115,9 @@ if [ "__x__${EPISODES_LIST_FILE}" = "__x__" ] ; then
     fi
 fi
 
+
+declare -a COLORSPACE_ARGS
+unset COLORSPACE_ARGS[@]
 
 function logging() {
    __str="$@"
@@ -1000,8 +1008,12 @@ __AWK_STREAMDESC="
               } else if(match(_ARG_TYPE[i], \"Subtitle\") != 0) {
 	           if(match(_ARG_EXTRA[i], \"hdmv_pgs_subtitle\") != 0) {
 	               printf(\"-map:s %s -c:s:%d copy \", _ARG_STREAM[i], sub_count);
+	           } else if(match(_ARG_EXTRA[i], \"dvd_subtitle\") != 0) {
+	               printf(\"-map:s %s -c:s:%d copy \", _ARG_STREAM[i], sub_count);
+		   } else if(match(_ARG_EXTRA[i], \"dvb_subtitle\") != 0) {
+	               printf(\"-map:s %s -c:s:%d copy \", _ARG_STREAM[i], sub_count);
 		   } else {
-	               printf(\"-map:s %s -c:s:%d subrip \", _ARG_STREAM[i], sub_count);
+	               printf(\"-map:s %s -c:s:%d webvtt \", _ARG_STREAM[i], sub_count);
 		   }
 		   sub_count++;
               } else if(match(_ARG_TYPE[i], \"Attachment_PIC\") != 0) {
@@ -1131,6 +1143,23 @@ fi
 if [ "__n__${CRF_MAX}" != "__n__" ] ; then
     __X265_PARAMS="${__X265_PARAMS}:crf-max=${CRF_MAX}"
 fi
+if [ ${USE_HDR10} -ne 0 ] ; then
+    if [ ${USE_10BIT} -ne 0 ] ; then
+	__X265_PARAMS="${__X265_PARAMS}:repeat-headers=1"
+	__X265_PARAMS="${__X265_PARAMS}:hdr10=true"
+	__X265_PARAMS="${__X265_PARAMS}:hdr10-opt=true"
+	__X265_PARAMS="${__X265_PARAMS}:level-idc=5.1"
+        __X265_PARAMS="${__X265_PARAMS}:colorprim=bt2020"
+        __X265_PARAMS="${__X265_PARAMS}:range=limited"
+        __X265_PARAMS="${__X265_PARAMS}:transfer=smpte2084"
+	__X265_PARAMS="${__X265_PARAMS}:colormatrix=bt2020nc"
+	__X265_PARAMS="${__X265_PARAMS}:master-display='G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)'"
+	__X265_PARAMS="${__X265_PARAMS}:max-cll=1000,293"
+	#__X265_PARAMS="${__X265_PARAMS}:max-cll=0,0"
+	#COLORSPACE_ARGS+=("-pix_fmt")
+	#COLORSPACE_ARGS+=("yuv420p10le")
+    fi
+fi
 
 __X265_DISP_PARAMS=""
 if test "__n__${PRESET_VALUE}" != "__n__" ; then
@@ -1224,11 +1253,14 @@ typeset -i ARG_META_TITLE_COMMENTS
 ARG_META_COMMENT=`echo "${FFPROBE_RESULT}" | grep -e "comment[[:space:]]\+:[[:space:]]"`
 ARG_META_COMMENT_LINES=`echo "${ARG_META_COMMENT}" | wc -l`
 
-ARG_ARG_COMMENT=""
+
 if [ ${ARG_META_COMMENT_LINES} -gt 0 ] ; then 
    __TMPS=`echo "${ARG_META_COMMENT}" | sed -E "s/[[:space:]]+comment.*:[[:space:]]+//g"`
+   # Workaround for comment contains white space. 20241211 K.O
    if [ "__xxx__${__TMPS}" != "__xxx__" ] ; then
-       ARG_ARG_COMMENT="-metadata:g source-comment=\"${__TMPS}\""
+       __TMPS2=`echo "${__TMPS}" | sed -e "s/[[:space:]]/　/g"`
+       ARG_METADATA+=(-metadata:g)
+       ARG_METADATA+=(source-comment="${__TMPS2}")
    fi
 fi
    
@@ -1241,9 +1273,34 @@ fi
 if [ "__x__${ARG_DESC}" != "__x__" ] ; then
 	ARG_DESC=`echo -e "${ARG_DESC}"`
 fi
-if [ "__x__${EP_DESC}" != "__x__" ] ; then
-	ARG_DESC=`echo -e "${ARG_DESC} \n${EP_DESC}"`
+
+declare -a ARGS_COMMENT_FINAL
+unset ARGS_COMMENT_FINAL[@]
+
+if [ "__x__${ARG_DESC}" != "__x__ " ] ; then
+    echo "${ARG_DESC}" > "$TEMPDIR/desc3.txt"
 fi
+if [ "__x__${EP_DESC}" != "__x__" ] ; then
+    
+    echo " ${EP_DESC}" >> "$TEMPDIR/episodes.txt"
+    EP_DESC_2=`cat $TEMPDIR/episodes.txt`
+    EP_DESC_2=$(change_arg_comment "$TEMPDIR/episodes.txt")
+    echo "${EP_DESC_2}" >> "$TEMPDIR/desc3.txt"
+fi
+
+#if [ -s "$TEMPDIR/desc3.txt" ] ; then
+#   ARGS_COMMENT_FINAL+=(-metadata:g)
+#   #__TMPS2=`cat "$TEMPDIR/desc3.txt" | sed -e "s/[[:space:]]/　/g"`
+#   __TMPS2=$(change_arg_comment "$TEMPDIR/desc3.txt")
+#   ARGS_COMMENT_FINAL+=(description="${__TMPS2}")
+#fi
+#if [ "__x__${ARG_DESC}" != "__x__ " ] ; then
+#    echo "${ARG_DESC}" > $TEMPDIR/desc2.txt
+#    ARG_DESC="-metadata:g DESCRIPTION=\"`cat $TEMPDIR/desc2.txt`\""
+#fi
+#if [ "__x__${ARG_DESC}" != "__x__ " ] ; then
+#    ARG_DESC="-metadata:g DESCRIPTION=\"${ARG_DESC}\""
+#fi
 
 if [ ${REPLACE_HEADER} -ne 0 ] ; then
 	if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
@@ -1313,8 +1370,12 @@ APPEND_ARGS_MAPS=""
 #exit 1
 
 if [ ${USE_10BIT} -ne 0 ] ; then
-   FILTER_FORMAT="format=yuv420p10le"
-   PROFILE_ARG="main10"
+    if [ ${USE_HDR10} -ne 0 ] ; then
+       FILTER_FORMAT="colorspace=all=bt2020:range=pc:trc=bt2020-10:format=yuv420p10"
+    else
+       FILTER_FORMAT="format=yuv420p10le"
+    fi
+    PROFILE_ARG="main10"
 else
    FILTER_FORMAT="format=yuv420p"
    PROFILE_ARG="main"
@@ -1457,13 +1518,23 @@ done
 
 #echo \
 #echo ${ARG_METADATA[@]}
+#echo
 #echo ${ARG_COPYMAP}
+#echo
+#echo 		 ${__APPEND_ARGS_POST[@]}
+#echo		 -map_metadata:g 0
+#echo		 -map_chapters 0
+#echo		 -metadata:g title=${ARG_TITLE}
+#echo		 ${ARG_DESC}
+#echo		 ${MUXER_OPTIONS[@]}
+
+
 #exit 1
 #echo "${BASEFILE}"
 #echo ${__APPEND_FILES_SUBTITLES}
 #shift
 #continue
-ffmpeg  -fix_sub_duration -i "${BASEFILE}" \
+${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_FILES_SUBTITLES} \
 		 ${__APPEND_ARGS_PRE[@]} \
 		 ${ARG_COPYMAP} \
@@ -1473,6 +1544,7 @@ ffmpeg  -fix_sub_duration -i "${BASEFILE}" \
 		 -filter_complex_threads ${FILTER_COMPLEX_THREADS} \
 		 -filter_threads ${FILTER_THREADS} \
 		 -map_chapters 0 \
+		 ${COLORSPACE_ARGS[@]} \
 		 -profile:V:0 ${PROFILE_ARG} \
 		 ${FPS_VAL} \
 		 -filter:V:0 "${FILTER_ARG}" \
@@ -1484,13 +1556,12 @@ ffmpeg  -fix_sub_duration -i "${BASEFILE}" \
 		 -map_metadata:g 0 \
 		 -map_chapters 0 \
 		 -metadata:g title="${ARG_TITLE}" \
-		 -metadata:g DESCRIPTION="${ARG_DESC}" \
-		 ${ARG_ARG_COMMENT} \
+		 -metadata:g description="`cat $TEMPDIR/desc3.txt`" \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
 		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
 #
-
+#echo "${ARG_DESC_FINAL}"
 #
 #exit 1
 EPISODE_NUM=EPISODE_NUM+1
