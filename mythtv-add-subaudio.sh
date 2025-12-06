@@ -147,6 +147,7 @@ if [ -e "${TEMPDIR}/tmp.wav" ] ; then
 		    -c:a copy \
 		    -c:s copy \
 		    -disposition:a:0 default \
+		    -cluster_time_limit 100 \
 		    -y "${BASE_BASE}_TMP.mkv"
 		   
 	__RESULT=$?
