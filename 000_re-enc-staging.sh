@@ -8,10 +8,18 @@ MOVIE_EXTS+=("avi")
 MOVIE_EXTS+=("mkv")
 MOVIE_EXTS+=("wmv")
 MOVIE_EXTS+=("flv")
+MOVIE_EXTS+=("ts")
+MOVIE_EXTS+=("m2ts")
+MOVIE_EXTS+=("mpg")
 
 SCRIPT=/usr/local/bin/mythtv-reload-metadatas.sh
 NICE_PROG="/bin/nice"
 TARGET_DIR=""
+
+IO_NICE_PROG="/bin/ionice"
+IO_NICE_VAL=4
+USE_IO_NICE=0
+
 if [ -e $HOME/.config/reenc-staging-prefixs ]; then
     . $HOME/.config/reenc-staging-prefixs
 fi
@@ -61,6 +69,11 @@ for x in "$@"; do
          shift
 	 NICE_VAL="$1"
 	 ;;
+       --ionice | --io-nice | --io-nice-val )
+         shift
+	 IO_NICE_VAL="$1"
+	 USE_IO_NICE=1
+	 ;;
 
        * )
          if [ "__x__"${PHASE} = "__x__MOVIES" ] ; then
@@ -80,6 +93,17 @@ if [ -x "${NICE_PROG}" ] ; then
        EXEC_PROG="${SCRIPT}"
    fi
 fi
+
+if [ ${USE_IO_NICE} -ne 0 ] ; then
+    if [ -x "${IO_NICE_PROG}" ] ; then
+       if [ "__xx__"${NICE_VAL} != "__xx__" ] ; then
+           EXEC_PROG="${IO_NICE_PROG} -n ${IO_NICE_VAL} ${SCRIPT}"
+       else
+           EXEC_PROG="${SCRIPT}"
+       fi
+    fi
+fi
+
 
 declare -a XLIST
 X_PWD="${PWD}"
