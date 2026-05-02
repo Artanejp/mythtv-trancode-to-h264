@@ -3,7 +3,7 @@
 BASEFILE="$1"
 
 declare -a ARG_METADATA
-#!/bin/bash
+
 POOL_THREADS=5
 FRAME_THREADS=5
 PRESET_VALUE="faster"
@@ -19,12 +19,9 @@ unset APPEND_X265_PARAMETERS_PRE[@]
 declare -a APPEND_X265_PARAMETERS_POST
 unset APPEND_X265_PARAMETERS_POST[@]
 
-
-
-
-FILTER_THREADS=16
-FILTER_COMPLEX_THREADS=16
-FFMPEG_THREADS=16
+FILTER_THREADS=12
+FILTER_COMPLEX_THREADS=12
+FFMPEG_THREADS=18
 
 #TUNE_VALUE=grain
 AQ_VALUE=0.95
@@ -84,6 +81,18 @@ unset MUXER_OPTIONS[@]
 
 FFMPEG_CMD="/usr/bin/ffmpeg"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+
+NICE_CMD="/bin/nice"
+RENICE_CMD="/bin/renice"
+IONICE_CMD=/bin/ionice
+
+typeset -i NICE_VALUE
+typeset -i IONICE_VALUE
+
+
+NICE_VALUE=13
+IONICE_CLASS=""
+IONICE_VALUE=-1
 
 # Example:
 # FFMPEG_APPEND_ARGS_PRE+=(__EPISODE_001) # Episode Number, this set __EPISODE_ALL to all episode(default)
@@ -425,9 +434,15 @@ echo "  --db-passwd PASSWORD : Login database with PASSWORD."
 echo
 echo "Job controlling:"
 echo "  --prefetch-mb  MB    : Allow prefetch source file up to MB Megabytes.Useful for fast transcoding."
-echo "  --pool-threads  THREADS : Set thread pool to THREADS. See manual of x265."
-echo "  --frame-threads THREADS : Set frame threads to THREADS. See manual of x265."
-echo "  --threads       THREADS : Set both thread pool and frame thread to THREADS. See manual of x265."
+echo "  --pool-threads   THREADS : Set thread pool to THREADS. See manual of x265."
+echo "  --frame-threads  THREADS : Set frame threads to THREADS. See manual of x265."
+echo "  --threads        THREADS : Set both thread pool and frame thread to THREADS. See manual of x265."
+echo "  --ffmpeg-threads THREADS : Set ffmpeg threads to THREADS. Equivalent to ffmpeg -threads THREADS ."
+echo "  --filter-threads THREADS : Set ffmpeg filter threads to THREADS. Equivalent to ffmpeg -filter_threads THREADS ."
+echo "  --filter-complex-threads THREADS : Set ffmpeg filter complex threads to THREADS. Equivalent to ffmpeg -filter_complex_threads THREADS ."
+echo "  --ionice-value INTEGER   : Set ionice value. (0 to 7). See man ionice (1)."
+echo "  --ionice-class TYPE      : Set ionice class. See man ionice (1)."
+echo "  --nice-value   INTEGER   : Set nice value. (-20 to 20). See man nice (1)."
 echo 
 echo "Important around transcoding:"
 echo "  --encode-audio          : Encode audio to another codec, bitrate."
@@ -566,18 +581,55 @@ for x in $@ ; do \
 	  shift
 	  continue
 	;;
-        --frame-threads )
+        --frame-threads | --frame_threads )
 	  shift
 	  FRAME_THREADS=$1
 	  shift
 	  continue
         ;;
-        --pool-threads )
+        --pool-threads | --pool_threads )
 	  shift
 	  POOL_THREADS=$1
 	  shift
 	  continue
         ;;
+        --ffmpeg-threads | --ffmpeg_threads )
+	  shift
+	  FFMPEG_THREADS=$1
+	  shift
+	  continue
+        ;;
+        --filter-threads | --filter_threads | --ffmpeg-filter-threads | --ffmpeg_filter_threads )
+	  shift
+	  FILTER_THREADS=$1
+	  shift
+	  continue
+        ;;
+        --filter-complex-threads | --filter_complex_threads | --complex-threads | --complex_threads | --ffmpeg-filter-complex-threads | --ffmpeg_filter_complex_threads )
+	  shift
+	  FILTER_COMPLEX_THREADS=$1
+	  shift
+	  continue
+        ;;
+	--nice_value | --nice-value )
+	  shift
+	  NICE_VALUE=$1
+	  shift
+	  continue
+	;;
+	--ionice_value | --ionice-value )
+	  shift
+	  IONICE_VALUE=$1
+	  shift
+	  continue
+	;;
+	--nice_class | --nice-class )
+	  shift
+	  IONICE_CLASS=$1
+	  shift
+	  continue
+	;;
+	
         --encode-audio )
 	  COPY_AUDIOS=0
 	  shift
@@ -592,6 +644,7 @@ for x in $@ ; do \
 	  shift
 	  POOL_THREADS=$1
 	  FRAME_THREADS=$1
+	  FFMPEG_THREADS=$1
 	  shift
 	  continue
         ;;
@@ -1033,11 +1086,33 @@ declare -a ARG_MAPCOPY_SUBS
 typeset -i __sb_num
 __sb_num=1;
 
+EXECUTE_PREFIX_COMMANDS=""
 
+if [ -x "${NICE_CMD}" ] ; then
+    if [ ${NICE_VALUE} -ge -20 ] ; then
+        if [ ${NICE_VALUE} -le 20 ] ; then
+	    EXECUTE_PREFIX_COMMANDS="${EXECUTE_PREFIX_COMMANDS} ${NICE_CMD} -n ${NICE_VALUE}"
+	fi
+    fi
+fi
 
+IONICE_ARGS=""
+if [ -x "${IONICE_CMD}" ] ; then
+    if [ __xxx__ != __xxx__${IONICE_CLASS} ] ; then
+        IONICE_ARGS="${IONICE_ARGS} -c ${IONICE_CLASS}"
+    fi
+    if [ ${IONICE_VALUE} -gt 0 ] ; then
+        if [ ${IONICE_VALUE} -le 7 ] ; then
+            IONICE_ARGS="${IONICE_ARGS} -n ${IONICE_VALUE}"
+	fi
+    fi
+    if [ "__xxx__${IONICE_ARGS}" != __xxx__ ] ; then
+        EXECUTE_PREFIX_COMMANDS="${EXECUTE_PREFIX_COMMANDS} ${IONICE_CMD} ${IONICE_ARGS} -t"
+    fi
+fi
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
 if [ ${DUMP_SUB_FROM_SOURCE} -ne 0 ] ; then
-   ${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
+   $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
 						-fix_sub_duration -i "${BASEFILE}"  \
        -c:s ass -f ass \
        -y "${TEMPDIR}/v1tmp.ass"
@@ -1249,6 +1324,7 @@ if [ ${REPLACE_TITLE} -ne 0 ] ; then
     fi
 fi
 
+
 typeset -i ARG_META_TITLE_COMMENTS
 ARG_META_COMMENT=`echo "${FFPROBE_RESULT}" | grep -e "comment[[:space:]]\+:[[:space:]]"`
 ARG_META_COMMENT_LINES=`echo "${ARG_META_COMMENT}" | wc -l`
@@ -1276,6 +1352,9 @@ fi
 
 declare -a ARGS_COMMENT_FINAL
 unset ARGS_COMMENT_FINAL[@]
+
+#echo "${ARG_DESC}"
+#exit 1
 
 if [ "__x__${ARG_DESC}" != "__x__ " ] ; then
     echo "${ARG_DESC}" > "$TEMPDIR/desc3.txt"
@@ -1525,7 +1604,7 @@ done
 #echo		 -map_metadata:g 0
 #echo		 -map_chapters 0
 #echo		 -metadata:g title=${ARG_TITLE}
-#echo		 ${ARG_DESC}
+#cat $TEMPDIR/desc3.txt
 #echo		 ${MUXER_OPTIONS[@]}
 
 
@@ -1534,7 +1613,24 @@ done
 #echo ${__APPEND_FILES_SUBTITLES}
 #shift
 #continue
-${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
+
+declare -a __ARGS_TMP_TITLE
+unset __ARGS_TMP_TITLE[@]
+
+if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then 
+    __ARGS_TMP_TITLE+=(-metadata:g)
+    __ARGS_TMP_TITLE+=(title="${ARG_TITLE}")
+fi
+
+declare -a __ARGS_TMP_DESC
+unset __ARGS_TMP_DESC[@]
+
+if [ -e $TEMPDIR/desc3.txt ] ; then
+    __ARGS_TMP_DESC+=(-metadata:g)
+    __ARGS_TMP_DESC+=(description="`cat $TEMPDIR/desc3.txt`")
+fi
+
+$EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_FILES_SUBTITLES} \
 		 ${__APPEND_ARGS_PRE[@]} \
 		 ${ARG_COPYMAP} \
@@ -1555,8 +1651,8 @@ ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_ARGS_POST[@]} \
 		 -map_metadata:g 0 \
 		 -map_chapters 0 \
-		 -metadata:g title="${ARG_TITLE}" \
-		 -metadata:g description="`cat $TEMPDIR/desc3.txt`" \
+		 ${__ARGS_TMP_TITLE[@]} \
+		 ${__ARGS_TMP_DESC[@]} \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
 		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
