@@ -107,7 +107,7 @@ HWENC=0
 HWDEC=0
 HW_SCALING="No"
 
-N_QUERY_ID=0;
+N_QUERY_ID=0
 
 NICE_VALUE=17
 IONICE_ARGS="-n 7"
@@ -735,7 +735,7 @@ if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_METADATA+=(-metadata:g)
    ARG_METADATA+=(date="${ARG_ONAIR}")
 fi
-if test $N_QUERY_ID -gt 0; then
+if test $N_QUERY_ID -gt 0 ; then
   logging "QUERY JOBQUEUE id ${N_QUERY_ID}"
   
 #  echo "SELECT * from jobqueue where id=${N_QUERY_ID} ;" > "$TEMPDIR/jobqueue.query.sql"
@@ -1074,24 +1074,24 @@ __AUDIO_ARGS=`echo ${_AUDIO_ARGS[@]}`
 if test $NOENCODE -eq 0; then
 x=$ENCMODE
 case "$x" in
-#   "ANIME" | "LIVE_MID")
-#   AUDIOBITRATE=192
-#   AUDIOCUTOFF=20000
-#   ;;
+   "ANIME" | "LIVE_MID" | "LIVE_HD_MID" )
+   AUDIOBITRATE=224
+   AUDIOCUTOFF=23000
+   ;;
    "ANIME_HIGH" | "LIVE_HIGH" | "LIVE_HD_HIGH"  | "LIVE_HD_MID" | "LIVE_SD_HIGH" | "ANIME_SD_HIGH" )
    AUDIOBITRATE=224
-   AUDIOCUTOFF=22050
+   AUDIOCUTOFF=23000
    ;;
    "ANIME_HIGH_HW" | "LIVE_HIGH_HW" | "LIVE_HD_HIGH_HW" )
    AUDIOBITRATE=224
-   AUDIOCUTOFF=22050
+   AUDIOCUTOFF=23000
    ;;
    "LIVE_HD_MID_HW2" | "LIVE_SD_HIGH_HW2"  | "LIVE_HD_MID_HW" | "LIVE_SD_HIGH_HW" )
    AUDIOBITRATE=224
-   AUDIOCUTOFF=22050
+   AUDIOCUTOFF=23000
    ;;
    * )
-   AUDIOBITRATE=224
+   AUDIOBITRATE=192
    AUDIOCUTOFF=22050
    ;;
 esac
@@ -1181,7 +1181,7 @@ case "$x" in
    VIDEO_FILTERCHAIN_NOCROP=1
    ;;
    "LIVE_HD_MID" | "LIVE_HD_MID_HW" | "LIVE_HD_MID_HW2" )
-   VIDEO_QUANT=21.8
+   VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
    VIDEO_AQSTRENGTH=0.48
@@ -1416,9 +1416,10 @@ case "$x" in
      else
          X265_PRESET="faster"
      fi
-     X265_AQ_STRENGTH=0.80
-     X265_QP_ADAPTATION_RANGE=1.18
-     X265_AQ_MODE=4
+     X265_AQ_STRENGTH=0.95
+     X265_QP_ADAPTATION_RANGE=1.15
+     #X265_AQ_MODE=4
+     X265_AQ_MODE=3
 
 #     X265_PARAMS="ref=4"
      #HW_SCALING="Yes"
@@ -1457,9 +1458,9 @@ case "$x" in
      X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
      if [ $USE_60FPS -ne 0 ] ; then
-         X265_PRESET="superfast"
-     else
          X265_PRESET="veryfast"
+     else
+         X265_PRESET="faster"
      fi
 
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
@@ -1489,8 +1490,8 @@ case "$x" in
      FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT} -bluray-compat 1"
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.8:0.4"
 
-     X265_AQ_STRENGTH=0.92
-     X265_QP_ADAPTATION_RANGE=1.28
+     X265_AQ_STRENGTH=1.00
+     X265_QP_ADAPTATION_RANGE=1.35
      X265_AQ_MODE=3
      
      #HW_SCALING="No"
@@ -1751,13 +1752,13 @@ case "$x" in
      FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
      
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
-         X265_PRESET="ultrafast"
-     else
          X265_PRESET="superfast"
+     else
+         X265_PRESET="veryfast"
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
-     X265_AQ_MODE=2
+     X265_AQ_MODE=3
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
