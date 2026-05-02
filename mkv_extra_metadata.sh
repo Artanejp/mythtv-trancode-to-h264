@@ -121,6 +121,16 @@ function check_and_add_metadata() {
 check_and_add_metadata "${IN_METALIST}" TITLE
 check_and_add_metadata "${IN_METALIST}" URL
 check_and_add_metadata "${IN_METALIST}" TAGS
+check_and_add_metadata "${IN_METALIST}" NOTE
+
+check_and_add_metadata "${IN_METALIST}" AUTHOR
+check_and_add_metadata "${IN_METALIST}" PUBLISHER
+check_and_add_metadata "${IN_METALIST}" PERFORMER
+check_and_add_metadata "${IN_METALIST}" BRAND
+
+check_and_add_metadata "${IN_METALIST}" ACTOR
+check_and_add_metadata "${IN_METALIST}" SERIES
+
 check_and_add_metadata "${IN_METALIST}" DATE
 
 check_and_add_metadata "${IN_METALIST}" DESCRIPTION
