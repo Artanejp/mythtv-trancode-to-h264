@@ -924,7 +924,7 @@ ARG_SEASON=$(change_arg_file "$TEMPDIR/season.txt")
 ARG_CHANID=$(change_arg_file "$TEMPDIR/chanid.txt")
 
 
-ARG_REALTITLE=${ARG_TITLE}
+ARG_REALTITLE="${ARG_TITLE}"
 if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then
    if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
        ARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}"
@@ -1274,9 +1274,9 @@ if [ "__x__${HEAD_TITLE}" = "__x__" ] ; then
     EPSTR=""
     if [ "__x__${APPEND_HEADER}" = "__x__NUMERIC" ] ; then
         EPSTR=`printf "%02d" ${EPISODE_NUM}`
-		TMP_BASE1="${HEAD_TITLE} #${EPSTR} " 
+	TMP_BASE1="${HEAD_TITLE} #${EPSTR} " 
     else
-		TMP_BASE1="${HEAD_TITLE}"
+	TMP_BASE1="${HEAD_TITLE}"
     fi
 else
    EPSTR=`printf "%02d" ${EPISODE_NUM}`
@@ -1295,10 +1295,10 @@ if [ "__x__${META_TITLE}" != "__x__" ] ; then
 fi    
 if [ "__x__${ARG_TITLE}" = "__x__" ] ; then
     if [ "__x__${TMP_BASE2}" != "__x__" ] ; then
-         ARG_TITLE=`echo -e "${TMP_BASE2}"`
+         ARG_TITLE='`echo -e "${TMP_BASE2}"`'
     fi	
 fi
-#?
+
 
 if [ "__x__${EP_SUBTTL}" != "__x__" ] ; then
 	ARG_TITLE="${ARG_TITLE} 「${EP_SUBTTL}」"
@@ -1619,7 +1619,9 @@ unset __ARGS_TMP_TITLE[@]
 
 if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then 
     __ARGS_TMP_TITLE+=(-metadata:g)
-    __ARGS_TMP_TITLE+=(title="${ARG_TITLE}")
+    echo -e "${ARG_TITLE}" > ${TEMPDIR}/title2.txt
+    __TMPS=$(change_arg_file "${TEMPDIR}/title2.txt")
+    __ARGS_TMP_TITLE+=(title="${__TMPS}")
 fi
 
 declare -a __ARGS_TMP_DESC
@@ -1630,6 +1632,10 @@ if [ -e $TEMPDIR/desc3.txt ] ; then
     __ARGS_TMP_DESC+=(description="`cat $TEMPDIR/desc3.txt`")
 fi
 
+#echo ${__ARGS_TMP_TITLE[@]}
+#exit 1
+
+#echo \
 $EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_FILES_SUBTITLES} \
 		 ${__APPEND_ARGS_PRE[@]} \
@@ -1655,7 +1661,7 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__ARGS_TMP_DESC[@]} \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
-		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" \
+		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" 
 #
 #echo "${ARG_DESC_FINAL}"
 #
