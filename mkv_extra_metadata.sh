@@ -129,9 +129,12 @@ check_and_add_metadata "${IN_METALIST}" PERFORMER
 check_and_add_metadata "${IN_METALIST}" BRAND
 
 check_and_add_metadata "${IN_METALIST}" ACTOR
+check_and_add_metadata "${IN_METALIST}" ACTRESS
+check_and_add_metadata "${IN_METALIST}" AGE
 check_and_add_metadata "${IN_METALIST}" SERIES
 
 check_and_add_metadata "${IN_METALIST}" DATE
+check_and_add_metadata "${IN_METALIST}" YEAR
 
 check_and_add_metadata "${IN_METALIST}" DESCRIPTION
 
