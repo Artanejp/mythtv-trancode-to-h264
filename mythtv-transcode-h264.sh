@@ -101,6 +101,9 @@ typeset -i USE_HDR_DEFAULT
 typeset -i USE_HDR
 USE_HDR_DEFAULT=0
 
+typeset -i FFMPEG_ENC
+typeset -i HWENC
+typeset -i HWDEC
 
 FFMPEG_ENC=1
 HWENC=0
@@ -109,13 +112,17 @@ HW_SCALING="No"
 
 N_QUERY_ID=0
 
-NICE_VALUE=17
-IONICE_ARGS="-n 7"
-
 IGNORE_DECODE_ERRORS=0
 
+
+typeset -i NICE_VALUE
+typeset -i IONICE_VALUE
+
+IONICE_CLASS=""
+NICE_VALUE=17
+IONICE_VALUE=7
+
 NICE_CMD=/usr/bin/nice
-RENICE_CMD=/usr/bin/renice
 IONICE_CMD=/usr/bin/ionice
 
 EXECUTE_PREFIX_CMD=""
@@ -557,9 +564,14 @@ for x in "$@" ; do
 	    NICE_VALUE=$1
 	    shift
 	    ;;
-	--ionice )
+	--ionice | --ionice-value )
 	    shift
-	    IONICE_ARGS="$1"
+	    IONICE_VALUE=$1
+	    shift
+	    ;;
+	--ionice-class )
+	    shift
+	    IONICE_CLASS=$1
 	    shift
 	    ;;
 	-h | --help )
@@ -980,24 +992,30 @@ BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
 logging `printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`
 
 # play nice with other processes
-if [ -x "${RENICE_CMD}" ] ; then
-    ${RENICE_CMD} ${NICE_VALUE} $MYPID
-fi
+EXECUTE_PREFIX_COMMANDS=""
 
 if [ -x "${NICE_CMD}" ] ; then
-    EXECUTE_PREFIX_CMD="${EXECUTE_PREFIX_CMD} ${NICE_CMD} -n ${NICE_VALUE} "
-fi
-
-if [ -x "${IONICE_CMD}" ] ; then
-    if [ "__x__${IONICE_ARGS}" != "__x__" ] ; then
-	${IONICE_CMD}  ${IONICE_ARGS} -p $MYPID
-	EXECUTE_PREFIX_CMD="${EXECUTE_PREFIX_CMD}  ${IONICE_CMD} ${IONICE_ARGS}"
+    if [ ${NICE_VALUE} -ge -20 ] ; then
+        if [ ${NICE_VALUE} -le 20 ] ; then
+	    EXECUTE_PREFIX_COMMANDS="${EXECUTE_PREFIX_COMMANDS} ${NICE_CMD} -n ${NICE_VALUE}"
+	fi
     fi
 fi
 
-if  [ "__x__${EXECUTE_PREFIX_CMD}"  !=  "__x__" ] ; then
-    FFMPEG_CMD="${EXECUTE_PREFIX_CMD} ${FFMPEG_CMD}"
-    FFMPEG_SUBTXT_CMD="${EXECUTE_PREFIX_CMD} ${FFMPEG_SUBTXT_CMD}"
+
+IONICE_ARGS=""
+if [ -x "${IONICE_CMD}" ] ; then
+    if [ __xxx__ != __xxx__${IONICE_CLASS} ] ; then
+        IONICE_ARGS="${IONICE_ARGS} -c ${IONICE_CLASS}"
+    fi
+    if [ ${IONICE_VALUE} -gt 0 ] ; then
+        if [ ${IONICE_VALUE} -le 7 ] ; then
+            IONICE_ARGS="${IONICE_ARGS} -n ${IONICE_VALUE}"
+	fi
+    fi
+    if [ "__xxx__${IONICE_ARGS}" != __xxx__ ] ; then
+        EXECUTE_PREFIX_COMMANDS="${EXECUTE_PREFIX_COMMANDS} ${IONICE_CMD} ${IONICE_ARGS} -t"
+    fi
 fi
 
 # make working dir, go inside
@@ -2025,9 +2043,16 @@ DECODE_APPEND="-resync_size 5242880"
 declare -a  ARG_DECODE_GENERAL_FLAGS
 unset ARG_DECODE_GENERAL_FLAGS[@]
 
+declare -a  ARG_DECODE_GENERAL_SKIP_FLAGS
+unset ARG_DECODE_GENERAL_SKIP_FLAGS[@]
+
 
 declare -a ARG_DECODE_SUB_FLAGS
 unset ARG_DECODE_SUB_FLAGS[@]
+
+declare -a  ARG_DECODE_SUB_SKIP_FLAGS
+unset ARG_DECODE_SUB_SKIP_FLAGS[@]
+
 
 declare -a ARG_ENCODE_SUB_FLAGS
 unset ARG_ENCODE_SUB_FLAGS[@]
@@ -2037,6 +2062,8 @@ if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
     ARG_DECODE_GENERAL_FLAGS+=(+discardcorrupt)
     ARG_DECODE_GENERAL_FLAGS+=(-err_detect)
     ARG_DECODE_GENERAL_FLAGS+=(+compliant)
+    ARG_DECODE_GENERAL_FLAGS+=(-drop_changed)
+    ARG_DECODE_GENERAL_FLAGS+=(1)
 fi
 if [ ${PREFETCH_MB} -gt 0 ] ; then
     __XXXTMPS=`calc -d "1024 * 1024 * ${PREFETCH_MB}"`
@@ -2050,8 +2077,11 @@ elif [ ${PREFETCH_MB} -lt 0 ] ; then
 fi
 
 if [ "___xxx___${VIDEO_SKIP}" != "___xxx___" ] ; then
-   ARG_DECODE_GENERAL_FLAGS+=(-ss)
-   ARG_DECODE_GENERAL_FLAGS+=(${VIDEO_SKIP})
+   ARG_DECODE_GENERAL_SKIP_FLAGS+=(-ss)
+   ARG_DECODE_GENERAL_SKIP_FLAGS+=(${VIDEO_SKIP})
+   ARG_DECODE_SUB_SKIP_FLAGS+=(-itsoffset)
+   ARG_DECODE_SUB_SKIP_FLAGS+=(${VIDEO_SKIP})
+   
    #VIDEO_SKIP="-ss ${VIDEO_SKIP}"
 fi
 
@@ -2103,17 +2133,20 @@ echo ${VIDEO_FILTERCHAIN_HWACCEL}
 
 
 #${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
-#       $ARG_DECODE_GENERAL_FLAGS[@] -i "$DIRNAME2/$SRC2"  \
+#       $ARG_DECODE_GENERAL_FLAGS[@]  ${ARG_DECODE_SUB_SKIP_FLAGS[@]} -i "$DIRNAME2/$SRC2"  \
 #       -c:s webvtt \
 #       -y $TEMPDIR/v1tmp.srt 
 
-${FFMPEG_SUBTXT_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]}  \
+$EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
+       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration \
+       ${ARG_DECODE_GENERAL_FLAGS[@]}  \
        ${ARG_DECODE_SUB_FLAGS[@]} \
-       -fix_sub_duration   -i "$DIRNAME2/$SRC2"  \
+       ${ARG_DECODE_SUB_SKIP_FLAGS[@]} \
+       -i "$DIRNAME2/$SRC2"  \
        ${ARG_ENCODE_GENERAL_FLAGS[@]} \
        -c:s ssa -f ass -y $TEMPDIR/v1tmp.ssa
 
-#       -c:s srt -f srt \
+
 
 
 ARG_METADATA+=(-metadata:s:a:0)
@@ -2127,8 +2160,8 @@ ARG_METADATA+=(-metadata:g)
 ARG_METADATA+=(source="${SRC2}")
 
 
-__TMPS_DECODER=`echo ${ARG_DECODE_GENERAL_FLAGS[@]}`
-__TMPS_DECODER_SUB=`echo ${ARG_DECODE_SUB_FLAGS[@]}`
+__TMPS_DECODER=`echo ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} ${ARG_DECODE_GENERAL_FLAGS[@]} `
+__TMPS_DECODER_SUB=`echo  ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} ${ARG_DECODE_SUB_SKIP_FLAGS[@]}`
 __TMPS_ENCODER=`echo ${ARG_ENCODE_GENERAL_FLAGS[@]}`
 
 if [ "___xxx___${__TMPS_DECODER}" != "___xxx___" ] ; then
@@ -2227,15 +2260,18 @@ if test $FFMPEG_ENC -ne 0; then
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
 
-	${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
-	               $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	$EXECUTE_PREFIX_COMMANDS \
+	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	               $DECODE_APPEND \
+		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+		       -i "$DIRNAME2/$SRC2" \
 		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		      -map:v 0:0 -map:a 0:1 \
-	              ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
-		      -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
-		      -c:v libx265 \
-		      -c:a aac \
-		      -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
+		       -map:v 0:0 -map:a 0:1 \
+		       ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+		       -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
+		       -c:v libx265 \
+		       -c:a aac \
+		       -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
 		      ${FFMPEG_X265_HEAD} \
 		      ${FFMPEG_X265_FRAMES1} \
 		      ${FFMPEG_X265_AQ} \
@@ -2261,8 +2297,10 @@ if test $FFMPEG_ENC -ne 0; then
 	
 	logging "${ARG_METADATA[@]}"
     
-	${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	$EXECUTE_PREFIX_COMMANDS  \
+	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	          $DECODE_APPEND \
+		  ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		  -i "$DIRNAME2/$SRC2" \
 		  ${ARG_ENCODE_GENERAL_FLAGS[@]} \
 	          -map:v 0:0 -map:a 0:1 \
@@ -2344,8 +2382,11 @@ elif    test $HWENC -ne 0; then
 	
 	logging "${ARG_METADATA[@]}"
 	
-	${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
-	              $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	$EXECUTE_PREFIX_COMMANDS \
+	    ${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	              $DECODE_APPEND \
+		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+		      -i "$DIRNAME2/$SRC2" \
 		      ${ARG_ENCODE_GENERAL_FLAGS[@]} \
 		      -map:v 0:0 -map:a 0:1 \
 		       ${FRAMERATE} \
@@ -2404,8 +2445,11 @@ elif    test $HWENC -ne 0; then
 	logging "${ARG_METADATA[@]}"
 
 	
-	${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
-	               $DECODE_APPEND -i "$DIRNAME2/$SRC2" \
+	$EXECUTE_PREFIX_COMMANDS \
+	    ${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	               $DECODE_APPEND \
+		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+		       -i "$DIRNAME2/$SRC2" \
 		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
   		       -map:v 0:0 -map:a 0:1 \
 	               -profile:v ${X265_PROFILE} \
@@ -2503,6 +2547,7 @@ if test -s "$TEMPDIR/v1tmp.ssa" ; then
         __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
 	ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=${__TMPS_X}" 
     fi
+    $EXECUTE_PREFIX_COMMANDS \
     ${FFMPEG_CMD} -i $TEMPDIR/v1tmp.mkv \
                   ${ARG_SUBTXT} \
 		  ${ARG_SUBTXT2} \
@@ -2519,9 +2564,9 @@ fi
 rm "$DIRNAME/test$BASENAME"
 
 if test $HWENC -ne 0; then
-  cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
+  ${EXECUTE_PREFIX_COMMANDS} cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
 else
-  cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
+  ${EXECUTE_PREFIX_COMMANDS} cp "$TEMPDIR/v2tmp.mkv" "$DIRNAME/$BASENAME"
 fi
 
 RESULT_DEMUX=$?
