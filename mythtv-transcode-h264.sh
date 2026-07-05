@@ -114,6 +114,8 @@ N_QUERY_ID=0
 
 IGNORE_DECODE_ERRORS=0
 
+typeset -i IS_COPY_SUB_AS_RAW_ARIB
+IS_COPY_SUB_AS_RAW_ARIB=1
 
 typeset -i NICE_VALUE
 typeset -i IONICE_VALUE
@@ -227,6 +229,14 @@ for x in "$@" ; do
 	    if [ -n "${VIDEO_SUBTITLE}" ] ; then
 		shift
 	    fi
+	    ;;
+	--copy_arib_sub | --copy-arib-sub | --rawsub )
+	    IS_COPY_SUB_AS_RAW_ARIB=1
+	    shift
+	    ;;
+	---no-copy_arib_sub | --no-copy-arib-sub | --no-rawsub | --ssasub )
+	    IS_COPY_SUB_AS_RAW_ARIB=0
+	    shift
 	    ;;
 	--onair | --on-air | --video-onair )
 	    shift
@@ -989,7 +999,7 @@ rm "$DIRNAME/test$BASENAME"
 
 
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
-logging `printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`
+logging "`printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`"
 
 # play nice with other processes
 EXECUTE_PREFIX_COMMANDS=""
@@ -1086,12 +1096,9 @@ _AUDIO_ARGS+=(-af)
 _AUDIO_ARGS+=(aresample=async=1:min_hard_comp=0.1:first_pts=0)
 
 __AUDIO_ARGS=`echo ${_AUDIO_ARGS[@]}`
-#exit 1
-
 
 if test $NOENCODE -eq 0; then
-x=$ENCMODE
-case "$x" in
+case "$ENCMODE" in
    "ANIME" | "LIVE_MID" | "LIVE_HD_MID" )
    AUDIOBITRATE=224
    AUDIOCUTOFF=23000
@@ -1114,10 +1121,10 @@ case "$x" in
    ;;
 esac
 
+
 # convert audio track to aac
 AUDIOTMP="$TEMPDIR/a1tmp.raw"
 mkfifo $AUDIOTMP
-
 
 # first video pass
 VIDEOTMP="$TEMPDIR/v1tmp.y4m"
@@ -2046,17 +2053,53 @@ unset ARG_DECODE_GENERAL_FLAGS[@]
 declare -a  ARG_DECODE_GENERAL_SKIP_FLAGS
 unset ARG_DECODE_GENERAL_SKIP_FLAGS[@]
 
-
 declare -a ARG_DECODE_SUB_FLAGS
 unset ARG_DECODE_SUB_FLAGS[@]
 
 declare -a  ARG_DECODE_SUB_SKIP_FLAGS
 unset ARG_DECODE_SUB_SKIP_FLAGS[@]
 
+declare -a  ARG_ENCODE_GENERAL_FLAGS
+unset ARG_ENCODE_GENERAL_FLAGS[@]
 
 declare -a ARG_ENCODE_SUB_FLAGS
 unset ARG_ENCODE_SUB_FLAGS[@]
 
+declare -a ARG_ENCODE_SUB_CODEC_FLAGS
+unset ARG_ENCODE_SUB_CODEC_FLAGS[@]
+
+declare -a ARG_ENCODE_SUB_DELAY_FLAGS
+unset ARG_ENCODE_SUB_DELAY_FLAGS[@]
+
+declare -a ARG_ENCODE_STREAMS
+unset ARG_ENCODE_STREAMS[@]
+
+declare -a ARG_ENCODE_VIDEO_ARGS
+unset ARG_ENCODE_VIDEO_ARGS[@]
+
+declare -a ARG_MUX_SUB_STREAM
+unset ARG_MUX_SUB_STREAM[@]
+
+declare -a ARG_MUX_SUB_TXT2
+unset ARG_MUX_SUB_TXT2[@]
+
+
+# Basic STREAM
+ARG_ENCODE_STREAMS+=(-map:v)
+ARG_ENCODE_STREAMS+=(0:0)
+ARG_ENCODE_STREAMS+=(-map:a)
+ARG_ENCODE_STREAMS+=(0:1)
+
+
+# MUX
+ARG_ENCODE_SUB_TXT2+=(-c:v)
+ARG_ENCODE_SUB_TXT2+=(copy)
+ARG_ENCODE_SUB_TXT2+=(-c:a)
+ARG_ENCODE_SUB_TXT2+=(copy)
+ARG_MUX_SUB_TXT2+=(-metadata:s:a:0)
+ARG_MUX_SUB_TXT2+=(language=jpn)
+
+# Add audio if exists.
 if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
     ARG_DECODE_GENERAL_FLAGS+=(-fflags)
     ARG_DECODE_GENERAL_FLAGS+=(+discardcorrupt)
@@ -2077,24 +2120,26 @@ elif [ ${PREFETCH_MB} -lt 0 ] ; then
 fi
 
 if [ "___xxx___${VIDEO_SKIP}" != "___xxx___" ] ; then
-   ARG_DECODE_GENERAL_SKIP_FLAGS+=(-ss)
-   ARG_DECODE_GENERAL_SKIP_FLAGS+=(${VIDEO_SKIP})
-   ARG_DECODE_SUB_SKIP_FLAGS+=(-itsoffset)
-   ARG_DECODE_SUB_SKIP_FLAGS+=(${VIDEO_SKIP})
-   
-   #VIDEO_SKIP="-ss ${VIDEO_SKIP}"
+    ARG_DECODE_GENERAL_SKIP_FLAGS+=(-ss)
+    ARG_DECODE_GENERAL_SKIP_FLAGS+=(${VIDEO_SKIP})
+    ARG_DECODE_SUB_SKIP_FLAGS+=(-itsoffset)
+    ARG_DECODE_SUB_SKIP_FLAGS+=(${VIDEO_SKIP})
+    if test $IS_COPY_SUB_AS_RAW_ARIB -ne 0 ; then
+        ARG_ENCODE_SUB_DELAY_FLAGS+=(-ss)
+        ARG_ENCODE_SUB_DELAY_FLAGS+=(${VIDEO_SKIP})
+    else
+        ARG_ENCODE_SUB_DELAY_FLAGS+=(-itsoffset)
+        ARG_ENCODE_SUB_DELAY_FLAGS+=(-${VIDEO_SKIP})
+    fi
 fi
 
-#echo ${ARG_DECODE_GENERAL_FLAGS[@]}
-#echo 
-#echo ${ARG_DECODE_SUB_FLAGS[@]}
+echo ${ARG_DECODE_GENERAL_FLAGS[@]}
+echo 
+echo ${ARG_DECODE_SUB_FLAGS[@]}
 
-#exit 1
 #ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
 #ARG_DECODE_SUB_FLAGS+=(0)
 
-ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
-ARG_DECODE_SUB_FLAGS+=(1)
 
 
 case "$HWACCEL_DEC" in
@@ -2128,14 +2173,29 @@ esac
 
 
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
-
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
-
 
 #${FFMPEG_SUBTXT_CMD} -loglevel info  -txt_format text \
 #       $ARG_DECODE_GENERAL_FLAGS[@]  ${ARG_DECODE_SUB_SKIP_FLAGS[@]} -i "$DIRNAME2/$SRC2"  \
 #       -c:s webvtt \
 #       -y $TEMPDIR/v1tmp.srt 
+
+__SUB_FILE_NAME=""
+if test $IS_COPY_SUB_AS_RAW_ARIB -ne 0 ; then
+    __SUB_FILE_NAME="v1sub.mkv"
+    ARG_ENCODE_SUB_FLAGS+=(-map:s)
+    ARG_ENCODE_SUB_FLAGS+=(0:s)
+    ARG_ENCODE_SUB_FLAGS+=(-c:s)
+    ARG_ENCODE_SUB_FLAGS+=(copy)
+else
+    __SUB_FILE_NAME="v1sub.ssa"
+    ARG_DECODE_SUB_FLAGS+=(-aribb24-skip-ruby-text)
+    ARG_DECODE_SUB_FLAGS+=(1)
+    ARG_ENCODE_SUB_FLAGS+=(-c:s)
+    ARG_ENCODE_SUB_FLAGS+=(ssa)
+    ARG_ENCODE_SUB_CODEC_FLAGS+=(-f)
+    ARG_ENCODE_SUB_CODEC_FLAGS+=(ass)
+fi    
 
 $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
        ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration \
@@ -2144,45 +2204,55 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
        ${ARG_DECODE_SUB_SKIP_FLAGS[@]} \
        -i "$DIRNAME2/$SRC2"  \
        ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-       -c:s ssa -f ass -y $TEMPDIR/v1tmp.ssa
-
-
+       ${ARG_ENCODE_SUB_FLAGS[@]} \
+       ${ARG_ENCODE_SUB_CODEC_FLAGS[@]} \
+       -y $TEMPDIR/${__SUB_FILE_NAME}
 
 
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(language=jpn)
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(real_encoder=aac)
+ARG_METADATA+=(-metadata:s:a:0)
+ARG_METADATA+=(DESCRIPTION=主音声)
+
+# ADD METADATA around AUDIO, if additional track exists.
 
 DISPLAY_SINK_PARAM="filter_threads=${FILTER_THREADS}:filter_complex_threads=${FILTER_COMPLEX_THREADS}"
 
 ARG_METADATA+=(-metadata:g)
 ARG_METADATA+=(source="${SRC2}")
 
+__TMPS_DECODER="${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} ${ARG_DECODE_GENERAL_FLAGS[@]}"
+__TMPS_DECODER_SUB="${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} ${ARG_DECODE_SUB_SKIP_FLAGS[@]}"
+__TMPS_ENCODER="${ARG_ENCODE_GENERAL_FLAGS[@]}"
 
-__TMPS_DECODER=`echo ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} ${ARG_DECODE_GENERAL_FLAGS[@]} `
-__TMPS_DECODER_SUB=`echo  ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} ${ARG_DECODE_SUB_SKIP_FLAGS[@]}`
-__TMPS_ENCODER=`echo ${ARG_ENCODE_GENERAL_FLAGS[@]}`
+ARG_METADATA_GENERAL_DEC_OPTS=""
+ARG_METADATA_VIDEO_ENC_OPTS=""
 
-if [ "___xxx___${__TMPS_DECODER}" != "___xxx___" ] ; then
-   __TMPS_X=`echo ${__TMPS_DECODER} | sed -e s/[[:blank:]]/　/g`
-   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
-   ARG_METADATA+=(-metadata:g)
-   ARG_METADATA+=(decoder_options=${__TMPS_X})
-fi
-if [ "___xxx___${__TMPS_ENCODER}" != "___xxx___" ] ; then
-   __TMPS_X=`echo ${__TMPS_ENCODER} | sed -e s/[[:blank:]]/　/g`
-   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
-   ARG_METADATA+=(-metadata:s:v)
-   ARG_METADATA+=(v_encoder_options=${__TMPS_X})
-fi
+echo "${__TMPS_DECODER}" > $TEMPDIR/general_decoder_opts.txt
+#if [ "___xxx___${__TMPS_DECODER}" != "___xxx___" ] ; then
+#   __TMPS_X=`echo ${__TMPS_DECODER} | sed -e s/[[:blank:]]/　/g`
+#   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+#   ARG_METADATA+=(-metadata:g)
+#   ARG_METADATA+=(decoder_options=${__TMPS_X})
+#   #ARG_METADATA_GENERAL_DEC_OPTS="-metadata:g decoder_opts=\"${__TMPS_DECODER}\""
+#fi
+
+echo "${__TMPS_ENCODER}" > $TEMPDIR/v_encoder_options.txt
+
+#if [ "___xxx___${__TMPS_ENCODER}" != "___xxx___" ] ; then
+#   __TMPS_X=`echo ${__TMPS_ENCODER} | sed -e s/[[:blank:]]/　/g`
+#   __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+#   ARG_METADATA+=(-metadata:s:v)
+#   ARG_METADATA+=(v_encoder_options=${__TMPS_X})
+#   #ARG_METADATA_VIDEO_ENC_OPTS="-metadata:s:v v_endoder_options=\"${__TMPS_ENCODER}\""
+#fi
 #echo "${ARG_METADATA[@]}"
 #exit
 __ENCODE_START_DATE=`date --rfc-3339=ns`
 
 DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
-
-
 
 if test $FFMPEG_ENC -ne 0; then
     
@@ -2255,18 +2325,17 @@ if test $FFMPEG_ENC -ne 0; then
 
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
-	echo "${_AUDIO_ARGS[@]}"
-	echo "${ARG_METADATA[@]}"
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
 
+	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
 		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		       -i "$DIRNAME2/$SRC2" \
 		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		       -map:v 0:0 -map:a 0:1 \
+		       ${ARG_ENCODE_STREAMS[@]} \
 		       ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		       -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v libx265 \
@@ -2279,6 +2348,8 @@ if test $FFMPEG_ENC -ne 0; then
 		      -threads ${ENCTHREADS} \
 		      ${_AUDIO_ARGS[@]} \
 		      ${ARG_METADATA[@]} \
+		      -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		      -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
 		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		      -y $TEMPDIR/v1tmp.mkv
@@ -2295,15 +2366,14 @@ if test $FFMPEG_ENC -ne 0; then
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${ARG_METADATA[@]}"
-    
+	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS  \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	          $DECODE_APPEND \
 		  ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		  -i "$DIRNAME2/$SRC2" \
 		  ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-	          -map:v 0:0 -map:a 0:1 \
+	          ${ARG_ENCODE_STREAMS[@]} \
 	          ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
@@ -2313,8 +2383,10 @@ if test $FFMPEG_ENC -ne 0; then
 		  $FFMPEG_X264_AQ \
 		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
-		  ${__AUDIO_ARGS} \
+		  ${_AUDIO_ARGS[@]} \
 		  ${ARG_METADATA[@]} \
+		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
 	          -metadata:g description="${ARG_DESC2}" \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv 
@@ -2380,15 +2452,14 @@ elif    test $HWENC -ne 0; then
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${ARG_METADATA[@]}"
-	
+	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	              $DECODE_APPEND \
 		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		      -i "$DIRNAME2/$SRC2" \
 		      ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		      -map:v 0:0 -map:a 0:1 \
+		       ${ARG_ENCODE_STREAMS[@]} \
 		       ${FRAMERATE} \
 		       -filter_complex ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v h264_vaapi \
@@ -2399,8 +2470,10 @@ elif    test $HWENC -ne 0; then
 		       -threads:0 8 \
 		       -threads:1 8 \
 		       ${FRAMERATE} \
-		       ${__AUDIO_ARGS} \
+		       ${_AUDIO_ARGS[@]} \
 		       ${ARG_METADATA[@]} \
+		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
 		       -metadata:g description="${ARG_DESC2}" \
 		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
@@ -2442,16 +2515,14 @@ elif    test $HWENC -ne 0; then
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
 
-	logging "${ARG_METADATA[@]}"
-
-	
+	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
 		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		       -i "$DIRNAME2/$SRC2" \
 		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-  		       -map:v 0:0 -map:a 0:1 \
+  		       ${ARG_ENCODE_STREAMS[@]} \
 	               -profile:v ${X265_PROFILE} \
 		       -aud 1 -level 51 \
 		       ${FRAMERATE} \
@@ -2464,15 +2535,17 @@ elif    test $HWENC -ne 0; then
 		       -threads:0 4 \
 		       -threads:1 4 \
 		       ${FRAMERATE} \
-		       ${__AUDIO_ARGS} \
+		       ${_AUDIO_ARGS[@]} \
 		       ${ARG_METADATA[@]} \
+		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
        		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv 
 
 	
  #    -c:v hevc_vaapi \
-		      fi
+    fi
 fi
 
 #DEC_VIDEO_PID=$!
@@ -2533,24 +2606,33 @@ if test $ERRFLAGS -ne 0; then
     fi
 fi
 
-ARG_SUB_DELAY_FLAGS=""
-if [ "___xxx___${VIDEO_SKIP}" != "___xxx___" ] ; then
-    ARG_SUB_DELAY_FLAGS="-itsoffset -${VIDEO_SKIP}"
-fi
-if test -s "$TEMPDIR/v1tmp.ssa" ; then
-    ARG_SUBTXT="${ARG_SUB_DELAY_FLAGS} -f ass -i $TEMPDIR/v1tmp.ssa "
-    ARG_SUBTXT2="-c:s copy -c:a copy -c:v copy -map:v 0:0 \
-                 -map:a 0:1 -map:s 1:0 -metadata:s:s:0 language=jpn \
-		 -metadata:s:a:0 language=jpn"
-    if [ "___xxx___${__TMPS_DECODER_SUB}" != "___xxx___" ] ; then
-        __TMPS_X=`echo ${__TMPS_DECODER_SUB} | sed -e s/[[:blank:]]/　/g`
-        __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
-	ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=${__TMPS_X}" 
-    fi
+if test -s "$TEMPDIR/${__SUB_FILE_NAME}" ; then
+    ARG_MUX_SUB_STREAM+=(-map:s)
+    ARG_MUX_SUB_STREAM+=(1:0)
+    
+    ARG_MUX_SUB_TXT2+=(-c:s)
+    ARG_MUX_SUB_TXT2+=(copy)
+    ARG_MUX_SUB_TXT2+=(-metadata:s:s:0)
+    ARG_MUX_SUB_TXT2+=(language=jpn)
+    
+    #ARG_SUBTXT2=""
+    echo "${__TMPS_DECODER_SUB}" > $TEMPDIR/decoder_sub_str.txt
+    #if [ "___xxx___${__TMPS_DECODER_SUB}" != "___xxx___" ] ; then
+    #    __TMPS_X=`echo ${__TMPS_DECODER_SUB} | sed -e s/[[:blank:]]/　/g`
+    #    __TMPS_X=`echo ${__TMPS_X} | sed -e s/\;/；/g`
+    #    ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=${__TMPS_X}" 
+    #	#ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=\"${__TMPS_DECODER_SUB}\"" 
+    #fi
     $EXECUTE_PREFIX_COMMANDS \
     ${FFMPEG_CMD} -i $TEMPDIR/v1tmp.mkv \
-                  ${ARG_SUBTXT} \
-		  ${ARG_SUBTXT2} \
+                  ${ARG_ENCODE_SUB_DELAY_FLAGS[@]} \
+		  ${ARG_ENCODE_SUB_CODEC_FLAGS[@]}  \
+                  -i $TEMPDIR/${__SUB_FILE_NAME} \
+		  ${ARG_ENCODE_STREAMS[@]} \
+		  ${ARG_MUX_SUB_STREAM[@]} \
+		  ${ARG_ENCODE_SUB_TXT2[@]} \
+		  ${ARG_MUX_SUB_TXT2[@]} \
+		  -metadata:s:s:0 decoder_options_for_subscripts="`cat $TEMPDIR/decoder_sub_str.txt`" \
 		  -y $TEMPDIR/v2tmp.mkv
 else
     mv $TEMPDIR/v1tmp.mkv $TEMPDIR/v2tmp.mkv
@@ -2607,4 +2689,5 @@ cd $TEMPDIR/..
 rm -rf $TEMPDIR
 
 logging "JOB COMPLETED."
+
 exit 0
