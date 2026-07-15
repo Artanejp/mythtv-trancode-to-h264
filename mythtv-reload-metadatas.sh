@@ -1348,19 +1348,19 @@ case "${__VCODEC_ENCODER}" in
 		_N_PRESET_VALUE=9
 		;;
 	    "faster" )
-		_N_PRESET_VALUE=7
+		_N_PRESET_VALUE=8
 		;;
 	    "fast" )
-		_N_PRESET_VALUE=6
+		_N_PRESET_VALUE=7
 		;;
 	    "medium" )
-		_N_PRESET_VALUE=5
+		_N_PRESET_VALUE=6
 		;;
 	    "slow" )
-		_N_PRESET_VALUE=3
+		_N_PRESET_VALUE=4
 		;;
 	    "slower" )
-		_N_PRESET_VALUE=2
+		_N_PRESET_VALUE=3
 		;;
 	    "veryslow" )
 		_N_PRESET_VALUE=1
