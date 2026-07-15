@@ -1371,11 +1371,9 @@ case "${__VCODEC_ENCODER}" in
 	    "placebo" )
 		_N_PRESET_VALUE=0
 		;;
-	    [0-9]+ )
-		_N_PRESET_VALUE=${PRESET_VALUE}
-		;;
 	    * )
-		_N_PRESET_VALUE=7
+		_N_PRESET_VALUE=${PRESET_VALUE}
+		#_N_PRESET_VALUE=7
 		;;
 	esac
 	PRESET_ARG="-preset ${_N_PRESET_VALUE}"
@@ -1409,6 +1407,9 @@ case "${__VCODEC_ENCODER}" in
 	fi
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0"
+	fi
+	if [ "__n__${QP_ADAPTATIVE_VALUE}" != "__n__" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:ac-bias=${QP_ADAPTATIVE_VALUE}"
 	fi
 	    
 	__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
