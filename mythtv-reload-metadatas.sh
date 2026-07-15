@@ -4,20 +4,24 @@ BASEFILE="$1"
 
 declare -a ARG_METADATA
 
+NUMA_NODES=""
 POOL_THREADS=5
 FRAME_THREADS=5
 PRESET_VALUE="faster"
 CRF_VALUE=22.5
 CRF_MIN=""
 CRF_MAX=""
+
+# HEVC or HAVC or AV1 ?
+VCODEC_TYPE="HEVC"
 typeset -i AQ_MODE
 AQ_MODE=3
 
-declare -a APPEND_X265_PARAMETERS_PRE
-unset APPEND_X265_PARAMETERS_PRE[@]
+declare -a APPEND_VCODEC_PARAMETERS_PRE
+unset APPEND_VCODEC_PARAMETERS_PRE[@]
 
-declare -a APPEND_X265_PARAMETERS_POST
-unset APPEND_X265_PARAMETERS_POST[@]
+declare -a APPEND_VCODEC_PARAMETERS_POST
+unset APPEND_VCODEC_PARAMETERS_POST[@]
 
 FILTER_THREADS=12
 FILTER_COMPLEX_THREADS=12
@@ -812,14 +816,14 @@ FILTER_STRING_1="${FILTER_STRING}"
 if [ "___x___${BASEFILE}" = "___x___" ] ; then
    exit 0
 fi
-    unset ARG_METADATA[@]
-    ARG_DESC=""
-    ARG_SUBTITLE=""
-    ARG_EPISODE=""
-    ARG_ONAIR=""
-    __N_TITLE=""
+unset ARG_METADATA[@]
+ARG_DESC=""
+ARG_SUBTITLE=""
+ARG_EPISODE=""
+ARG_ONAIR=""
+__N_TITLE=""
 
-    TEMPDIR=`mktemp -d`
+TEMPDIR=`mktemp -d`
     
 AWK_EXTRACT1="
       BEGIN {
@@ -1049,7 +1053,7 @@ __AWK_STREAMDESC="
 	END {
 	   for(i = 1; i <= inum; i++) {
 	      if(match(_ARG_TYPE[i], \"Video\") != 0) {
-	           printf(\"-map:v %s -c:V:%d libx265 \", _ARG_STREAM[i], video_count);
+	           printf(\"-map:v %s -c:V:%d %s \", _ARG_STREAM[i], video_count, VENCODER_TYPE);
 		   video_count++;
 	      } else if(match(_ARG_TYPE[i], \"Audio\") != 0) {
 	           if(AUDIO_COPY != 0) {
@@ -1149,10 +1153,43 @@ done
 
 ARG_FPS=""
 ARG_STREAM=`echo "${FFPROBE_RESULT}" | grep "Stream"`
+
+__VCODEC_ENCODER=""
+VCODEC_TYPE=`echo ${VCODEC_TYPE} | tr "[:lower:]" "[:upper:]"`
+
+## Convert VCODEC
+case ${VCODEC_TYPE} in 
+    "HEVC" | "X265" | "H.265" | "H265" )
+	VCODEC_TYPE="HEVC"
+	;;
+    "AV1" | "AV-1" )
+	VCODEC_TYPE="AV1"
+	;;
+    "HAVC" | "X264" | "H.264" | "H264" )
+	VCODEC_TYPE="HAVC"
+	;;
+    * )
+	;;
+esac
+case "${VCODEC_TYPE}" in
+    "HEVC" )
+	__VCODEC_ENCODER="libx265"
+	;;
+    "AV1" )
+	__VCODEC_ENCODER="libsvtav1"
+	;;
+    "HAVC" )
+	__VCODEC_ENCODER="libx264"
+	;;
+    * )
+	__VCODEC_ENCODER="libx265"
+	;;
+esac	
+    
 if [ ${COPY_AUDIOS} -ne 0 ] ; then
-    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=1 "${__AWK_STREAMDESC}"`
+    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=1 -v VENCODER_TYPE="${__VCODEC_ENCODER}" "${__AWK_STREAMDESC}"`
 else
-    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=0 -v AUDIO_CODEC="${AUDIO_CODEC}" -v AUDIO_ARGS="${AUDIO_ARGS}" "${__AWK_STREAMDESC}"`
+    ARG_COPYMAP=`echo "${ARG_STREAM}" | gawk -v AUDIO_COPY=0 -v AUDIO_CODEC="${AUDIO_CODEC}" -v AUDIO_ARGS="${AUDIO_ARGS}" -v VENCODER_TYPE="${__VCODEC_ENCODER}"  "${__AWK_STREAMDESC}"`
 fi
 
 ARG_FPS=`echo "${ARG_STREAM}" | gawk "${__AWK_GETFPS}"`
@@ -1172,78 +1209,210 @@ esac
 #echo
 #exit 1
 
-
 TUNE_ARG=""
-if test "__n__${TUNE_VALUE}" != "__n__" ; then
-    TUNE_ARG="-tune ${TUNE_VALUE}"
-fi
 PRESET_ARG=""
-if test "__n__${PRESET_VALUE}" != "__n__" ; then
-    PRESET_ARG="-preset ${PRESET_VALUE}"
-fi
-
 AQ_ARG=""
-if test "__n__${AQ_VALUE}" != "__n__" ; then
-    AQ_ARG="aq-strength=${AQ_VALUE}"
-else
-    AQ_ARG="aq-strength=1.0"
-fi
-QP_ADAPTATIVE_ARG=""    
-__X265_PARAMS="pools=${POOL_THREADS}:frame_threads=${FRAME_THREADS}"
-__X265_PARAMS="${__X265_PARAMS}:hevc-aq=true"
+QP_ADAPTATIVE_ARG=""
+__VCODEC_PARAMS=""
 
-case "${AQ_MODE}" in
-   "4" )
-      __X265_PARAMS="${__X265_PARAMS}:aq-mode=4:aq-motion=true:${AQ_ARG}"       
-      ;;
-   "1" | "2" | "3" | "0" )
-      __X265_PARAMS="${__X265_PARAMS}:aq-mode=${AQ_MODE}:${AQ_ARG}"
-      ;;
-   * )
-      __X265_PARAMS="${__X265_PARAMS}:aq-mode=3:${AQ_ARG}"
-      ;;
+
+# To integer value for SVT-AV1 or X264
+case "${VCODEC_TYPE}" in
+    "HAVC" )
+	AQ_VALUE=`numfmt --to=iec ${AQ_VALUE}`
+	;;
+    * )
+	;;
 esac
 
-if test "__n__${QP_ADAPTATIVE_VALUE}" != "__n__" ; then
-    __X265_PARAMS="${__X265_PARAMS}:qp-adaptation-range=${QP_ADAPTATIVE_VALUE}"
-fi
-if test "__n__${VBV_VALUE}" != "__n__" ; then
-    __X265_PARAMS="${__X265_PARAMS}:vbv-maxrate=${VBV_VALUE}"
-fi
-#    __X265_PARAMS="${__X265_PARAMS}:pme=true:pmode=true"
+__VCODEC_DISP_PARAMS=""
+__CRF_ARGS=""
+__CODEC_PARAM_NAME="-x265-params"
 
-if [ "__n__${CRF_MIN}" != "__n__" ] ; then
-    __X265_PARAMS="${__X265_PARAMS}:crf-min=${CRF_MIN}"
-fi
-if [ "__n__${CRF_MAX}" != "__n__" ] ; then
-    __X265_PARAMS="${__X265_PARAMS}:crf-max=${CRF_MAX}"
-fi
-if [ ${USE_HDR10} -ne 0 ] ; then
-    if [ ${USE_10BIT} -ne 0 ] ; then
-	__X265_PARAMS="${__X265_PARAMS}:repeat-headers=1"
-	__X265_PARAMS="${__X265_PARAMS}:hdr10=true"
-	__X265_PARAMS="${__X265_PARAMS}:hdr10-opt=true"
-	__X265_PARAMS="${__X265_PARAMS}:level-idc=5.1"
-        __X265_PARAMS="${__X265_PARAMS}:colorprim=bt2020"
-        __X265_PARAMS="${__X265_PARAMS}:range=limited"
-        __X265_PARAMS="${__X265_PARAMS}:transfer=smpte2084"
-	__X265_PARAMS="${__X265_PARAMS}:colormatrix=bt2020nc"
-	__X265_PARAMS="${__X265_PARAMS}:master-display='G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)'"
-	__X265_PARAMS="${__X265_PARAMS}:max-cll=1000,293"
-	#__X265_PARAMS="${__X265_PARAMS}:max-cll=0,0"
-	#COLORSPACE_ARGS+=("-pix_fmt")
-	#COLORSPACE_ARGS+=("yuv420p10le")
-    fi
-fi
+__EXECUTE_COMMANDS="${EXECUTE_PREFIX_COMMANDS} ${FFMPEG_CMD}"
+case "${__VCODEC_ENCODER}" in
+    "libx265" )
+	__CODEC_PARAM_NAME="-x265-params"
+	__CRF_ARGS="-crf ${CRF_VALUE}"
+	if test "__n__${TUNE_VALUE}" != "__n__" ; then
+	    TUNE_ARG="-tune ${TUNE_VALUE}"
+	fi
+	if test "__n__${PRESET_VALUE}" != "__n__" ; then
+	    PRESET_ARG="-preset ${PRESET_VALUE}"
+	fi
+	if test "__n__${AQ_VALUE}" != "__n__" ; then
+	    AQ_ARG="aq-strength=${AQ_VALUE}"
+	else
+	    AQ_ARG="aq-strength=1.0"
+	fi
+	
+	__VCODEC_PARAMS="pools=${POOL_THREADS}:frame_threads=${FRAME_THREADS}"
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:hevc-aq=true"
 
-__X265_DISP_PARAMS=""
-if test "__n__${PRESET_VALUE}" != "__n__" ; then
-    __X265_DISP_PARAMS=":preset=${PRESET_VALUE}"
-fi    
-if test "__n__${TUNE_VALUE}" != "__n__" ; then
-    __X265_DISP_PARAMS=":tune=${TUNE_VALUE}${__X265_DISP_PARAMS}"
-fi    
-__X265_DISP_PARAMS="crf=${CRF_VALUE}:${__X265_DISP_PARAMS}"
+	case "${AQ_MODE}" in
+	    "4" )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:aq-mode=4:aq-motion=true:${AQ_ARG}"       
+		;;
+	    "1" | "2" | "3" | "0" )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:aq-mode=${AQ_MODE}:${AQ_ARG}"
+		;;
+	    * )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:aq-mode=3:${AQ_ARG}"
+		;;
+	esac
+
+	if test "__n__${QP_ADAPTATIVE_VALUE}" != "__n__" ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qp-adaptation-range=${QP_ADAPTATIVE_VALUE}"
+	fi
+	if test "__n__${VBV_VALUE}" != "__n__" ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:vbv-maxrate=${VBV_VALUE}"
+	fi
+	#    __VCODEC_PARAMS="${__VCODEC_PARAMS}:pme=true:pmode=true"
+	
+	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-min=${CRF_MIN}"
+	fi
+	if [ "__n__${CRF_MAX}" != "__n__" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-max=${CRF_MAX}"
+	fi
+	if [ ${USE_HDR10} -ne 0 ] ; then
+	    if [ ${USE_10BIT} -ne 0 ] ; then
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:repeat-headers=1"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:hdr10=true"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:hdr10-opt=true"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:level-idc=5.1"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:colorprim=bt2020"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:range=limited"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:transfer=smpte2084"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:colormatrix=bt2020nc"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:master-display='G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)'"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:max-cll=1000,293"
+		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:max-cll=0,0"
+		#COLORSPACE_ARGS+=("-pix_fmt")
+		#COLORSPACE_ARGS+=("yuv420p10le")
+	    fi
+	fi
+	__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
+	if test "__n__${TUNE_VALUE}" != "__n__" ; then
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune=${TUNE_VALUE}"
+	fi    
+	if test "__n__${PRESET_VALUE}" != "__n__" ; then
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${PRESET_VALUE}"
+	fi    
+	;;
+    "libsvtav1" )
+	__CRF_ARGS="-crf ${CRF_VALUE}"
+	__CODEC_PARAM_NAME="-svtav1-params"
+	if [ ${FRAME_THREADS} -gt 0 ] ; then
+	    __APPEND_ARGS_PRE+=(-threads:v)
+	    __APPEND_ARGS_PRE+=(${FRAME_THREADS})
+	fi
+	if [ "${AQ_MODE}" -lt 0 ] ; then
+	    AQ_MODE=0
+	elif [ "${AQ_MODE}" -gt 2 ]; then
+	    AQ_MODE=2
+	fi
+	__VCODEC_PARAMS="aq-mode=${AQ_MODE}"
+	typeset -i PARALLEL_LEVEL
+	if [ ${FRAME_THREADS} -le 0 ] ; then
+	    PARALLEL_LEVEL=0
+	else
+	    PARALLEL_LEVEL=${FRAME_THREADS}
+	    if [ ${PARALLEL_LEVEL} -gt 6 ]; then
+		PARALLEL_LEVEL=6
+	    fi
+	fi
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:lp=${PARALLEL_LEVEL}"
+	if [ "__xxx__${NUMA_NODES}" != "__xxx__" ] ; then
+	    if [ -x /bin/taskset ] ; then
+		__EXECUTE_COMMANDS="${EXECUTE_PREFIX_COMMANDS} /bin/taskset -c ${NUMA_NODES} ${FFMPEG_CMD} "
+	    fi
+	#else    
+	#    if [ ${POOL_THREADS} -ne 0 ] ; then
+	#	if [ -x /bin/cpulimit ] ; then
+	#	    __EXECUTE_COMMANDS="${EXECUTE_PREFIX_COMMANDS} /bin/cpulimit -c ${POOL_THREADS} -l `calc -d 'int( (${FRAME_THREADS} / ${POOL_THREADS} ) * 100) + 10'` -f ${FFMPEG_CMD} "
+	#	fi
+	#    fi
+	fi
+	# Convert tune value from x265 to svt-av1
+	__T_PRESET_VALUE="`echo ${PRESET_VALUE} | tr '[:upper:]' '[:lower:]'`"
+	_N_PRESET_VALUE=0
+	case "${__T_PRESET_VALUE}" in
+	    "ultrafast" )
+		_N_PRESET_VALUE=13
+		;;
+	    "superfast" )
+		_N_PRESET_VALUE=11
+		;;
+	    "veryfast" )
+		_N_PRESET_VALUE=9
+		;;
+	    "faster" )
+		_N_PRESET_VALUE=7
+		;;
+	    "fast" )
+		_N_PRESET_VALUE=6
+		;;
+	    "medium" )
+		_N_PRESET_VALUE=5
+		;;
+	    "slow" )
+		_N_PRESET_VALUE=3
+		;;
+	    "slower" )
+		_N_PRESET_VALUE=2
+		;;
+	    "veryslow" )
+		_N_PRESET_VALUE=1
+		;;
+	    "placebo" )
+		_N_PRESET_VALUE=0
+		;;
+	    [0-9]+ )
+		_N_PRESET_VALUE=${PRESET_VALUE}
+		;;
+	    * )
+		_N_PRESET_VALUE=7
+		;;
+	esac
+	PRESET_ARG="-preset ${_N_PRESET_VALUE}"
+	
+	__GRAIN_VALUE=6
+	_T_TUNE_VALUE="`echo ${TUNE_VALUE} | tr '[:lower:]' '[:upper:]'`" 
+	case "${_T_TUNE_VALUE}" in
+	    "GRAIN" )
+		__GRAIN_VALUE=15
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scm=0:scd=0"
+		;;
+	    "ANIMATION" | "ANIME" )
+		__GRAIN_VALUE=0
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
+		;;
+	    "NOGRAIN" )
+		__GRAIN_VALUE=0
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
+		;;
+	    * )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
+		;;
+	esac
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
+	    
+	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-min=${CRF_MIN}"
+	fi
+	if [ "__n__${CRF_MAX}" != "__n__" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-max=${CRF_MAX}"
+	fi
+	__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
+	if test "__n__${_T_TUNE_VALUE}" != "__n__" ; then
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune=${_T_TUNE_VALUE}"
+	fi    
+	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}"
+	;;
+    * )
+	;;
+esac
 
 
 __START_DATE=`date -Iseconds`
@@ -1448,17 +1617,33 @@ APPEND_ARGS_MAPS=""
 #echo ${BASEFILE3}
 #exit 1
 
-if [ ${USE_10BIT} -ne 0 ] ; then
-    if [ ${USE_HDR10} -ne 0 ] ; then
-       FILTER_FORMAT="colorspace=all=bt2020:range=pc:trc=bt2020-10:format=yuv420p10"
-    else
-       FILTER_FORMAT="format=yuv420p10le"
-    fi
-    PROFILE_ARG="main10"
-else
-   FILTER_FORMAT="format=yuv420p"
-   PROFILE_ARG="main"
-fi
+case "${__VCODEC_ENCODER}" in
+    "libsvtav1" )
+	if [ ${USE_10BIT} -ne 0 ] ; then
+	    if [ ${USE_HDR10} -ne 0 ] ; then
+		FILTER_FORMAT="colorspace=all=bt2020:range=pc:trc=bt2020-10:format=yuv420p10le"
+	    else
+		FILTER_FORMAT="format=yuv420p10le"
+	    fi
+	else
+	    FILTER_FORMAT="format=yuv420ple"
+	fi
+	PROFILE_ARG=""
+	;;
+    * )
+	if [ ${USE_10BIT} -ne 0 ] ; then
+	    if [ ${USE_HDR10} -ne 0 ] ; then
+		FILTER_FORMAT="colorspace=all=bt2020:range=pc:trc=bt2020-10:format=yuv420p10"
+	    else
+		FILTER_FORMAT="format=yuv420p10le"
+	    fi
+	    PROFILE_ARG="-profile:V:0 main10"
+	else
+	    FILTER_FORMAT="format=yuv420p"
+	    PROFILE_ARG="-profile:V:0 main"
+	fi
+	;;
+esac
 
 if [ "__xx__" != "__xx__${FILTER_STRING_1}" ] ; then
    FILTER_ARG="${FILTER_STRING_1},${FILTER_FORMAT}"
@@ -1480,30 +1665,30 @@ ARG_METADATA+=(source="${BASEFILE4}")
 #echo ${ARG_METADATA[@]}
 #exit 0
 
-__X265_PARAMS_PRE=""
-__X265_PARAMS_POST=""
-for xx in "${APPEND_X265_PARAMETERS_PRE[@]}" ; do
+__VCODEC_PARAMS_PRE=""
+__VCODEC_PARAMS_POST=""
+for xx in "${APPEND_VCODEC_PARAMETERS_PRE[@]}" ; do
     if [ "__xx__${xx}" != "__xx__" ] ; then
-         if [ "__xx__${__X265_PARAMS_PRE}" != "__xx__" ] ; then
-	     __X265_PARAMS_PRE="${__X265_PARAMS_PRE}:"
+         if [ "__xx__${__VCODEC_PARAMS_PRE}" != "__xx__" ] ; then
+	     __VCODEC_PARAMS_PRE="${__VCODEC_PARAMS_PRE}:"
 	 fi
-	 __X265_PARAMS_PRE="${__X265_PARAMS_PRE}${xx}"
+	 __VCODEC_PARAMS_PRE="${__VCODEC_PARAMS_PRE}${xx}"
     fi
 done
-for xx in "${APPEND_X265_PARAMETERS_POST[@]}" ; do
+for xx in "${APPEND_VCODEC_PARAMETERS_POST[@]}" ; do
     if [ "__xx__${xx}" != "__xx__" ] ; then
-         if [ "__xx__${__X265_PARAMS_POST}" != "__xx__" ] ; then
-	     __X265_PARAMS_POST="${__X265_PARAMS_POST}:"
+         if [ "__xx__${__VCODEC_PARAMS_POST}" != "__xx__" ] ; then
+	     __VCODEC_PARAMS_POST="${__VCODEC_PARAMS_POST}:"
 	 fi
-	 __X265_PARAMS_POST="${__X265_PARAMS_POST}${xx}"
+	 __VCODEC_PARAMS_POST="${__VCODEC_PARAMS_POST}${xx}"
     fi
 done
 
-if [ "__xx__${__X265_PARAMS_PRE}" != "__xx__" ] ; then
-    __X265_PARAMS="${__X265_PARAMS_PRE}:${__X265_PARAMS}"
+if [ "__xx__${__VCODEC_PARAMS_PRE}" != "__xx__" ] ; then
+    __VCODEC_PARAMS="${__VCODEC_PARAMS_PRE}:${__VCODEC_PARAMS}"
 fi
-if [ "__xx__${__X265_PARAMS_POST}" != "__xx__" ] ; then
-    __X265_PARAMS="${__X265_PARAMS}:${__X265_PARAMS_POST}"
+if [ "__xx__${__VCODEC_PARAMS_POST}" != "__xx__" ] ; then
+    __VCODEC_PARAMS="${__VCODEC_PARAMS}:${__VCODEC_PARAMS_POST}"
 fi
 
 
@@ -1511,13 +1696,13 @@ if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
     ARG_METADATA+=(filter_params="${FILTER_ARG}")
 fi
-if [ "__xx__" != "__xx__${__X265_PARAMS}" ] ; then
+if [ "__xx__" != "__xx__${__VCODEC_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
-    ARG_METADATA+=(x265_params="${__X265_PARAMS}")
+    ARG_METADATA+=(vcodec_params="${__VCODEC_PARAMS}")
 fi
-if [ "__xx__" != "__xx__${__X265_DISP_PARAMS}" ] ; then
+if [ "__xx__" != "__xx__${__VCODEC_DISP_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
-    ARG_METADATA+=(x265_params_any="${__X265_DISP_PARAMS}")
+    ARG_METADATA+=(vcodec_params_any="${__VCODEC_DISP_PARAMS}")
 fi
 #echo "${BASEFILE}" \
 
@@ -1636,7 +1821,7 @@ fi
 #exit 1
 
 #echo \
-$EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
+${__EXECUTE_COMMANDS}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_FILES_SUBTITLES} \
 		 ${__APPEND_ARGS_PRE[@]} \
 		 ${ARG_COPYMAP} \
@@ -1647,13 +1832,13 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 -filter_threads ${FILTER_THREADS} \
 		 -map_chapters 0 \
 		 ${COLORSPACE_ARGS[@]} \
-		 -profile:V:0 ${PROFILE_ARG} \
+		 ${PROFILE_ARG} \
 		 ${FPS_VAL} \
 		 -filter:V:0 "${FILTER_ARG}" \
-		 -crf ${CRF_VALUE}  \
+		 ${__CRF_ARGS}  \
 		 ${PRESET_ARG}  \
 		 ${TUNE_ARG} \
-		 -x265-params "${__X265_PARAMS}" \
+		 ${__CODEC_PARAM_NAME} "${__VCODEC_PARAMS}" \
 		 ${__APPEND_ARGS_POST[@]} \
 		 -map_metadata:g 0 \
 		 -map_chapters 0 \
@@ -1661,7 +1846,7 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_CMD}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__ARGS_TMP_DESC[@]} \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
-		 -y "re-enc/${BASEFILE3}(Re-Enc HEVC CRF=${CRF_VALUE}).mkv" 
+		 -y "re-enc/${BASEFILE3}(Re-Enc ${VCODEC_TYPE} CRF=${CRF_VALUE}).mkv" 
 #
 #echo "${ARG_DESC_FINAL}"
 #
