@@ -1378,7 +1378,7 @@ case "${__VCODEC_ENCODER}" in
 	esac
 	PRESET_ARG="-preset ${_N_PRESET_VALUE}"
 	
-	__GRAIN_VALUE=6
+	__GRAIN_VALUE=0
 	_T_TUNE_VALUE="`echo ${TUNE_VALUE} | tr '[:lower:]' '[:upper:]'`" 
 	case "${_T_TUNE_VALUE}" in
 	    "GRAIN" )
@@ -1389,12 +1389,16 @@ case "${__VCODEC_ENCODER}" in
 		__GRAIN_VALUE=0
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
-	    "NOGRAIN" )
+	    "NOGRAIN" | NO_GRAIN )
 		__GRAIN_VALUE=0
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
 		;;
-	    * )
+	    "MIDGRAIN" | MID_GRAIN )
+		__GRAIN_VALUE=6
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
+		;;
+	    * )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=0"
 		;;
 	esac
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
@@ -1820,10 +1824,10 @@ fi
 declare -a __ARGS_TMP_DESC
 unset __ARGS_TMP_DESC[@]
 
-if [ -e $TEMPDIR/desc3.txt ] ; then
-    __ARGS_TMP_DESC+=(-metadata:g)
-    __ARGS_TMP_DESC+=(description="`cat $TEMPDIR/desc3.txt`")
-fi
+#if [ -e $TEMPDIR/desc3.txt ] ; then
+#    __ARGS_TMP_DESC+=(-metadata:g)
+#    __ARGS_TMP_DESC+=(description="`cat $TEMPDIR/desc3.txt`")
+#fi
 
 #echo ${__ARGS_TMP_TITLE[@]}
 #exit 1
@@ -1854,6 +1858,7 @@ ${__EXECUTE_COMMANDS}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__ARGS_TMP_DESC[@]} \
 		 ${ARG_METADATA[@]} \
 		 ${MUXER_OPTIONS[@]} \
+		 -metadata:g DESCRIPTION="`cat $TEMPDIR/desc3.txt`" \
 		 -y "re-enc/${BASEFILE3}(Re-Enc ${VCODEC_TYPE} CRF=${CRF_VALUE}).mkv" 
 #
 #echo "${ARG_DESC_FINAL}"
