@@ -14,6 +14,7 @@ CRF_MAX=""
 
 # HEVC or HAVC or AV1 ?
 VCODEC_TYPE="HEVC"
+BASE_AV1_ENCODER="SVTAV1"
 typeset -i AQ_MODE
 AQ_MODE=3
 
@@ -1159,14 +1160,33 @@ ARG_STREAM=`echo "${FFPROBE_RESULT}" | grep "Stream"`
 
 __VCODEC_ENCODER=""
 VCODEC_TYPE=`echo ${VCODEC_TYPE} | tr "[:lower:]" "[:upper:]"`
+__BASE_AV1_ENCODER=`echo ${BASE_AV1_ENCODER} | tr "[:lower:]" "[:upper:]"`
 
+## TRIM BASE AV1 ENCODER -> DEFAULT IS SVT-AV1
+case ${__BASE_AV1_ENCODER} in
+    "SVTAV1" | "SVT-AV-1" | "SVT-AV1" )
+	__BASE_AV1_ENCODER="SVTAV1"
+	;;
+    "RAV1E" | "R-AV1E" | "R-AV1-E" | "RAV1-E" )
+	__BASE_AV1_ENCODER="RAV1E"
+	;;
+    * )
+	__BASE_AV1_ENCODER="SVTAV1"
+	;;
+esac    
 ## Convert VCODEC
 case ${VCODEC_TYPE} in 
     "HEVC" | "X265" | "H.265" | "H265" )
 	VCODEC_TYPE="HEVC"
 	;;
     "AV1" | "AV-1" )
-	VCODEC_TYPE="AV1"
+	VCODEC_TYPE="${__BASE_AV1_ENCODER}"
+	;;
+    "SVTAV1" | "SVT-AV-1" | "SVT-AV1" )
+	VCODEC_TYPE="SVTAV1"
+	;;
+    "RAV1E" | "R-AV1E" | "R-AV1-E" | "RAV1-E" )
+	VCODEC_TYPE="RAV1E"
 	;;
     "HAVC" | "X264" | "H.264" | "H264" )
 	VCODEC_TYPE="HAVC"
@@ -1178,8 +1198,11 @@ case "${VCODEC_TYPE}" in
     "HEVC" )
 	__VCODEC_ENCODER="libx265"
 	;;
-    "AV1" )
+    "SVTAV1" )
 	__VCODEC_ENCODER="libsvtav1"
+	;;
+    "RAV1E" )
+	__VCODEC_ENCODER="librav1e"
 	;;
     "HAVC" )
 	__VCODEC_ENCODER="libx264"
@@ -1306,9 +1329,9 @@ case "${__VCODEC_ENCODER}" in
     "libsvtav1" )
 	__CRF_ARGS="-crf ${CRF_VALUE}"
 	__CODEC_PARAM_NAME="-svtav1-params"
-	if [ ${FRAME_THREADS} -gt 0 ] ; then
+	if [ ${POOL_THREADS} -gt 0 ] ; then
 	    __APPEND_ARGS_PRE+=(-threads:v)
-	    __APPEND_ARGS_PRE+=(${FRAME_THREADS})
+	    __APPEND_ARGS_PRE+=(${POOL_THREADS})
 	fi
 	if [ "${AQ_MODE}" -lt 0 ] ; then
 	    AQ_MODE=0
@@ -1325,7 +1348,7 @@ case "${__VCODEC_ENCODER}" in
 		PARALLEL_LEVEL=6
 	    fi
 	fi
-	__VCODEC_PARAMS="${__VCODEC_PARAMS}:lp=${PARALLEL_LEVEL}"
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:nb=120:lp=${PARALLEL_LEVEL}:enable-overlays=1"
 	if [ "__xxx__${NUMA_NODES}" != "__xxx__" ] ; then
 	    if [ -x /bin/taskset ] ; then
 		__EXECUTE_COMMANDS="${EXECUTE_PREFIX_COMMANDS} /bin/taskset -c ${NUMA_NODES} ${FFMPEG_CMD} "
@@ -1386,11 +1409,13 @@ case "${__VCODEC_ENCODER}" in
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scm=0:scd=0"
 		;;
 	    "ANIMATION" | "ANIME" )
-		__GRAIN_VALUE=0
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
+		;;
+	    "ANIMATION_GRAIN" | "ANIME_GRAIN" )
+		__GRAIN_VALUE=7
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "NOGRAIN" | NO_GRAIN )
-		__GRAIN_VALUE=0
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
 		;;
 	    "MIDGRAIN" | MID_GRAIN )
@@ -1421,6 +1446,102 @@ case "${__VCODEC_ENCODER}" in
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune=${_T_TUNE_VALUE}"
 	fi    
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}"
+	;;
+    "librav1e" )
+	## See https://www.free-codecs.com/guides/how_do_i_use_rav1e_and_ffmpeg_to_create_high_quality_videos.htm .
+	_I_CRF_VALUE=`calc -d "int( ${CRF_VALUE} * 4)"`
+	if [ ${_I_CRF_VALUE} -lt 0 ] ; then
+	    _I_CRF_VALUE=0;
+	elif [ ${_I_CRF_VALUE} -gt 255 ] ; then
+	    _I_CRF_VALUE=255
+	fi
+	__CRF_ARGS="-qp ${_I_CRF_VALUE}"
+	
+	__T_PRESET_VALUE="`echo ${PRESET_VALUE} | tr '[:upper:]' '[:lower:]'`"
+	_N_PRESET_VALUE=0
+	case "${__T_PRESET_VALUE}" in
+	    "ultrafast" )
+		_N_PRESET_VALUE=10
+		;;
+	    "superfast" )
+		_N_PRESET_VALUE=9
+		;;
+	    "veryfast" )
+		_N_PRESET_VALUE=8
+		;;
+	    "faster" )
+		_N_PRESET_VALUE=7
+		;;
+	    "fast" )
+		_N_PRESET_VALUE=6
+		;;
+	    "medium" )
+		_N_PRESET_VALUE=5
+		;;
+	    "slow" )
+		_N_PRESET_VALUE=4
+		;;
+	    "slower" )
+		_N_PRESET_VALUE=3
+		;;
+	    "veryslow" )
+		_N_PRESET_VALUE=1
+		;;
+	    "placebo" )
+		_N_PRESET_VALUE=0
+		;;
+	    * )
+		_N_PRESET_VALUE=${PRESET_VALUE}
+		#_N_PRESET_VALUE=7
+		;;
+	esac
+	PRESET_ARG="-speed ${_N_PRESET_VALUE}"
+	
+	__CODEC_PARAM_NAME="-rav1e-params"
+	#if [ ${FRAME_THREADS} -gt 0 ] ; then
+	#    __APPEND_ARGS_PRE+=(-threads:v)
+	#    __APPEND_ARGS_PRE+=(${FRAME_THREADS})
+	#fi
+	__VCODEC_PARAMS="threads=${FRAME_THREADS}"
+	__GRAIN_VALUE=0
+	_T_TUNE_VALUE="`echo ${TUNE_VALUE} | tr '[:lower:]' '[:upper:]'`" 
+	case "${_T_TUNE_VALUE}" in
+	    "GRAIN" )
+		__GRAIN_VALUE=20
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:psnr=Psychovisual"
+		;;
+	    "ANIMATION" | "ANIME" )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=Psnr"
+		;;
+	    "ANIMATION_GRAIN" | "ANIME_GRAIN" )
+		__GRAIN_VALUE=10
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=Psnr"
+		;;
+	    "NOGRAIN" | NO_GRAIN )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:psnr=Psychovisual"
+		;;
+	    "MIDGRAIN" | MID_GRAIN )
+		__GRAIN_VALUE=10
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:psnr=Psychovisual"
+		;;
+	    * )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=Psychovisual"
+		;;
+	esac
+	TUNE_ARG="-tile-rows 64 -tile-columns 64"
+	if [ ${__GRAIN_VALUE} -gt 0 ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:photon_noise=${__GRAIN_VALUE}"
+	fi
+	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
+	    _N_MIN_QUANT=`calc -d "int( ${CRF_MIN} * 4 )"`
+	    if [ ${_N_MIN_QUANT} -ge ${_I_CRF_VALUE} ] ; then
+		_N_MIN_QUANT=`calc -d "${_I_CRF_VALUE} - 1"`
+	    fi
+	    if [ ${_N_MIN_QUANT} -ge 0 ] ; then 
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:min-quantizer=${_I_CRF_VALUE}"
+	    fi
+	fi
+	## CRF_MAX has not implemented.
 	;;
     * )
 	;;
@@ -1630,7 +1751,7 @@ APPEND_ARGS_MAPS=""
 #exit 1
 
 case "${__VCODEC_ENCODER}" in
-    "libsvtav1" )
+    "libsvtav1" | "librav1e" )
 	if [ ${USE_10BIT} -ne 0 ] ; then
 	    if [ ${USE_HDR10} -ne 0 ] ; then
 		FILTER_FORMAT="colorspace=all=bt2020:range=pc:trc=bt2020-10:format=yuv420p10le"
