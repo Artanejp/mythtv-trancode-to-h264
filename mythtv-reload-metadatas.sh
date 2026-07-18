@@ -18,6 +18,10 @@ BASE_AV1_ENCODER="SVTAV1"
 
 typeset -i AQ_MODE
 AQ_MODE=3
+
+typeset -i RC_MODE
+RC_MODE=0
+
 ## libsvtav1 : tbr
 typeset -i TARGET_BITRATE_KBIT
 TARGET_BITRATE_KBIT=-1
@@ -1339,22 +1343,18 @@ case "${__VCODEC_ENCODER}" in
 	fi
 	if [ "${AQ_MODE}" -lt 0 ] ; then
 		AQ_MODE=0
-	fi
-	__IS_CRF=1
-	typeset -i __RC_LEVEL
-	__RC_LEVEL=0
-	if [ "${AQ_MODE}" -ge 10 ] ; then
-		__RC_LEVEL=`calc -d "int( ${AQ_MODE} / 10 )"`
-		if [ ${__RC_LEVEL} -gt 2 ] ; then
-			__RC_LEVEL=2
-		fi
-		AQ_MODE=`calc -d "( ${AQ_MODE} % 10 ) % 3"`
-		__IS_CRF=0
-	fi
-	if [ "${AQ_MODE}" -gt 2 ]; then
+	elif [ "${AQ_MODE}" -gt 2 ]; then
 		AQ_MODE=2
 	fi
 	__VCODEC_PARAMS="aq-mode=${AQ_MODE}"
+	
+	__IS_CRF=0
+	if [ "${RC_MODE}" -le 0 ] ; then
+		__IS_CRF=1
+		RC_MODE=0
+	elif [ "${RC_MODE}" -gt 2 ] ; then
+		RC_MODE=2
+	fi
 	if [ ${__IS_CRF} -eq 0 ] ; then
 		__CRF_ARGS="-qp ${CRF_VALUE}"
 		__VCODEC_DISP_PARAMS="qp=${CRF_VALUE}"
@@ -1449,7 +1449,7 @@ case "${__VCODEC_ENCODER}" in
 	case "${_T_TUNE_VALUE}" in
 	    "GRAIN" )
 		__GRAIN_VALUE=15
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scm=0:scd=0"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scm=0:scd=0"
 		;;
 	    "ANIMATION" | "ANIME" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
@@ -1459,14 +1459,14 @@ case "${__VCODEC_ENCODER}" in
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "NOGRAIN" | NO_GRAIN )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=2"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
 	    "MIDGRAIN" | MID_GRAIN )
 		__GRAIN_VALUE=6
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=2"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
 	    * )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=0"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=0"
 		;;
 	esac
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
