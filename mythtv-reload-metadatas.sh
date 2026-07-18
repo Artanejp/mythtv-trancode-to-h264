@@ -15,8 +15,12 @@ CRF_MAX=""
 # HEVC or HAVC or AV1 ?
 VCODEC_TYPE="HEVC"
 BASE_AV1_ENCODER="SVTAV1"
+
 typeset -i AQ_MODE
 AQ_MODE=3
+## libsvtav1 : tbr
+typeset -i TARGET_BITRATE_KBIT
+TARGET_BITRATE_KBIT=-1
 
 declare -a APPEND_VCODEC_PARAMETERS_PRE
 unset APPEND_VCODEC_PARAMETERS_PRE[@]
@@ -26,7 +30,7 @@ unset APPEND_VCODEC_PARAMETERS_POST[@]
 
 FILTER_THREADS=12
 FILTER_COMPLEX_THREADS=12
-FFMPEG_THREADS=18
+FFMPEG_THREADS=6
 
 TUNE_VALUE=""
 
@@ -1327,18 +1331,57 @@ case "${__VCODEC_ENCODER}" in
 	fi    
 	;;
     "libsvtav1" )
-	__CRF_ARGS="-crf ${CRF_VALUE}"
+
 	__CODEC_PARAM_NAME="-svtav1-params"
 	if [ ${POOL_THREADS} -gt 0 ] ; then
 	    __APPEND_ARGS_PRE+=(-threads:v)
 	    __APPEND_ARGS_PRE+=(${POOL_THREADS})
 	fi
 	if [ "${AQ_MODE}" -lt 0 ] ; then
-	    AQ_MODE=0
-	elif [ "${AQ_MODE}" -gt 2 ]; then
-	    AQ_MODE=2
+		AQ_MODE=0
+	fi
+	__IS_CRF=1
+	typeset -i __RC_LEVEL
+	__RC_LEVEL=0
+	if [ "${AQ_MODE}" -ge 10 ] ; then
+		__RC_LEVEL=`calc -d "int( ${AQ_MODE} / 10 )"`
+		if [ ${__RC_LEVEL} -gt 2 ] ; then
+			__RC_LEVEL=2
+		fi
+		AQ_MODE=`calc -d "( ${AQ_MODE} % 10 ) % 3"`
+		__IS_CRF=0
+	fi
+	if [ "${AQ_MODE}" -gt 2 ]; then
+		AQ_MODE=2
 	fi
 	__VCODEC_PARAMS="aq-mode=${AQ_MODE}"
+	if [ ${__IS_CRF} -eq 0 ] ; then
+		__CRF_ARGS="-qp ${CRF_VALUE}"
+		__VCODEC_DISP_PARAMS="qp=${CRF_VALUE}"
+	else
+		__CRF_ARGS="-crf ${CRF_VALUE}"
+		__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
+	fi
+	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
+		if [ ${__IS_CRF} -eq 0 ] ; then
+			__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
+			__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
+		else
+			__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
+			__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
+		fi
+	fi
+	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
+	    __APPEND_ARGS_POST+=(-qmin)
+	    __APPEND_ARGS_POST+=("${CRF_MIN}")
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmin=${CRF_MIN}"
+	fi
+	if [ "__n__${CRF_MAX}" != "__n__" ] ; then
+	    __APPEND_ARGS_POST+=(-qmax)
+	    __APPEND_ARGS_POST+=("${CRF_MAX}")
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmax=${CRF_MAX}"
+	fi
+	
 	typeset -i PARALLEL_LEVEL
 	if [ ${FRAME_THREADS} -le 0 ] ; then
 	    PARALLEL_LEVEL=0
@@ -1348,7 +1391,7 @@ case "${__VCODEC_ENCODER}" in
 		PARALLEL_LEVEL=6
 	    fi
 	fi
-	__VCODEC_PARAMS="${__VCODEC_PARAMS}:nb=120:lp=${PARALLEL_LEVEL}:enable-overlays=1"
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:lp=${PARALLEL_LEVEL}:enable-overlays=1"
 	if [ "__xxx__${NUMA_NODES}" != "__xxx__" ] ; then
 	    if [ -x /bin/taskset ] ; then
 		__EXECUTE_COMMANDS="${EXECUTE_PREFIX_COMMANDS} /bin/taskset -c ${NUMA_NODES} ${FFMPEG_CMD} "
@@ -1406,7 +1449,7 @@ case "${__VCODEC_ENCODER}" in
 	case "${_T_TUNE_VALUE}" in
 	    "GRAIN" )
 		__GRAIN_VALUE=15
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scm=0:scd=0"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scm=0:scd=0"
 		;;
 	    "ANIMATION" | "ANIME" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
@@ -1416,24 +1459,18 @@ case "${__VCODEC_ENCODER}" in
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "NOGRAIN" | NO_GRAIN )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=2"
 		;;
 	    "MIDGRAIN" | MID_GRAIN )
 		__GRAIN_VALUE=6
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=2"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=2"
 		;;
 	    * )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:scd=1:scm=0"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${__RC_LEVEL}:scd=1:scm=0"
 		;;
 	esac
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
 	    
-	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
-	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-min=${CRF_MIN}"
-	fi
-	if [ "__n__${CRF_MAX}" != "__n__" ] ; then
-	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:crf-max=${CRF_MAX}"
-	fi
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0"
 	fi
@@ -1441,11 +1478,10 @@ case "${__VCODEC_ENCODER}" in
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:ac-bias=${QP_ADAPTATIVE_VALUE}"
 	fi
 	    
-	__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
 	if test "__n__${_T_TUNE_VALUE}" != "__n__" ; then
-	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune=${_T_TUNE_VALUE}"
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
 	fi    
-	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}"
+	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}(${PRESET_VALUE})"
 	;;
     "librav1e" )
 	## See https://www.free-codecs.com/guides/how_do_i_use_rav1e_and_ffmpeg_to_create_high_quality_videos.htm .
