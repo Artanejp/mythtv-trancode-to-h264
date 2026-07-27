@@ -34,8 +34,18 @@ IONICE_VALUE=7
 NICE_VALUE=19
 
 
-# Around encoding threads (for CODEC)
+##### Around encoding threads (for CODEC)
+##### Thread pool size.
+## X265 : pool_threads=
+## SVT-AV1 : ToDo
 POOL_THREADS=6
+
+
+##### Thread pool size.
+## X265 : frame_threads=
+## SVT-AV1 : lp=${FRAME_THREADS} . This value to 0 to 6 .
+# If set from 1 to 6 , setting parallelisation level. Higher value is more parallel. 
+# If set to 0, settings are automatically.
 FRAME_THREADS=6
 
 
@@ -52,8 +62,18 @@ FFMPEG_THREADS=6
 VCODEC_TYPE="HEVC"
 
 ## Only for SVT-AV1. See documentations.
-#SVTAV1_DISABLE_TEMPORAL_FILTERING=1
+#SVTAV1_DISABLE_TEMPORAL_FILTERING=1  # 1 disables temporal filtering, expect image detail to be clear .
 
+#AV1_TEMPORAL_FILTERING_STRENGTH=0    # 0-4 (default is 3 at SVT-AV1)
+#AV1_SHARPNESS=0  # Offset of shapness, -7 to 7 (default is 0 at SVT-AV1).
+
+## Around quantization matrix (QM)
+#AV1_ENABLE_QM=0 # If set to 1, enable QM.
+#AV1_QM_MIN=8    # Minimum value of QM (default is 8 at SVT-AV1) .
+#AV1_QM_MAX=15   # Maximum value of QM (default is 15 at SVT-AV1) .
+
+
+#AV1_ENABLE_QM=0  # Enable quantization matrix
 # Encode preset value
 # Encode preset value
 #PRESET_VALUE="ultrafast"
@@ -72,6 +92,7 @@ PRESET_VALUE="faster"
 #TUNE_VALUE=grain
 #TUNE_VALUE=animation
 #TUNE_VALUE=nograin # Only for AV1
+#TUNE_VALUE=nograin-ms-ssim # Only for AV1
 #TUNE_VALUE=mid_grain # Only for AV1
 #TUNE_VALUE=anime_grain # Only for AV1
 

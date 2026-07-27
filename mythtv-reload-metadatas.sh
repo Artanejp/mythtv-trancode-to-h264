@@ -55,6 +55,22 @@ MAXIMUM_FPS="60000/1001"
 typeset -i SVTAV1_DISABLE_TEMPORAL_FILTERING
 SVTAV1_DISABLE_TEMPORAL_FILTERING=0
 
+typeset -i AV1_TEMPORAL_FILTERING_STRENGTH
+AV1_TEMPORAL_FILTERING_STRENGTH=-1
+
+typeset -i AV1_ENABLE_QM
+AV1_ENABLE_QM=0
+
+typeset -i AV1_QM_MIN
+AV1_QM_MIN=8
+
+typeset -i AV1_QM_MAX
+AV1_QM_MAX=15
+
+
+typeset -i AV1_SHARPNESS
+AV1_SHARPNESS=-8
+
 VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
 
@@ -1458,10 +1474,13 @@ case "${__VCODEC_ENCODER}" in
 		__GRAIN_VALUE=7
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
-	    "NOGRAIN" | NO_GRAIN )
+	    "NOGRAIN" | "NO_GRAIN" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
-	    "MIDGRAIN" | MID_GRAIN )
+	    "NOGRAIN-MS-SSIM" | "NO_GRAIN_MS_SSIM" )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=${RC_MODE}:scd=1:scm=2"
+		;;
+	    "MIDGRAIN" | "MID_GRAIN" )
 		__GRAIN_VALUE=6
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
@@ -1472,13 +1491,38 @@ case "${__VCODEC_ENCODER}" in
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
 	    
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
-	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0"
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
+	elif [ ${AV1_TEMPORAL_FILTERING_STRENGTH} -ge 0 ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tf-strength=${AV1_TEMPORAL_FILTERING_STRENGTH}"
 	fi
+	if [ ${AV1_SHARPNESS} -ge -7 ] ; then
+	    if [ ${AV1_SHARPNESS} -le 7 ] ; then
+	         __VCODEC_PARAMS="${__VCODEC_PARAMS}:sharpness=${AV1_SHARPNESS}"
+	    fi
+	fi
+	
 	if [ "__n__${QP_ADAPTATIVE_VALUE}" != "__n__" ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:ac-bias=${QP_ADAPTATIVE_VALUE}"
 	fi
+	if [ ${AV1_ENABLE_QM} -ne 0 ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-qm=1"
+	    if [ ${AV1_QM_MIN} -ge 0 ] ; then
+	        if [ ${AV1_QM_MIN} -le 15 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qm-min=${AV1_QM_MIN}"
+		fi
+	    fi
+	    if [ ${AV1_QM_MAX} -ge 0 ] ; then
+	        if [ ${AV1_QM_MAX} -le 15 ] ; then
+	            if [ ${AV1_QM_MAX} -ge ${AV1_QM_MIN} ] ; then
+		        __VCODEC_PARAMS="${__VCODEC_PARAMS}:qm-max=${AV1_QM_MAX}"
+		    fi
+		fi
+	    fi
+
+	fi
+	
 	    
-	if test "__n__${_T_TUNE_VALUE}" != "__n__" ; then
+	if [ "__n__${_T_TUNE_VALUE}" != "__n__" ] ; then
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
 	fi    
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}(${PRESET_VALUE})"
