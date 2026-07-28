@@ -1379,10 +1379,10 @@ case "$x" in
    ;;
    "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" | "LIVE_MID_FAST" )
 #   VIDEO_QUANT=26.5
-   VIDEO_QUANT=25.0
+   VIDEO_QUANT=25.5
    VIDEO_MINQ=13
-   VIDEO_MAXQ=57
-   VIDEO_AQSTRENGTH=1.00
+   VIDEO_MAXQ=40
+   VIDEO_AQSTRENGTH=1.10
    VIDEO_QCOMP=0.40
    VIDEO_SCENECUT=48
    VIDEO_REF_FRAMES=3
@@ -1950,7 +1950,7 @@ case "$x" in
      #TARGET_BITRATE_KBIT=900     
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
          X265_PRESET="superfast"
-	 SVTAV1_PRESET="superfast"
+	 SVTAV1_PRESET="veryfast"
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="faster"
