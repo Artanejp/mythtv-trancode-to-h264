@@ -105,6 +105,9 @@ SVTAV1_ENABLE_QM=1
 SVTAV1_QM_MIN=2
 SVTAV1_QM_MAX=15
 
+typeset -i SVTAV1_DETAIL_BOOST
+SVTAV1_DETAIL_BOOST=1
+
 declare -a SVTAV1_HEAD_VALUES
 unset SVTAV1_HEAD_VALUES[@]
 
@@ -1407,8 +1410,8 @@ case "$x" in
    VIDEO_QUANT=26.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=40
-   SVTAV1_VIDEO_QUANT=36.0
-   SVTAV1_VIDEO_MINQ=8
+   SVTAV1_VIDEO_QUANT=37.0
+   SVTAV1_VIDEO_MINQ=10
    SVTAV1_VIDEO_MAXQ=55
    
    VIDEO_AQSTRENGTH=1.10
@@ -1997,14 +2000,16 @@ case "$x" in
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="veryfast"
+	 #SVTAV1_PRESET="faster"
 	 #SVTAV1_ENABLE_QM=0
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="medium"
+	 #SVTAV1_ENABLE_QM=0
      fi
      if [ $USE_60FPS -ne 0 ] ; then
 	 #TARGET_BITRATE_KBIT=1800
-	 TARGET_BITRATE_KBIT=1250
+	 TARGET_BITRATE_KBIT=1350
      else
 	 #TARGET_BITRATE_KBIT=1000
 	 TARGET_BITRATE_KBIT=750
@@ -2013,7 +2018,8 @@ case "$x" in
      X265_QP_ADAPTATION_RANGE=1.50
      X265_AQ_MODE=3
 
-     SVTAV1_AQ_STRENGTH="`calc -d ${VIDEO_AQSTRENGTH}+0.5 | tr -d [:space:]`"
+     SVTAV1_DETAIL_BOOST=0
+     SVTAV1_AQ_STRENGTH=3.0
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=3
      
      HWENC_PARAM="-qp 27 -quality 4"
@@ -2096,6 +2102,7 @@ case "$x" in
      #__X264_PSY_RD="0.6:0.2"
      #VIDEO_REF_FRAMES=5
      VIDEO_SCENECUT=40
+     SVTAV1_DETAIL_BOOST=0
      
      X265_PRESET="ultrafast"
      SVTAV1_PRESET="ultrafast"
@@ -2700,7 +2707,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}${SVTAV1_QUANT_VALUE}"
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=80:overshoot-pct=90"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=55:overshoot-pct=90"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:mbr-overshoot-pct=75"
@@ -2820,7 +2827,9 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		;;
 	esac
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
-	__VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	if [ ${SVTAV1_DETAIL_BOOST} -ne 0 ] ; then
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	fi
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
 	elif [ ${SVTAV1_TEMPORAL_FILTERING_STRENGTH} -ge 0 ] ; then
