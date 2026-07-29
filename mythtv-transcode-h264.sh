@@ -1662,7 +1662,7 @@ case "$x" in
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="faster"
-	 TARGET_BITRATE_KBIT=3000    
+	 TARGET_BITRATE_KBIT=2700    
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="faster"
