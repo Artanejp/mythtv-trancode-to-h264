@@ -43,9 +43,18 @@ FILTER_THREADS=8
 FILTER_COMPLEX_THREADS=8
 IS_CRF=1
 
+#### For quantization ( crf / qp )
+VIDEO_QUANT=22
 VIDEO_MINQ=14
 VIDEO_MAXQ=33
-VIDEO_QUANT=22
+
+# Special quant variables for SVTAV1 (using --av1 without hwenc or another coder libs).
+# If not set, crf/qp calculates automatically from VIDEO_QUANT etc...
+SVTAV1_VIDEO_QUANT=""
+typeset -i SVTAV1_VIDEO_MINQ
+typeset -i SVTAV1_VIDEO_MAXQ
+SVTAV1_VIDEO_MINQ=-1
+SVTAV1_VIDEO_MAXQ=-1
 
 VIDEO_AQSTRENGTH="1.1"
 VIDEO_QCOMP="0.55"
@@ -93,7 +102,7 @@ typeset -i SVTAV1_ENABLE_QM
 typeset -i SVTAV1_QM_MIN
 typeset -i SVTAV1_QM_MAX
 SVTAV1_ENABLE_QM=1
-SVTAV1_QM_MIN=4
+SVTAV1_QM_MIN=2
 SVTAV1_QM_MAX=15
 
 declare -a SVTAV1_HEAD_VALUES
@@ -1233,6 +1242,10 @@ case "$x" in
    VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
+   SVTAV1_VIDEO_QUANT=34.0
+   SVTAV1_VIDEO_MINQ=0
+   SVTAV1_VIDEO_MAXQ=46
+   
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.80
    VIDEO_SCENECUT=38
@@ -1266,6 +1279,10 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
+   SVTAV1_VIDEO_QUANT=37.0
+   SVTAV1_VIDEO_MINQ=8
+   SVTAV1_VIDEO_MAXQ=50
+   
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
    VIDEO_SCENECUT=60
@@ -1286,6 +1303,10 @@ case "$x" in
    VIDEO_QUANT=21.0
    VIDEO_MINQ=12
    VIDEO_MAXQ=33
+   SVTAV1_VIDEO_QUANT=28.0
+   SVTAV1_VIDEO_MINQ=0
+   SVTAV1_VIDEO_MAXQ=45
+   
    VIDEO_AQSTRENGTH=0.75
    VIDEO_QCOMP=0.80
    VIDEO_SCENECUT=45
@@ -1305,6 +1326,10 @@ case "$x" in
    VIDEO_QUANT=21.0
    VIDEO_MINQ=12
    VIDEO_MAXQ=29
+   SVTAV1_VIDEO_QUANT=28.0
+   SVTAV1_VIDEO_MINQ=0
+   SVTAV1_VIDEO_MAXQ=45
+
    VIDEO_AQSTRENGTH=0.7
    VIDEO_QCOMP=0.70
    VIDEO_SCENECUT=42
@@ -1379,9 +1404,13 @@ case "$x" in
    ;;
    "LIVE_MID" | "LIVE_MID_HW" | "LIVE_MID_HW2" | "LIVE_MID_FAST" )
 #   VIDEO_QUANT=26.5
-   VIDEO_QUANT=25.5
+   VIDEO_QUANT=26.5
    VIDEO_MINQ=13
    VIDEO_MAXQ=40
+   SVTAV1_VIDEO_QUANT=37.5
+   SVTAV1_VIDEO_MINQ=10
+   SVTAV1_VIDEO_MAXQ=55
+   
    VIDEO_AQSTRENGTH=1.10
    VIDEO_QCOMP=0.40
    VIDEO_SCENECUT=48
@@ -1402,6 +1431,10 @@ case "$x" in
    VIDEO_QUANT=30
    VIDEO_MINQ=19
    VIDEO_MAXQ=59
+   SVTAV1_VIDEO_QUANT=43.0
+   SVTAV1_VIDEO_MINQ=10
+   #SVTAV1_VIDEO_MAXQ=-1
+   
    VIDEO_AQSTRENGTH=1.90
    VIDEO_QCOMP=0.35
    VIDEO_SCENECUT=48
@@ -1515,7 +1548,11 @@ case "$x" in
    ;;
 
    ANIME_HIGH )
-       IS_CRF=0
+     if [ ${USE_SVTAV1} -ne 0 ] ; then
+	 IS_CRF=1
+     else
+	 IS_CRF=0
+     fi
      #X264_DIRECT="--direct auto"
      #X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
@@ -1530,12 +1567,12 @@ case "$x" in
 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="fast"
-	 TARGET_BITRATE_KBIT=1700
+	 SVTAV1_PRESET="medium"
+	 TARGET_BITRATE_KBIT=2300
      else
          X265_PRESET="faster"
 	 SVTAV1_PRESET="medium"
-	 TARGET_BITRATE_KBIT=1350
+	 TARGET_BITRATE_KBIT=1600
      fi
      X265_AQ_STRENGTH=0.95
      X265_QP_ADAPTATION_RANGE=1.15
@@ -1607,7 +1644,12 @@ case "$x" in
      
    ;;
    LIVE_HD_MID )
-     IS_CRF=0
+     if [ ${USE_SVTAV1} -ne 0 ] ; then
+	 IS_CRF=0
+     else
+	 IS_CRF=1
+     fi
+     #IS_CRF=0
      #X264_DIRECT="--direct auto"
      #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
@@ -1621,7 +1663,7 @@ case "$x" in
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="faster"
-	 TARGET_BITRATE_KBIT=2000    
+	 TARGET_BITRATE_KBIT=1600    
      fi
      
      __X264_BLURAY_COMPAT=1
@@ -1723,7 +1765,7 @@ case "$x" in
      
      X265_AQ_STRENGTH=0.75
      X265_QP_ADAPTATION_RANGE=1.2
-     SVTAV1_AQ_STRENGTH=1.3
+     SVTAV1_AQ_STRENGTH=1.3 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="fast"
@@ -1932,7 +1974,11 @@ case "$x" in
      HWDEC=0
    ;;
    LIVE_MID | LIVE_MID_FAST )
-     IS_CRF=0
+     if [ ${USE_SVTAV1} -ne 0 ] ; then
+	 IS_CRF=0
+     else
+	 IS_CRF=1
+     fi
      #X264_DIRECT="--direct auto"
      #X264_BFRAMES="--bframes 5 --b-bias 0 --b-adapt 2"
      #X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
@@ -1951,14 +1997,17 @@ case "$x" in
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="veryfast"
+	 #SVTAV1_ENABLE_QM=0
      else
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="faster"
+	 SVTAV1_PRESET="medium"
      fi
      if [ $USE_60FPS -ne 0 ] ; then
-	 TARGET_BITRATE_KBIT=1300
+	 #TARGET_BITRATE_KBIT=1800
+	 TARGET_BITRATE_KBIT=1250
      else
-	 TARGET_BITRATE_KBIT=800
+	 #TARGET_BITRATE_KBIT=1000
+	 TARGET_BITRATE_KBIT=750
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
@@ -2633,7 +2682,11 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	fi
 	SVTAV1_HEAD_VALUES+=(-preset)
 	SVTAV1_HEAD_VALUES+=(${_N_PRESET_VALUE})
-	SVTAV1_QUANT_VALUE=`calc -d "(${VIDEO_QUANT} * 1.5) + 2.0" | tr -d [:space:]`
+	if [ "__xxx__${SVTAV1_VIDEO_QUANT}" != "__xxx__" ] ; then
+	    SVTAV1_QUANT_VALUE=${SVTAV1_VIDEO_QUANT}
+	else
+	    SVTAV1_QUANT_VALUE=`calc -d "(${VIDEO_QUANT} * 1.5) + 2.0" | tr -d [:space:]`
+	fi
 	#echo ${SVTAV1_QUANT_VALUE}
 	#exit 0
 	if [ ${IS_CRF} -eq 0 ] ; then
@@ -2647,43 +2700,81 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}${SVTAV1_QUANT_VALUE}"
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=80:overshoot-pct=90"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:mbr-overshoot-pct=75"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    fi
 	fi
+	typeset -i __SET_CRF_MIN
+	typeset -i __SET_CRF_MAX
 	typeset -i __CRF_MIN
 	typeset -i __CRF_MAX
-	__CRF_MIN=0
-	__CRF_MAX=63
+	typeset -i __CRF_LIMIT
+	__IS_SET_CRF_MIN=0
+	__IS_SET_CRF_MAX=0
+	__CRF_MIN=-1
+	if [ ${IS_CRF} -ne 0 ] ; then
+	    __CRF_LIMIT=70
+	else
+	    __CRF_LIMIT=63
+	fi
+	__CRF_MAX=-1
+	
 	typeset -i __QP_INT
 	__QP_INT=`calc -d "int( ${SVTAV1_QUANT_VALUE} )" | tr -d [:space:]`
-	if [ "__n__${VIDEO_MINQ}" != "__n__" ] ; then
+
+	if [ ${SVTAV1_VIDEO_MINQ} -ge 0 ] ; then
+	    __CRF_MIN=${SVTAV1_VIDEO_MINQ}
+	elif [ "__n__${VIDEO_MINQ}" != "__n__" ] ; then
 	    __CRF_MIN=`calc -d "int( ${VIDEO_MINQ} * 0.90 )" | tr -d [:space:]`
 	    if [ ${__CRF_MIN} -ge ${__QP_INT} ] ; then
 		__CRF_MIN=`calc -d ${__QP_INT} - 2 | tr -d [:space:]`
 	    fi
-	    if [ ${__CRF_MIN} -lt 0 ] ; then
-		__CRF_MIN=0
-	    elif [ ${__CRF_MIN} -ge 60 ] ; then
-		__CRF_MIN=60
-	    fi
-	    __APPEND_ARGS_POST+=(-qmin)
-	    __APPEND_ARGS_POST+=(${__CRF_MIN})
-	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmin=${__CRF_MIN}"
 	fi
-	if [ "__n__${VIDEO_MAXQ}" != "__n__" ] ; then
+	if [ ${SVTAV1_VIDEO_MAXQ} -ge 0 ] ; then
+	    __CRF_MAX=${SVTAV1_VIDEO_MAXQ}
+	elif [ "__n__${VIDEO_MAXQ}" != "__n__" ] ; then
 	    __CRF_MAX=`calc -d "int( ${VIDEO_MAXQ} * 1.2 + 1.5 )" | tr -d [:space:]`
 	    if [ ${__CRF_MAX} -le ${__QP_INT} ] ; then
 		__CRF_MAX=`calc -d ${__QP_INT} + 4 | tr -d [:space:]`
 	    fi
-	    if [ ${__CRF_MAX} -lt 0 ] ; then
-		__CRF_MAX=0
-	    elif [ ${__CRF_MAX} -ge 63 ] ; then
-		__CRF_MAX=63
+	fi
+	if [ ${__CRF_MIN} -ge 0 ] ; then
+	    __IS_SET_CRF_MIN=1
+	fi
+	if [ ${__CRF_MAX} -ge 0 ] ; then
+	    __IS_SET_CRF_MAX=1
+	fi
+	if [ ${__IS_SET_CRF_MAX} -ne 0 ] ; then
+	    if [ ${__IS_SET_CRF_MIN} -ne 0 ] ; then
+		if [ ${__CRF_MIN} -gt ${__CRF_MAX} ] ; then
+		    # SWAP VALUE
+		    typeset -i __TMP_I
+		    __TMP_I=${__CRF_MIN}
+		    __CRF_MIN=${__CRF_MAX}
+		    __CRF_MAX=${__TMP_I}
+		    #__CRF_MIN=`calc -d "${__CRF_MAX} - 1" | tr -d [:space:]`
+		fi
+		if [ ${__CRF_MIN} -lt 0 ] ; then
+		    __CRF_MIN=0
+		fi
 	    fi
+	fi
+	if [ ${__CRF_MIN} -gt ${__CRF_LIMIT} ] ; then
+	    __CRF_MIN=${__CRF_LIMIT}
+	fi
+	if [ ${__CRF_MAX} -gt ${__CRF_LIMIT} ] ; then
+	    __CRF_MAX=${__CRF_LIMIT}
+	fi
+	if [ ${__IS_SET_CRF_MIN} -ne 0 ] ; then
+	    __APPEND_ARGS_POST+=(-qmin)
+	    __APPEND_ARGS_POST+=(${__CRF_MIN})
+	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmin=${__CRF_MIN}"
+	fi
+
+	if [ ${__IS_SET_CRF_MAX} -ne 0 ] ; then
 	    __APPEND_ARGS_POST+=(-qmax)
 	    __APPEND_ARGS_POST+=("${__CRF_MAX}")
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmax=${__CRF_MAX}"
@@ -2729,6 +2820,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		;;
 	esac
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
+	__VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
 	elif [ ${SVTAV1_TEMPORAL_FILTERING_STRENGTH} -ge 0 ] ; then
