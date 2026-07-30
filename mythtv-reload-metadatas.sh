@@ -845,6 +845,7 @@ if [ "___x___${BASEFILE}" = "___x___" ] ; then
    exit 0
 fi
 unset ARG_METADATA[@]
+
 ARG_DESC=""
 ARG_SUBTITLE=""
 ARG_EPISODE=""
@@ -906,109 +907,117 @@ ARG_CHANID=""
 ARG_KEY=`echo "${BASEFILE}" | gawk "${AWK_EXTRACT1}" | sed -f "${TEMPDIR}/__tmpscript13" `
 
 if [ ${USE_DATABASE} -ne 0 ] ; then
-     
-#  echo "SELECT recordedid from recorded where basename=\"${BASEFILE}\" ;" > "$TEMPDIR/getrecid.query.sql"
-  echo "SELECT recordedid from recorded where basename like \"%${ARG_KEY}%\" ;" > "$TEMPDIR/getrecid.query.sql"
-  RECID=`mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql"`
+    
+    #  echo "SELECT recordedid from recorded where basename=\"${BASEFILE}\" ;" > "$TEMPDIR/getrecid.query.sql"
+    echo "SELECT recordedid from recorded where basename like \"%${ARG_KEY}%\" ;" > "$TEMPDIR/getrecid.query.sql"
+    RECID=`mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql"`
 
-if [ -z "${RECID}" ] ; then 
-     logging "ERROR: Recording not found."
-else
-echo "SELECT chanid from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getchanid.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" > "$TEMPDIR/chanid.txt"
+    if [ -z "${RECID}" ] ; then 
+	logging "ERROR: Recording not found."
+    else
+	echo "SELECT chanid from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getchanid.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getchanid.query.sql" > "$TEMPDIR/chanid.txt"
 
-echo "SELECT title from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/gettitle.query.sql"
-#  logging `cat "$TEMPDIR/gettitle.query.sql"`
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
+	echo "SELECT title from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/gettitle.query.sql"
+	#  logging `cat "$TEMPDIR/gettitle.query.sql"`
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/gettitle.query.sql" > "$TEMPDIR/title.txt" 
 
-#  logging `cat "$TEMPDIR/title.txt"`
-__N_TITLE=`cat "$TEMPDIR/title.txt"`
-echo "SELECT subtitle from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
-#  logging `cat "$TEMPDIR/getsubtitle.query.sql"`
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
-#  logging `cat "$TEMPDIR/subtitle.txt"`
+	#  logging `cat "$TEMPDIR/title.txt"`
+	__N_TITLE=`cat "$TEMPDIR/title.txt"`
+	echo "SELECT subtitle from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getsubtitle.query.sql"
+	#  logging `cat "$TEMPDIR/getsubtitle.query.sql"`
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getsubtitle.query.sql" > "$TEMPDIR/subtitle.txt" 
+	#  logging `cat "$TEMPDIR/subtitle.txt"`
 
-echo "SELECT description from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getdesc.query.sql"
-#  logging `cat "$TEMPDIR/getdesc.query.sql"`
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt" 
-#  logging `cat "$TEMPDIR/desc.txt"`
+	echo "SELECT description from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getdesc.query.sql"
+	#  logging `cat "$TEMPDIR/getdesc.query.sql"`
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt" 
+	#  logging `cat "$TEMPDIR/desc.txt"`
 
-echo "SELECT starttime from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getstarttime.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getstarttime.query.sql" > "$TEMPDIR/starttime.txt" 
-echo "SELECT endtime from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getendtime.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getendtime.query.sql" > "$TEMPDIR/endtime.txt" 
-echo "SELECT category from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getgenre.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getgenre.query.sql" > "$TEMPDIR/genre.txt" 
-echo "SELECT season from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getseason.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getseason.query.sql" > "$TEMPDIR/season.txt" 
-echo "SELECT episode from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getepisode.query.sql"
-  mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getepisode.query.sql" > "$TEMPDIR/episode.txt" 
-
-
-ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
-ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
-ARG_STARTTIME=`cat "$TEMPDIR/starttime.txt" | sed 's/ /T/g'`
-ARG_ENDTIME=`cat "$TEMPDIR/endtime.txt" | sed 's/ /T/g'`
-ARG_GENRE=$(change_arg_file "$TEMPDIR/genre.txt")
-ARG_EPISODE=$(change_arg_file "$TEMPDIR/episode.txt")
-ARG_SEASON=$(change_arg_file "$TEMPDIR/season.txt")
-ARG_CHANID=$(change_arg_file "$TEMPDIR/chanid.txt")
+	echo "SELECT starttime from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getstarttime.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getstarttime.query.sql" > "$TEMPDIR/starttime.txt" 
+	echo "SELECT endtime from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getendtime.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getendtime.query.sql" > "$TEMPDIR/endtime.txt" 
+	echo "SELECT category from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getgenre.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getgenre.query.sql" > "$TEMPDIR/genre.txt" 
+	echo "SELECT season from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getseason.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getseason.query.sql" > "$TEMPDIR/season.txt" 
+	echo "SELECT episode from recorded where recordedid=\"${RECID}\" ;" > "$TEMPDIR/getepisode.query.sql"
+	mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getepisode.query.sql" > "$TEMPDIR/episode.txt" 
 
 
-ARG_REALTITLE="${ARG_TITLE}"
-if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then
-   if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
-       ARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}"
-   fi
-else
-   if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
-       ARG_TITLE="${ARG_SUBTITLE}"
-   fi
-fi
+	#ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
+	#ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
+	#ARG_DESC=$(change_arg_file "$TEMPDIR/desc.txt")
+	ARG_TITLE=`cat "$TEMPDIR/title.txt" | sed s/\"/”/g `
+	ARG_SUBTITLE=`cat "$TEMPDIR/subtitle.txt" | sed s/\"/”/g `
+	ARG_DESC=`cat "$TEMPDIR/desc.txt"  | sed s/\"/”/g `
 
-if [ "__x__${ARG_SUBTITLE}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
-fi
-if [ "__x__${ARG_REALTITLE}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(realtitle="${ARG_REALTITLE}")
-fi
-if [ "__x__${ARG_EPISODE}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(episode="${ARG_EPISODE}")
-fi
-if [ "__x__${ARG_SEASON}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(season="${ARG_SEASON}")
-fi
-if [ "__x__${ARG_GENRE}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(genre="${ARG_GENRE}")
-fi
-if [ "__x__${RECID}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(recordedid="${RECID}")
-fi
-if [ "__x__${ARG_CHANID}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(channel_id="${ARG_CHANID}")
-fi
-if [ "__x__${ARG_STARTTIME}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(starttime_utc="${ARG_STARTTIME}")
-fi
-if [ "__x__${ARG_ENDTIME}" != "__x__" ] ; then
-    ARG_METADATA+=(-metadata:g)
-    ARG_METADATA+=(endtime_utc="${ARG_ENDTIME}")
-fi
-fi
+	ARG_STARTTIME=`cat "$TEMPDIR/starttime.txt" | sed 's/ /T/g'`
+	ARG_ENDTIME=`cat "$TEMPDIR/endtime.txt" | sed 's/ /T/g'`
+	ARG_GENRE=$(change_arg_file "$TEMPDIR/genre.txt")
+	#ARG_EPISODE=$(change_arg_file "$TEMPDIR/episode.txt")
+	#ARG_SEASON=$(change_arg_file "$TEMPDIR/season.txt")
+	#ARG_CHANID=$(change_arg_file "$TEMPDIR/chanid.txt")
+	ARG_EPISODE=`cat "$TEMPDIR/episode.txt" | sed s/\"/”/g `
+	ARG_SEASON=`cat "$TEMPDIR/season.txt" | sed s/\"/”/g `
+	ARG_CHANID=`cat "$TEMPDIR/chanid.txt" | sed s/\"/”/g `
+
+
+	ARG_REALTITLE="${ARG_TITLE}"
+	if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then
+	    if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
+		ARG_TITLE="${ARG_TITLE}: ${ARG_SUBTITLE}"
+	    fi
+	else
+	    if [ "__xx__${ARG_SUBTITLE}" != "__xx__" ] ; then
+		ARG_TITLE="${ARG_SUBTITLE}"
+	    fi
+	fi
+
+	if [ "__x__${ARG_SUBTITLE}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("subtitle=${ARG_SUBTITLE}")
+	fi
+	if [ "__x__${ARG_REALTITLE}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("realtitle=${ARG_REALTITLE}")
+	fi
+	if [ "__x__${ARG_EPISODE}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("episode=${ARG_EPISODE}")
+	fi
+	if [ "__x__${ARG_SEASON}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("season=${ARG_SEASON}")
+	fi
+	if [ "__x__${ARG_GENRE}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("genre=${ARG_GENRE}")
+	fi
+	if [ "__x__${RECID}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("recordedid=${RECID}")
+	fi
+	if [ "__x__${ARG_CHANID}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("channel_id=${ARG_CHANID}")
+	fi
+	if [ "__x__${ARG_STARTTIME}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("starttime_utc=${ARG_STARTTIME}")
+	fi
+	if [ "__x__${ARG_ENDTIME}" != "__x__" ] ; then
+	    ARG_METADATA+=(-metadata:g)
+	    ARG_METADATA+=("endtime_utc=${ARG_ENDTIME}")
+	fi
+    fi
 else
     # WITHOUT DATABASE
     if [ "___x___${COMMENTS}" != "___x___" ] ; then
         echo "${COMMENTS}" >> $TEMPDIR/desc.txt
-        ARG_DESC=$(change_arg_comment "$TEMPDIR/desc.txt")
+        #ARG_DESC=$(change_arg_comment "$TEMPDIR/desc.txt")
+        ARG_DESC=`cat "$TEMPDIR/desc.txt" | sed s/\"/”/g `
     fi    
 fi
 cat <<EOF >${TEMPDIR}/__tmpscript14
@@ -1716,9 +1725,9 @@ if [ ${ARG_META_COMMENT_LINES} -gt 0 ] ; then
    __TMPS=`echo "${ARG_META_COMMENT}" | sed -E "s/[[:space:]]+comment.*:[[:space:]]+//g"`
    # Workaround for comment contains white space. 20241211 K.O
    if [ "__xxx__${__TMPS}" != "__xxx__" ] ; then
-       __TMPS2=`echo "${__TMPS}" | sed -e "s/[[:space:]]/　/g"`
+       #__TMPS2=`echo "${__TMPS}" | sed -e "s/[[:space:]]/　/g"`
        ARG_METADATA+=(-metadata:g)
-       ARG_METADATA+=(source-comment="${__TMPS2}")
+       ARG_METADATA+=("source-comment=${__TMPS}")
    fi
 fi
    
@@ -1796,9 +1805,9 @@ if [ ${FORCE_FPS} -eq 0 ] ; then
 	MUXER_OPTIONS+=(-enc_time_base:V:0)
 	MUXER_OPTIONS+=(demux)
         ARG_METADATA+=(-metadata:s:V:0) 
-        ARG_METADATA+=(framerate_type=passthrough)
+        ARG_METADATA+=("framerate_type=passthrough")
         ARG_METADATA+=(-metadata:s:V:0) 
-        ARG_METADATA+=(enc_time_base=demux)
+        ARG_METADATA+=("enc_time_base=demux")
     else 
         if [ "__x__" != "__x__${FILTER_STRING_1}" ] ; then
 	    FILTER_STRING_1="${FILTER_STRING_1},vfrdet"
@@ -1807,7 +1816,7 @@ if [ ${FORCE_FPS} -eq 0 ] ; then
         fi
         FPS_VAL="-fps_mode vfr"
 	ARG_METADATA+=(-metadata:s:V:0) 
-	ARG_METADATA+=(framerate_type=vfr)
+	ARG_METADATA+=("framerate_type=vfr")
 	#MUXER_OPTIONS+=(-enc_time_base:V:0)
 	#MUXER_OPTIONS+=(filter)
     fi
@@ -1815,11 +1824,11 @@ else
     if [ "__x__${ARG_FPS}" != "__n__" ] ; then
 	FPS_VAL="-r ${ARG_FPS}"
 	ARG_METADATA+=(-metadata:s:V:0) 
-	ARG_METADATA+=(framerate_type=fixed,"${ARG_FPS}") 
+	ARG_METADATA+=("framerate_type=fixed,${ARG_FPS}") 
     else
 	FPS_VAL="-r ${BASE_FPS}"
 	ARG_METADATA+=(-metadata:s:V:0)
-	ARG_METADATA+=(framerate_type=fixed,"${BASE_FPS}")
+	ARG_METADATA+=("framerate_type=fixed,${BASE_FPS}")
     fi
 fi
 
@@ -1864,16 +1873,14 @@ else
    FILTER_ARG="${FILTER_FORMAT}"
 fi
 
-BASEFILE4=`echo "${BASEFILE}" | sed 's/\ /　/g'`
-#echo ${BASEFILE}
-echo ${BASEFILE4}
+echo ${BASEFILE}
 #exit 1
 ARG_METADATA+=(-metadata:g)
-ARG_METADATA+=(source="${BASEFILE4}")
+ARG_METADATA+=("source=${BASEFILE}")
 ARG_METADATA+=(-metadata:s:V:0)
-ARG_METADATA+=(source="${BASEFILE4}")
+ARG_METADATA+=("source=${BASEFILE}")
 ARG_METADATA+=(-metadata:s:a)
-ARG_METADATA+=(source="${BASEFILE4}")
+ARG_METADATA+=("source=${BASEFILE}")
 
 #echo ${ARG_METADATA[@]}
 #exit 0
@@ -1907,15 +1914,15 @@ fi
 
 if [ "__xx__" != "__xx__${FILTER_ARG}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
-    ARG_METADATA+=(filter_params="${FILTER_ARG}")
+    ARG_METADATA+=("filter_params=${FILTER_ARG}")
 fi
 if [ "__xx__" != "__xx__${__VCODEC_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
-    ARG_METADATA+=(vcodec_params="${__VCODEC_PARAMS}")
+    ARG_METADATA+=("vcodec_params=${__VCODEC_PARAMS}")
 fi
 if [ "__xx__" != "__xx__${__VCODEC_DISP_PARAMS}" ] ; then
     ARG_METADATA+=(-metadata:s:V:0)
-    ARG_METADATA+=(vcodec_params_any="${__VCODEC_DISP_PARAMS}")
+    ARG_METADATA+=("vcodec_params_any=${__VCODEC_DISP_PARAMS}")
 fi
 #echo "${BASEFILE}" \
 
@@ -2017,21 +2024,11 @@ unset __ARGS_TMP_TITLE[@]
 
 if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then 
     __ARGS_TMP_TITLE+=(-metadata:g)
-    echo -e "${ARG_TITLE}" > ${TEMPDIR}/title2.txt
-    __TMPS=$(change_arg_file "${TEMPDIR}/title2.txt")
-    __ARGS_TMP_TITLE+=(title="${__TMPS}")
+    #echo -e "${ARG_TITLE}" > ${TEMPDIR}/title2.txt
+    #__TMPS=$(change_arg_file "${TEMPDIR}/title2.txt")
+    #__ARGS_TMP_TITLE+=("title=${__TMPS}")
+    __ARGS_TMP_TITLE+=("title=${ARG_TITLE}")
 fi
-
-declare -a __ARGS_TMP_DESC
-unset __ARGS_TMP_DESC[@]
-
-#if [ -e $TEMPDIR/desc3.txt ] ; then
-#    __ARGS_TMP_DESC+=(-metadata:g)
-#    __ARGS_TMP_DESC+=(description="`cat $TEMPDIR/desc3.txt`")
-#fi
-
-#echo ${__ARGS_TMP_TITLE[@]}
-#exit 1
 
 #echo \
 ${__EXECUTE_COMMANDS}  -fix_sub_duration -i "${BASEFILE}" \
@@ -2055,9 +2052,8 @@ ${__EXECUTE_COMMANDS}  -fix_sub_duration -i "${BASEFILE}" \
 		 ${__APPEND_ARGS_POST[@]} \
 		 -map_metadata:g 0 \
 		 -map_chapters 0 \
-		 ${__ARGS_TMP_TITLE[@]} \
-		 ${__ARGS_TMP_DESC[@]} \
-		 ${ARG_METADATA[@]} \
+		 "${__ARGS_TMP_TITLE[@]}" \
+		 "${ARG_METADATA[@]}" \
 		 ${MUXER_OPTIONS[@]} \
 		 -metadata:g DESCRIPTION="`cat $TEMPDIR/desc3.txt`" \
 		 -y "re-enc/${BASEFILE3}(Re-Enc ${VCODEC_TYPE} CRF=${CRF_VALUE}).mkv" 
