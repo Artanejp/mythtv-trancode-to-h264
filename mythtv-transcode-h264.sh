@@ -915,6 +915,7 @@ if [ __xxx__"${__N_TITLE}" != __xxx__ ] ; then
     #ARG_METADATA+=(-metadata:g)
     #ARG_METADATA+=(real_title="${ARG_TITLE}")
     __N_TITLE=`echo ${__N_TITLE} | sed s/\"/”/g `
+    ARG_TITLE="${__N_TITLE}"
     ARG_METADATA+=(-metadata:g)
     ARG_METADATA+=("real_title=${__N_TITLE}")
 fi
@@ -1708,9 +1709,9 @@ case "$x" in
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2800
+	      	 TARGET_BITRATE_KBIT=3800
 	      else
-	      	 TARGET_BITRATE_KBIT=1500    
+	      	 TARGET_BITRATE_KBIT=2000    
 	      fi
 	 fi
      else
@@ -2771,10 +2772,10 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}${SVTAV1_QUANT_VALUE}"
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:overshoot-pct=100"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=95:overshoot-pct=75"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:mbr-overshoot-pct=90"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:undershoot-pct=95:mbr-overshoot-pct=75"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    fi
 	fi
