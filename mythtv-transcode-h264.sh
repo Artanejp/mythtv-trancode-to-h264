@@ -1555,7 +1555,7 @@ case "$x" in
 	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.2" | tr -d [:space:]`
+	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.17" | tr -d [:space:]`
 	      SVTAV1_TUNE="anime"
 	      if [ $USE_60FPS -ne 0 ] ; then
 	      	 TARGET_BITRATE_KBIT=3500
@@ -1666,7 +1666,7 @@ case "$x" in
 	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.2" | tr -d [:space:]`
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      if [ $USE_60FPS -ne 0 ] ; then
 	      	 TARGET_BITRATE_KBIT=7000
