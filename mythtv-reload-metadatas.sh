@@ -1391,11 +1391,13 @@ case "${__VCODEC_ENCODER}" in
 	fi
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 		if [ ${__IS_CRF} -eq 0 ] ; then
-			__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
-			__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
+		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		else
-			__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
-			__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=90"
+		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		fi
 	fi
 	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
