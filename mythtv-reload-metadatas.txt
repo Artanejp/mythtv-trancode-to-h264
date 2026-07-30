@@ -72,6 +72,7 @@ VCODEC_TYPE="HEVC"
 #AV1_QM_MIN=8    # Minimum value of QM (default is 8 at SVT-AV1) .
 #AV1_QM_MAX=15   # Maximum value of QM (default is 15 at SVT-AV1) .
 
+#AV1_BOOST_DETAILS=1 # If set to 0, disable details boosting (--enable-variance-boost at SVT AV1 ).
 
 #AV1_ENABLE_QM=0  # Enable quantization matrix
 # Encode preset value

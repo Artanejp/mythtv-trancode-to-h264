@@ -67,9 +67,11 @@ AV1_QM_MIN=8
 typeset -i AV1_QM_MAX
 AV1_QM_MAX=15
 
-
 typeset -i AV1_SHARPNESS
 AV1_SHARPNESS=-8
+
+typeset -i AV1_BOOST_DETAILS
+AV1_BOOST_DETAILS=1
 
 VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
@@ -1529,8 +1531,9 @@ case "${__VCODEC_ENCODER}" in
 	    fi
 
 	fi
-	
-	    
+	if [ ${AV1_BOOST_DETAILS} -ne 0 ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	fi
 	if [ "__n__${_T_TUNE_VALUE}" != "__n__" ] ; then
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
 	fi    
