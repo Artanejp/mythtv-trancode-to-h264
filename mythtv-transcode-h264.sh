@@ -758,6 +758,7 @@ __tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript1"`
 echo "${__tmpv1}"
 }
 
+
 # Not substitude slash.
 function change_arg_description() {
 # $1 = str
@@ -791,8 +792,8 @@ __tmpv1=`cat ${__SRCFILE} | sed -f "${TEMPDIR}/__tmpscript12"`
 echo "${__tmpv1}"
 }
 
-
 declare -a  ARG_METADATA
+unset ARG_METADATA[@]
 
 ARG_DESC=""
 ARG_SUBTITLE=""
@@ -802,26 +803,29 @@ ARG_ONAIR=""
 __N_TITLE=""
 
 
-unset ARG_METADATA[@]
+
+printf "" > "$TEMPDIR/desc.txt"
 if [ -n "${VIDEO_DESC}" ] ; then
-   ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
-   ARG_METADATA+=(-metadata:g)
-   ARG_METADATA+=(description="${ARG_DESC}")
+#   ARG_DESC=`change_arg_nonpath "${VIDEO_DESC}"`
+#   ARG_METADATA+=(-metadata:g)
+#   ARG_METADATA+=(description="${ARG_DESC}")
+   echo ${VIDEO_DESC} >> "$TEMPDIR/desc.txt"
+   echo " " >> "$TEMPDIR/desc.txt"
 fi
 if [ -n "${VIDEO_EPISODE}" ] ; then
    ARG_EPISODE=`change_arg_nonpath "${VIDEO_EPISODE}"`
    ARG_METADATA+=(-metadata:g)
-   ARG_METADATA+=(episode="${ARG_EPISODE}")
+   ARG_METADATA+=("episode=${ARG_EPISODE}")
 fi
 if [ -n "${VIDEO_SUBTITLE}" ] ; then
    ARG_SUBTITLE=`change_arg_nonpath "${VIDEO_SUBTITLE}"`
    ARG_METADATA+=(-metadata:g)
-   ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
+   ARG_METADATA+=("subtitle=${ARG_SUBTITLE}")
 fi
 if [ -n "${VIDEO_ONAIR}" ] ; then
    ARG_ONAIR="${VIDEO_ONAIR}"
    ARG_METADATA+=(-metadata:g)
-   ARG_METADATA+=(date="${ARG_ONAIR}")
+   ARG_METADATA+=("date=${ARG_ONAIR}")
 fi
 if test $N_QUERY_ID -gt 0 ; then
   logging "QUERY JOBQUEUE id ${N_QUERY_ID}"
@@ -864,7 +868,7 @@ if test $N_QUERY_ID -gt 0 ; then
 #  logging "SUBTITLE:"
   echo "SELECT description from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getdesc.query.sql"
 #  logging `cat "$TEMPDIR/getdesc.query.sql"`
-  mysql -B -N --raw  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" > "$TEMPDIR/desc.txt"
+  mysql -B -N --raw  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getdesc.query.sql" >> "$TEMPDIR/desc.txt"
 #  logging `cat "$TEMPDIR/desc.txt"`
 
 #  logging "TITLE:"
@@ -876,84 +880,112 @@ if test $N_QUERY_ID -gt 0 ; then
 echo "SELECT recordedid from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getrecid.query.sql"
 mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql" > "$TEMPDIR/recid.txt" 
 
+fi
 
-  __N_DESC=`cat "$TEMPDIR/desc.txt"`
-  __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
-  __N_TITLE=`cat "$TEMPDIR/title.txt"`
-  __N_GENRE=`cat "$TEMPDIR/category.txt"`
-  __N_RECID=`cat "$TEMPDIR/recid.txt"`
-  
+__N_DESC=""
+__N_TITLE=""
+__N_SUBTITLE=""
+__N_GENRE=""
+__N_RECID=""
+
+if [ -e "$TEMPDIR/desc.txt" ] ; then
+    __N_DESC=`cat "$TEMPDIR/desc.txt"`
+fi
+
+if [ -e "$TEMPDIR/subtitle.txt" ] ; then
+    __N_SUBTITLE=`cat "$TEMPDIR/subtitle.txt"`
+fi    
+if [ -e "$TEMPDIR/title.txt" ] ; then
+    __N_TITLE=`cat "$TEMPDIR/title.txt"`
+fi
+if [ -e "$TEMPDIR/category.txt" ] ; then
+    __N_GENRE=`cat "$TEMPDIR/category.txt"`
+fi
+if [ -e "$TEMPDIR/recid.txt" ] ; then
+    __N_RECID=`cat "$TEMPDIR/recid.txt"`
+fi
 #    logging ${__N_TITLE}
 #    if [ -n "${__N_TITLE}" ] ; then
 #      change_arg_file "$TEMPDIR/title.txt"
-      ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-      ARG_METADATA+=(-metadata:g)
-      ARG_METADATA+=(real_title="${ARG_TITLE}")
+#ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
+#ARG_METADATA+=(-metadata:g)
+#ARG_METADATA+=(real_title="${ARG_TITLE}")
+if [ __xxx__"${__N_TITLE}" != __xxx__ ] ; then
+    #ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
+    #ARG_METADATA+=(-metadata:g)
+    #ARG_METADATA+=(real_title="${ARG_TITLE}")
+    __N_TITLE=`echo ${__N_TITLE} | sed s/\"/”/g `
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=("real_title=${__N_TITLE}")
+fi
 #      logging ${ARG_TITLE}
 #    fi
-    if [ -n "${__N_GENRE}" ] ; then
-      ARG_GENRE=$(change_arg_file "$TEMPDIR/category.txt")
-      ARG_METADATA+=(-metadata:g)
-      ARG_METADATA+=(genre="${ARG_GENRE}")
-#      logging ${ARG_GENRE}
-    fi
-    if [ -n "${__N_DESC}" ] ; then
-      ARG_DESC=$(change_arg_description "$TEMPDIR/desc.txt")
-#      ARG_METADATA+=(-metadata:g)
-#      ARG_METADATA+=(description="${ARG_DESC}")
-#      logging ${ARG_DESC}
-    fi
-    if [ -n "${__N_SUBTITLE}" ] ; then
-      ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
-#      __TMPARG_TITLE=`echo "${ARG_TITLE}"  |  tr -d "\n"`
-#     __TMPARG_SUBTITLE=`echo "${ARG_SUBTITLE}"  |  tr -d "\n"`
-#      __TMPARG_TITLE="${__TMPARG_SUBTITLE}"
-#      __TMPARG_TITLE=`echo "${__TMPARG_TITLE}" | cut -c -16 -z`
-        __TMPARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}" 
-
-	ARG_METADATA+=(-metadata:g)
-	ARG_METADATA+=(title="${__TMPARG_TITLE}")
-	ARG_METADATA+=(-metadata:g)
-	ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
-    else
-	ARG_METADATA+=(-metadata)
-	ARG_METADATA+=(title="${ARG_TITLE}")
-#      logging ${ARG_SUBTITLE}
-    fi
-    if [ $F_CHANID -eq 0 ]; then
-       I_CHANID=${__N_CHANID}
- #  __N_STARTTIME=`cat "$TEMPDIR/chanid.txt"`
-    fi
-    if [ -n "$I_LOCALSTARTTIME" ] ; then
-        ARG_STARTTIME="${I_LOCALSTARTTIME}"
-    else
-        ARG_STARTTIME="${__N_STARTTIME}"
-    fi
+if [ -n "${__N_GENRE}" ] ; then
+    ARG_GENRE=$(change_arg_file "$TEMPDIR/category.txt")
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=("genre=${__N_GENRE}")
+    #      logging ${ARG_GENRE}
 fi
+if [ -n "${__N_SUBTITLE}" ] ; then
+    #ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
+    #__TMPARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}" 
+    __N_SUBTITLE=`echo ${__N_SUBTITLE} | sed s/\"/”/g `
+    __TMPARG_TITLE="${__N_TITLE}: ${__N_SUBTITLE}" 
+
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=("title=${__TMPARG_TITLE}")
+    ARG_METADATA+=(-metadata:g)
+    #ARG_METADATA+=(subtitle="${ARG_SUBTITLE}")
+    ARG_METADATA+=("subtitle=${__N_SUBTITLE}")
+else
+    ARG_METADATA+=(-metadata:g)
+    #ARG_METADATA+=(title="${ARG_TITLE}")
+    ARG_METADATA+=("title=${__N_TITLE}")
+    #      logging ${ARG_SUBTITLE}
+fi
+if [ __xxx__"${__N_DESC}" != __xxx__ ] ; then
+    #      ARG_DESC=$(change_arg_description "$TEMPDIR/desc.txt")
+    #      ARG_METADATA+=(-metadata:g)
+    #      ARG_METADATA+=(description="${ARG_DESC}")
+    __N_DESC=`echo ${__N_DESC} | sed s/\"/”/g `
+    ARG_METADATA+=(-metadata:g)
+    ARG_METADATA+=("DESCRIPTION=${__N_DESC}")
+    #      logging ${ARG_DESC}
+fi
+if [ $F_CHANID -eq 0 ]; then
+    I_CHANID=${__N_CHANID}
+    #  __N_STARTTIME=`cat "$TEMPDIR/chanid.txt"`
+fi
+if [ -n "$I_LOCALSTARTTIME" ] ; then
+    ARG_STARTTIME="${I_LOCALSTARTTIME}"
+else
+    ARG_STARTTIME="${__N_STARTTIME}"
+fi
+
 if [ -z "${ARG_STARTTIME}" ] ; then
     ARG_STARTTIME="${I_STARTTIME}"
 fi
 if	 [ -n "${__N_RECID}" ] ; then
       ARG_RECID=${__N_RECID}
       ARG_METADATA+=(-metadata:g)
-      ARG_METADATA+=(recorded_id="${ARG_RECID}")
+      ARG_METADATA+=("recorded_id=${ARG_RECID}")
 #      logging ${ARG_GENRE}
 fi
 
 
 logging "TITLE:"
-logging "${ARG_TITLE}"
+logging "${__N_TITLE}"
 logging "START:"
 logging "${ARG_STARTTIME}"
 logging "SUBTITLE:"
-logging "${ARG_SUBTITLE}"
+logging "${__N_SUBTITLE}"
 #logging "DESCRIPTION:"
 #logging "${ARG_DESC}"
 
-if [ "__x__${ARG_DESC}" = "__x__" ] ; then
-   ARG_DESC=" "
-fi
-ARG_DESC2=`echo -e "${ARG_DESC}"`
+#if [ "__x__${ARG_DESC}" = "__x__" ] ; then
+#   ARG_DESC=" "
+#fi
+#ARG_DESC2=`echo -e "${ARG_DESC}"`
 
 BASENAME=""
 if [ $N_DIRSET -ne 0 ] ; then
@@ -2610,7 +2642,7 @@ ARG_METADATA+=(DESCRIPTION=主音声)
 DISPLAY_SINK_PARAM="filter_threads=${FILTER_THREADS}:filter_complex_threads=${FILTER_COMPLEX_THREADS}"
 
 ARG_METADATA+=(-metadata:g)
-ARG_METADATA+=(source="${SRC2}")
+ARG_METADATA+=("source=${SRC2}")
 
 __TMPS_DECODER="${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} ${ARG_DECODE_GENERAL_FLAGS[@]}"
 __TMPS_DECODER_SUB="${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} -fix_sub_duration ${ARG_DECODE_GENERAL_FLAGS[@]} ${ARG_DECODE_SUB_FLAGS[@]} ${ARG_DECODE_SUB_SKIP_FLAGS[@]}"
@@ -2929,13 +2961,12 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		       ${__APPEND_ARGS_POST[@]} \
 		       -threads ${ENCTHREADS} \
 		       ${_AUDIO_ARGS[@]} \
-		       ${ARG_METADATA[@]} \
+		       "${ARG_METADATA[@]}" \
 		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		       -metadata:g description="${ARG_DESC2}" \
 		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv
-	#exit 0
+	#exit -1
     elif [ ${USE_X265} -ne 0 ]; then
     
 	if [ ${IS_CRF} -ne 0 ] ; then
@@ -3025,10 +3056,9 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		      ${FFMPEG_X265_PARAMS} \
 		      -threads ${ENCTHREADS} \
 		      ${_AUDIO_ARGS[@]} \
-		      ${ARG_METADATA[@]} \
+		      "${ARG_METADATA[@]}" \
 		      -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		      -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		      -y $TEMPDIR/v1tmp.mkv
 	
@@ -3062,10 +3092,9 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
 		  ${_AUDIO_ARGS[@]} \
-		  ${ARG_METADATA[@]} \
+		  "${ARG_METADATA[@]}" \
 		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-	          -metadata:g description="${ARG_DESC2}" \
       		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		  -y $TEMPDIR/v1tmp.mkv 
 	fi
@@ -3149,10 +3178,9 @@ elif    test $HWENC -ne 0; then
 		       -threads:1 8 \
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
-		       ${ARG_METADATA[@]} \
+		       "${ARG_METADATA[@]}" \
 		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		       -metadata:g description="${ARG_DESC2}" \
 		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv  \
 	    
@@ -3214,10 +3242,9 @@ elif    test $HWENC -ne 0; then
 		       -threads:1 4 \
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
-		       ${ARG_METADATA[@]} \
+		       "${ARG_METADATA[@]}" \
 		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-       		      -metadata:g description="${ARG_DESC2}" \
 		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
 		       -y $TEMPDIR/v1tmp.mkv 
 
