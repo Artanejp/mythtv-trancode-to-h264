@@ -102,7 +102,7 @@ typeset -i SVTAV1_ENABLE_QM
 typeset -i SVTAV1_QM_MIN
 typeset -i SVTAV1_QM_MAX
 SVTAV1_ENABLE_QM=1
-SVTAV1_QM_MIN=5
+SVTAV1_QM_MIN=3
 SVTAV1_QM_MAX=15
 
 typeset -i SVTAV1_DETAIL_BOOST
@@ -1282,7 +1282,7 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
-   SVTAV1_VIDEO_QUANT=35.0
+   SVTAV1_VIDEO_QUANT=36.0
    SVTAV1_VIDEO_MINQ=8
    SVTAV1_VIDEO_MAXQ=53
    
@@ -1663,20 +1663,20 @@ case "$x" in
    ;;
    LIVE_HD_MID )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=1
+	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.2" | tr -d [:space:]`
+	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.15" | tr -d [:space:]`
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=7000
+	      	 TARGET_BITRATE_KBIT=6000
 	      else
-	      	 TARGET_BITRATE_KBIT=3700    
+	      	 TARGET_BITRATE_KBIT=3200    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2600
+	      	 TARGET_BITRATE_KBIT=2800
 	      else
 	      	 TARGET_BITRATE_KBIT=1500    
 	      fi
@@ -1689,7 +1689,7 @@ case "$x" in
      #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     SVTAV1_AQ_STRENGTH=1.2
+     SVTAV1_AQ_STRENGTH=1.3
      
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
 
@@ -2739,10 +2739,10 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}${SVTAV1_QUANT_VALUE}"
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:overshoot-pct=90"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:overshoot-pct=100"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:mbr-overshoot-pct=80"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:undershoot-pct=50:mbr-overshoot-pct=90"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    fi
 	fi
