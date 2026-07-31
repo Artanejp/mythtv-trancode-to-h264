@@ -1585,7 +1585,7 @@ case "$x" in
 
    ANIME_HIGH )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=1
+	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.17" | tr -d [:space:]`
@@ -1599,9 +1599,9 @@ case "$x" in
 	      # ACT AS AVERAGE bitrate.
 	      SVTAV1_TUNE="anime"
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1800
+	      	 TARGET_BITRATE_KBIT=1650
 	      else
-	      	 TARGET_BITRATE_KBIT=1200    
+	      	 TARGET_BITRATE_KBIT=1100    
 	      fi
 	 fi
      else
@@ -1620,10 +1620,10 @@ case "$x" in
 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="medium"
+	 SVTAV1_PRESET="fast"
      else
          X265_PRESET="faster"
-	 SVTAV1_PRESET="medium"
+	 SVTAV1_PRESET="fast"
      fi
      X265_AQ_STRENGTH=0.95
      X265_QP_ADAPTATION_RANGE=1.15
@@ -1709,9 +1709,9 @@ case "$x" in
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=3800
+	      	 TARGET_BITRATE_KBIT=2600
 	      else
-	      	 TARGET_BITRATE_KBIT=2000    
+	      	 TARGET_BITRATE_KBIT=1800    
 	      fi
 	 fi
      else
