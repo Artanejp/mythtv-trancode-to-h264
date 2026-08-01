@@ -1407,20 +1407,27 @@ case "${__VCODEC_ENCODER}" in
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		else
 		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
-		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=80:mbr-overshoot-pct=75"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=40:mbr-overshoot-pct=70"
 		    #__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=90"
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		fi
 	fi
+	
+	__SVTAV1_CODEC_QPVAL=""
 	if [ "__n__${CRF_MIN}" != "__n__" ] ; then
 	    __APPEND_ARGS_POST+=(-qmin)
 	    __APPEND_ARGS_POST+=("${CRF_MIN}")
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmin=${CRF_MIN}"
+	    __SVTAV1_CODEC_QPVAL="min-qp=${CRF_MIN}"
 	fi
 	if [ "__n__${CRF_MAX}" != "__n__" ] ; then
 	    __APPEND_ARGS_POST+=(-qmax)
 	    __APPEND_ARGS_POST+=("${CRF_MAX}")
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmax=${CRF_MAX}"
+	    if [ "___xxx___${__SVTAV1_CODEC_QPVAL}" != "___xxx___" ] ; then
+	        __SVTAV1_CODEC_QPVAL="${__SVTAV1_CODEC_QPVAL}:"
+	    fi
+	    __SVTAV1_CODEC_QPVAL="${__SVTAV1_CODEC_QPVAL}max-qp=${CRF_MAX}"
 	fi
 	
 	typeset -i PARALLEL_LEVEL
@@ -1513,8 +1520,12 @@ case "${__VCODEC_ENCODER}" in
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=0"
 		;;
 	esac
+	if [ "___xxx___${__SVTAV1_CODEC_QPVAL}" != "___xxx___" ] ; then
+	     __VCODEC_PARAMS="${__VCODEC_PARAMS}:${__SVTAV1_CODEC_QPVAL}"
+	fi
+	
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
-	    
+    
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
 	elif [ ${AV1_TEMPORAL_FILTERING_STRENGTH} -ge 0 ] ; then
