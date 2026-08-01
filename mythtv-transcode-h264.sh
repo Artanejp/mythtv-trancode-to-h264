@@ -1283,9 +1283,9 @@ case "$x" in
    VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
-   SVTAV1_VIDEO_QUANT=33.0
-   SVTAV1_VIDEO_MINQ=0
-   SVTAV1_VIDEO_MAXQ=46
+   SVTAV1_VIDEO_QUANT=32.0
+   SVTAV1_VIDEO_MINQ=16
+   SVTAV1_VIDEO_MAXQ=43
    
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.80
@@ -1321,8 +1321,8 @@ case "$x" in
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
    SVTAV1_VIDEO_QUANT=36.0
-   SVTAV1_VIDEO_MINQ=8
-   SVTAV1_VIDEO_MAXQ=53
+   SVTAV1_VIDEO_MINQ=18
+   SVTAV1_VIDEO_MAXQ=47
    
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -1449,8 +1449,8 @@ case "$x" in
    VIDEO_MINQ=13
    VIDEO_MAXQ=40
    SVTAV1_VIDEO_QUANT=37.0
-   SVTAV1_VIDEO_MINQ=10
-   SVTAV1_VIDEO_MAXQ=55
+   SVTAV1_VIDEO_MINQ=20
+   SVTAV1_VIDEO_MAXQ=50
    
    VIDEO_AQSTRENGTH=1.10
    VIDEO_QCOMP=0.40
@@ -1593,22 +1593,22 @@ case "$x" in
 	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
+	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
 	      SVTAV1_TUNE="anime_grain"
 	      SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2300
+	      	 TARGET_BITRATE_KBIT=2000
 	      else
-	      	 TARGET_BITRATE_KBIT=1350    
+	      	 TARGET_BITRATE_KBIT=1100    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
-	      SVTAV1_TUNE="nograin"
+	      SVTAV1_TUNE="anime_grain"
 	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1650
+	      	 TARGET_BITRATE_KBIT=1800
 	      else
-	      	 TARGET_BITRATE_KBIT=1100    
+	      	 TARGET_BITRATE_KBIT=900    
 	      fi
 	 fi
      else
@@ -1624,7 +1624,7 @@ case "$x" in
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
      SVTAV1_AQ_STRENGTH=1.15
-     SVTAV1_QP_SCALE_COMPRESS=3
+     SVTAV1_QP_SCALE_COMPRESS=2
      
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
@@ -1710,19 +1710,19 @@ case "$x" in
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
-	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
-	      SVTAV1_TUNE=NO_GRAIN
+	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=3800
+	      	 TARGET_BITRATE_KBIT=2500
 	      else
-	      	 TARGET_BITRATE_KBIT=2500    
+	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2550
+	      	 TARGET_BITRATE_KBIT=2400
 	      else
-	      	 TARGET_BITRATE_KBIT=1700    
+	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
 	 fi
      else
@@ -1733,7 +1733,7 @@ case "$x" in
      #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     SVTAV1_AQ_STRENGTH=1.1
+     SVTAV1_AQ_STRENGTH=1.5
      SVTAV1_QP_SCALE_COMPRESS=2     
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
 
@@ -2055,6 +2055,27 @@ case "$x" in
    LIVE_MID | LIVE_MID_FAST )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
 	 IS_CRF=0
+     fi
+     if [ ${USE_SVTAV1} -ne 0 ] ; then
+	 IS_CRF=1
+	 if [ ${IS_CRF} -ne 0 ] ; then
+	      # ACT AS LIMITER.
+	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      #SVTAV1_TUNE=NO_GRAIN
+	      if [ $USE_60FPS -ne 0 ] ; then
+	      	 TARGET_BITRATE_KBIT=1300
+	      else
+	      	 TARGET_BITRATE_KBIT=750    
+	      fi
+	else      
+	      # ACT AS AVERAGE bitrate.
+	      if [ $USE_60FPS -ne 0 ] ; then
+	      	 TARGET_BITRATE_KBIT=900
+	      else
+	      	 TARGET_BITRATE_KBIT=450    
+	      fi
+	 fi
      else
 	 IS_CRF=1
      fi
@@ -2083,20 +2104,14 @@ case "$x" in
 	 SVTAV1_PRESET="medium"
 	 #SVTAV1_ENABLE_QM=0
      fi
-     if [ $USE_60FPS -ne 0 ] ; then
-	 #TARGET_BITRATE_KBIT=1800
-	 TARGET_BITRATE_KBIT=1350
-     else
-	 #TARGET_BITRATE_KBIT=1000
-	 TARGET_BITRATE_KBIT=750
-     fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
      X265_AQ_MODE=3
 
-     SVTAV1_DETAIL_BOOST=0
-     SVTAV1_AQ_STRENGTH=3.0
+     SVTAV1_DETAIL_BOOST=1
+     SVTAV1_AQ_STRENGTH=1.5
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=3
+     SVTAV1_QP_SCALE_COMPRESS=0
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -2690,7 +2705,6 @@ DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
 
 if [ $FFMPEG_ENC -ne 0 ]; then
     if [ ${USE_SVTAV1} -ne 0 ] ; then
-	
 	declare -a __APPEND_ARGS_PRE
 	unset __APPEND_ARGS_PRE[@]
 	declare -a __APPEND_ARGS_POST
@@ -2741,9 +2755,9 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		;;
 	esac
 	if [ "${SVTAV1_AQ_MODE}" -lt 0 ] ; then
-		SVTAV1_AQ_MODE=0
+	    SVTAV1_AQ_MODE=0
 	elif [ "${SVTAV1_AQ_MODE}" -gt 2 ]; then
-		SVTAV1_AQ_MODE=2
+	    SVTAV1_AQ_MODE=2
 	fi
 	__VCODEC_PARAMS="aq-mode=${SVTAV1_AQ_MODE}"
 	if [ ${SVTAV1_RC_MODE} -lt 0 ] ; then
@@ -2790,13 +2804,14 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=15:overshoot-pct=65"
+		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=15:overshoot-pct=65"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=40:overshoot-pct=75"
 		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
 		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=85"
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=80:mbr-overshoot-pct=75"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=40:mbr-overshoot-pct=50"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    fi
 	fi
@@ -2861,18 +2876,25 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	if [ ${__CRF_MAX} -gt ${__CRF_LIMIT} ] ; then
 	    __CRF_MAX=${__CRF_LIMIT}
 	fi
-	if [ ${__IS_SET_CRF_MIN} -ne 0 ] ; then
+
+	__SVTAV1_CODEC_QPVAL=""
+        if [ ${__IS_SET_CRF_MIN} -ne 0 ] ; then
 	    __APPEND_ARGS_POST+=(-qmin)
 	    __APPEND_ARGS_POST+=(${__CRF_MIN})
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmin=${__CRF_MIN}"
+	    __SVTAV1_CODEC_QPVAL="min-qp=${__CRF_MIN}"
 	fi
 
-	if [ ${__IS_SET_CRF_MAX} -ne 0 ] ; then
+        if [ ${__IS_SET_CRF_MAX} -ne 0 ] ; then
 	    __APPEND_ARGS_POST+=(-qmax)
 	    __APPEND_ARGS_POST+=("${__CRF_MAX}")
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:qmax=${__CRF_MAX}"
+	    if [ "___xxx___${__SVTAV1_CODEC_QPVAL}" != "___xxx___" ] ; then
+	        __SVTAV1_CODEC_QPVAL="${__SVTAV1_CODEC_QPVAL}:"
+	    fi
+	    __SVTAV1_CODEC_QPVAL="${__SVTAV1_CODEC_QPVAL}max-qp=${__CRF_MAX}"
 	fi
-	typeset -i PARALLEL_LEVEL
+        typeset -i PARALLEL_LEVEL
 	if [ ${FRAME_THREADS} -le 0 ] ; then
 	    PARALLEL_LEVEL=0
 	else
@@ -2912,9 +2934,14 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scd=1:scm=0"
 		;;
 	esac
+	
+	if [ "___xxx___${__SVTAV1_CODEC_QPVAL}" != "___xxx___" ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:${__SVTAV1_CODEC_QPVAL}"
+	fi
+	
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
 	if [ ${SVTAV1_DETAIL_BOOST} -ne 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
 	fi
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
@@ -2923,7 +2950,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	fi
 	if [ ${SVTAV1_SHARPNESS} -ge -7 ] ; then
 	    if [ ${SVTAV1_SHARPNESS} -le 7 ] ; then
-	         __VCODEC_PARAMS="${__VCODEC_PARAMS}:sharpness=${SVTAV1_SHARPNESS}"
+	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:sharpness=${SVTAV1_SHARPNESS}"
 	    fi
 	fi
 	if [ "__n__${SVTAV1_AQ_STRENGTH}" != "__n__" ] ; then
@@ -2965,30 +2992,31 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	fi
 	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	#echo \
-	$EXECUTE_PREFIX_COMMANDS \
-	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
-	               $DECODE_APPEND \
-		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
-		       -i "$DIRNAME2/$SRC2" \
-		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		       ${ARG_ENCODE_STREAMS[@]} \
-		       ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
-		       -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
-		       -c:v libsvtav1 \
-		       -c:a aac \
-		       -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
-		       ${SVTAV1_HEAD_VALUES[@]} \
-		       ${__APPEND_ARGS_PRE[@]} \
-		       -svtav1-params "${__VCODEC_PARAMS}" \
-		       ${__APPEND_ARGS_POST[@]} \
-		       -threads ${ENCTHREADS} \
-		       ${_AUDIO_ARGS[@]} \
-		       "${ARG_METADATA[@]}" \
-		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		       -y $TEMPDIR/v1tmp.mkv
-	#exit -1
+	    $EXECUTE_PREFIX_COMMANDS \
+		    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	            $DECODE_APPEND \
+		    ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+		    -i "$DIRNAME2/$SRC2" \
+		    ${ARG_ENCODE_GENERAL_FLAGS[@]} \
+		    ${ARG_ENCODE_STREAMS[@]} \
+		    ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+		    -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
+		    -c:v libsvtav1 \
+		    -c:a aac \
+		    -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
+		    ${SVTAV1_HEAD_VALUES[@]} \
+		    ${__APPEND_ARGS_PRE[@]} \
+		    -svtav1-params "${__VCODEC_PARAMS}" \
+		    ${__APPEND_ARGS_POST[@]} \
+		    -threads ${ENCTHREADS} \
+		    ${_AUDIO_ARGS[@]} \
+		    "${ARG_METADATA[@]}" \
+		    -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		    -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
+		    -metadata:g enc_start="${__ENCODE_START_DATE}" \
+		    -y $TEMPDIR/v1tmp.mkv
+	    #exit -1
+	    
     elif [ ${USE_X265} -ne 0 ]; then
     
 	if [ ${IS_CRF} -ne 0 ] ; then
