@@ -328,7 +328,7 @@ for x in "$@" ; do
 	    VIDEO_SKIP=""
 	    shift
 	    ;;
-	--skip_sec | --skip-sec )
+	--skip_sec | --skip-sec | --skip_seconds | --skip-seconds )
 	    shift
 	    VIDEO_SKIP="$1"
 	    shift
@@ -1278,7 +1278,7 @@ case "$x" in
    VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
-   SVTAV1_VIDEO_QUANT=32.0
+   SVTAV1_VIDEO_QUANT=33.0
    SVTAV1_VIDEO_MINQ=0
    SVTAV1_VIDEO_MAXQ=46
    
@@ -1585,19 +1585,21 @@ case "$x" in
 
    ANIME_HIGH )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=0
+	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.17" | tr -d [:space:]`
-	      SVTAV1_TUNE="anime"
+	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
+	      SVTAV1_TUNE="anime_grain"
+	      SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=3500
+	      	 TARGET_BITRATE_KBIT=2300
 	      else
-	      	 TARGET_BITRATE_KBIT=1900    
+	      	 TARGET_BITRATE_KBIT=1350    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
-	      SVTAV1_TUNE="anime"
+	      SVTAV1_TUNE="nograin"
+	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
 	      	 TARGET_BITRATE_KBIT=1650
 	      else
@@ -1620,10 +1622,12 @@ case "$x" in
 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="fast"
+	 #SVTAV1_PRESET="fast"
+	 SVTAV1_PRESET="veryfast"
      else
          X265_PRESET="faster"
-	 SVTAV1_PRESET="fast"
+	 #SVTAV1_PRESET="fast"
+	 SVTAV1_PRESET="veryfast"
      fi
      X265_AQ_STRENGTH=0.95
      X265_QP_ADAPTATION_RANGE=1.15
@@ -2874,7 +2878,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "ANIMATION_GRAIN" | "ANIME_GRAIN" )
-		__GRAIN_VALUE=7
+		__GRAIN_VALUE=15
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "NOGRAIN" | "NO_GRAIN" )
