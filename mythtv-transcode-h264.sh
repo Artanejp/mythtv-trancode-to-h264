@@ -89,9 +89,14 @@ typeset -i SVTAV1_AQ_MODE
 SVTAV1_AQ_MODE=2
 typeset -i SVTAV1_RC_MODE
 SVTAV1_RC_MODE=-1
+
 SVTAV1_AQ_STRENGTH=1.25
+typeset -i SVTAV1_QP_SCALE_COMPRESS
+SVTAV1_QP_SCALE_COMPRESS=-1
 typeset -i SVTAV1_SHARPNESS
 SVTAV1_SHARPNESS=-255
+
+
 
 typeset -i SVTAV1_DISABLE_TEMPORAL_FILTERING
 SVTAV1_DISABLE_TEMPORAL_FILTERING=0
@@ -1619,7 +1624,8 @@ case "$x" in
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
      SVTAV1_AQ_STRENGTH=1.15
-
+     SVTAV1_QP_SCALE_COMPRESS=3
+     
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
 	 #SVTAV1_PRESET="fast"
@@ -1700,22 +1706,23 @@ case "$x" in
    ;;
    LIVE_HD_MID )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=0
+	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.15" | tr -d [:space:]`
-	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=6000
+	      	 TARGET_BITRATE_KBIT=3800
 	      else
-	      	 TARGET_BITRATE_KBIT=3200    
+	      	 TARGET_BITRATE_KBIT=2500    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2600
+	      	 TARGET_BITRATE_KBIT=2550
 	      else
-	      	 TARGET_BITRATE_KBIT=1800    
+	      	 TARGET_BITRATE_KBIT=1700    
 	      fi
 	 fi
      else
@@ -1726,8 +1733,8 @@ case "$x" in
      #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
      #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
-     SVTAV1_AQ_STRENGTH=1.3
-     
+     SVTAV1_AQ_STRENGTH=1.1
+     SVTAV1_QP_SCALE_COMPRESS=2     
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
 
      if [ $USE_60FPS -ne 0 ] ; then
@@ -2774,12 +2781,22 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	fi
 	SVTAV1_HEAD_VALUES+=("${SVTAV1_QUANT_VALUE}")
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}${SVTAV1_QUANT_VALUE}"
+	if [ ${SVTAV1_QP_SCALE_COMPRESS} -ge 0 ] ; then
+	    if [ ${SVTAV1_QP_SCALE_COMPRESS} -gt 3 ]; then
+	        SVTAV1_QP_SCALE_COMPRESS=3
+	    fi
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qp-scale-compress-strength=${SVTAV1_QP_SCALE_COMPRESS}"
+        fi
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 	    if [ ${IS_CRF} -eq 0 ] ; then
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}:undershoot-pct=95:overshoot-pct=90"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=15:overshoot-pct=65"
+		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    else
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}:undershoot-pct=95:mbr-overshoot-pct=85"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
+		#__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=85"
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=80:mbr-overshoot-pct=75"
 		__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 	    fi
 	fi
