@@ -73,6 +73,9 @@ AV1_SHARPNESS=-8
 typeset -i AV1_BOOST_DETAILS
 AV1_BOOST_DETAILS=1
 
+typeset -i SVTAV1_QP_SCALE_COMPRESS
+SVTAV1_QP_SCALE_COMPRESS=-1
+
 VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
 
@@ -1389,14 +1392,23 @@ case "${__VCODEC_ENCODER}" in
 		__CRF_ARGS="-crf ${CRF_VALUE}"
 		__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
 	fi
+	
+	if [ ${SVTAV1_QP_SCALE_COMPRESS} -ge 0 ] ; then
+	    if [ ${SVTAV1_QP_SCALE_COMPRESS} -gt 3 ]; then
+	        SVTAV1_QP_SCALE_COMPRESS=3
+	    fi
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qp-scale-compress-strength=${SVTAV1_QP_SCALE_COMPRESS}"
+        fi
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 		if [ ${__IS_CRF} -eq 0 ] ; then
 		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
-		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=15:overshoot-pct=65"
+		    #__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		else
 		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
-		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=90"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=80:mbr-overshoot-pct=75"
+		    #__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=90"
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		fi
 	fi
