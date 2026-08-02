@@ -1404,7 +1404,11 @@ case "$x" in
    OUT_HEIGHT=480
    SCALER_MODE="lanczos"
    
-  #X264_BITRATE=3500
+   SVTAV1_VIDEO_QUANT=33.0
+   SVTAV1_VIDEO_MINQ=15
+   SVTAV1_VIDEO_MAXQ=44
+
+   #X264_BITRATE=3500
    VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
    VIDEO_FILTERCHAINX=""
    VIDEO_FILTERCHAIN_NOSCALE=0
@@ -1438,6 +1442,11 @@ case "$x" in
    VIDEO_SCENECUT=40
    VIDEO_REF_FRAMES=5
    VIDEO_BFRAMES=5
+   
+   SVTAV1_VIDEO_QUANT=37.0
+   SVTAV1_VIDEO_MINQ=19
+   SVTAV1_VIDEO_MAXQ=49
+
    OUT_WIDTH=720
    OUT_HEIGHT=480
    SCALER_MODE="lanczos"
@@ -1874,13 +1883,38 @@ case "$x" in
      HWACCEL_DEC="vaapi"
    ;;
    LIVE_SD_HIGH )
-     #X264_DIRECT="--direct spatial --aq-mode 3"
-     #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 1.2:0.4"
-     #X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 42 --trellis 2"
-     #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-     #FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}  -sar 32/27"
-     #FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 1.0:0.6"
      __FORCE_SAR="32/27"
+     
+     if [ ${USE_SVTAV1} -ne 0 ] ; then
+	 IS_CRF=1
+	 if [ ${IS_CRF} -ne 0 ] ; then
+	      # ACT AS LIMITER.
+	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      #SVTAV1_TUNE=NO_GRAIN
+	      if [ $USE_60FPS -ne 0 ] ; then
+	      	 TARGET_BITRATE_KBIT=900
+	      else
+	      	 TARGET_BITRATE_KBIT=450    
+	      fi
+	      #TARGET_BITRATE_KBIT=-1
+	else      
+	      # ACT AS AVERAGE bitrate.
+	      if [ $USE_60FPS -ne 0 ] ; then
+	      	 TARGET_BITRATE_KBIT=750
+	      else
+	      	 TARGET_BITRATE_KBIT=400    
+	      fi
+	 fi
+     else
+	 IS_CRF=1
+     fi
+     SVTAV1_AQ_STRENGTH=1.25
+     SVTAV1_QP_SCALE_COMPRESS=2     
+     SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
+     SVTAV1_PRESET="medium"
+     
+     __X264_BLURAY_COMPAT=1
      __X264_AQ_MODE=3
      __X264_TRELLIS=2
      __X264_8x8DCT=1
