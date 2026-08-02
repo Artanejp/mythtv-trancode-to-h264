@@ -1288,9 +1288,9 @@ case "$x" in
    VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
-   SVTAV1_VIDEO_QUANT=32.0
-   SVTAV1_VIDEO_MINQ=16
-   SVTAV1_VIDEO_MAXQ=43
+   SVTAV1_VIDEO_QUANT=33.0
+   SVTAV1_VIDEO_MINQ=12
+   SVTAV1_VIDEO_MAXQ=46
    
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.80
@@ -1325,11 +1325,9 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
-   #SVTAV1_VIDEO_QUANT=37.0
-   SVTAV1_VIDEO_QUANT=40.0
+   SVTAV1_VIDEO_QUANT=37.0
    SVTAV1_VIDEO_MINQ=18
-   #SVTAV1_VIDEO_MAXQ=50
-   SVTAV1_VIDEO_MAXQ=52
+   SVTAV1_VIDEO_MAXQ=53
    
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -1456,8 +1454,8 @@ case "$x" in
    VIDEO_MINQ=13
    VIDEO_MAXQ=40
    SVTAV1_VIDEO_QUANT=37.0
-   SVTAV1_VIDEO_MINQ=20
-   SVTAV1_VIDEO_MAXQ=50
+   SVTAV1_VIDEO_MINQ=18
+   SVTAV1_VIDEO_MAXQ=48  # Make lowest quality beauty.
    
    VIDEO_AQSTRENGTH=1.10
    VIDEO_QCOMP=0.40
@@ -1535,7 +1533,6 @@ X264_AQPARAM="--aq-mode 3 --qpmin $VIDEO_MINQ --qpmax $VIDEO_MAXQ --qpstep 12 --
 # Modify encoding parameter(s) on ANIME/ANIME_HIGH
 X264_DIRECT="--direct auto "
 X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
-x=$ENCMODE
 
 typeset -i __X264_BLURAY_COMPAT
 __X264_BLURAY_COMPAT=0
@@ -1557,13 +1554,9 @@ __X264_PARTITIONS="all"
 
 __FORCE_SAR=""
 
+x=$ENCMODE
 case "$x" in
    ANIME )
-     #X264_DIRECT="--direct auto"
-     #X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2"
-     #X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 30 --trellis 2"
-     #X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
-     
      __X264_BLURAY_COMPAT=1
      __X264_TRELLIS=2
      __X264_8x8DCT=1
@@ -1604,43 +1597,33 @@ case "$x" in
 	      SVTAV1_TUNE="anime_grain"
 	      SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2000
+	      	 TARGET_BITRATE_KBIT=1400
 	      else
-	      	 TARGET_BITRATE_KBIT=1100    
+	      	 TARGET_BITRATE_KBIT=750    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      SVTAV1_TUNE="anime_grain"
 	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1800
+	      	 TARGET_BITRATE_KBIT=1600
 	      else
-	      	 TARGET_BITRATE_KBIT=900    
+	      	 TARGET_BITRATE_KBIT=800    
 	      fi
 	 fi
      else
 	 IS_CRF=0
      fi
-     #X264_DIRECT="--direct auto"
-     #X264_BFRAMES="--bframes 5 --b-bias -2 --b-adapt 2"
-     #X264_PRESETS="--profile:v ${X264_PROFILE} --8x8dct --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
-     #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all"
-
      __X264_BLURAY_COMPAT=1
      __X264_TRELLIS=2
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
      SVTAV1_AQ_STRENGTH=1.15
-     SVTAV1_QP_SCALE_COMPRESS=2
-     
+     SVTAV1_PRESET="fast"
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
-	 #SVTAV1_PRESET="fast"
-	 SVTAV1_PRESET="veryfast"
      else
          X265_PRESET="faster"
-	 #SVTAV1_PRESET="fast"
-	 SVTAV1_PRESET="veryfast"
      fi
      X265_AQ_STRENGTH=0.95
      X265_QP_ADAPTATION_RANGE=1.15
@@ -1720,10 +1703,9 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2500
+	      	 TARGET_BITRATE_KBIT=2800
 	      else
-	      	 TARGET_BITRATE_KBIT=1300    
-	      	 #TARGET_BITRATE_KBIT=2200    
+	      	 TARGET_BITRATE_KBIT=1600    
 	      fi
 	      #TARGET_BITRATE_KBIT=-1
 	else      
@@ -1737,26 +1719,18 @@ case "$x" in
      else
 	 IS_CRF=1
      fi
-     #IS_CRF=0
-     #X264_DIRECT="--direct auto"
-     #X264_BFRAMES="--bframes 5 --b-bias -1 --b-adapt 2 --psy-rd 0.5:0.2"
-     #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 45 --trellis 2"
-     #X264_ENCPRESET="--preset slow --ref 5 --8x8dct --partitions all" 
      SVTAV1_AQ_STRENGTH=1.5
      SVTAV1_QP_SCALE_COMPRESS=2     
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
+     SVTAV1_PRESET="fast"
 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
-	 SVTAV1_PRESET="faster"
      else
          X265_PRESET="veryfast"
-	 #SVTAV1_PRESET="faster"
-	 SVTAV1_PRESET="medium"
      fi
      
      __X264_BLURAY_COMPAT=1
-     
      __X264_TRELLIS=2
      __X264_8x8DCT=1
      __X264_MBTREE=1
@@ -2064,9 +2038,6 @@ case "$x" in
    ;;
    LIVE_MID | LIVE_MID_FAST )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=0
-     fi
-     if [ ${USE_SVTAV1} -ne 0 ] ; then
 	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
@@ -2074,30 +2045,22 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1300
+	      	 TARGET_BITRATE_KBIT=950
 	      else
-	      	 TARGET_BITRATE_KBIT=750    
+	      	  TARGET_BITRATE_KBIT=500
 	      fi
+	      #TARGET_BITRATE_KBIT=-1
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=900
+	      	 TARGET_BITRATE_KBIT=1200
 	      else
-	      	 TARGET_BITRATE_KBIT=450    
+	      	 TARGET_BITRATE_KBIT=600    
 	      fi
 	 fi
      else
 	 IS_CRF=1
      fi
-     #X264_DIRECT="--direct auto"
-     #X264_BFRAMES="--bframes 5 --b-bias 0 --b-adapt 2"
-     #X264_PRESETS="--profile ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 48 --trellis 2"
-     #X264_ENCPRESET="--preset medium --ref 5 --8x8dct"
-     #FFMPEG_X264_HEAD="-profile:v ${X264_PROFILE} -preset slow -direct-pred auto -crf ${VIDEO_QUANT}"
-     #FFMPEG_X264_AQ="-trellis 2 -partitions all  -8x8dct 1 -mbtree 1 -psy-rd 0.6:0.2"
-
-     #__X264_DIRECT_PRED="spatial"
-     #__X264_AQ_MODE=3
      __X264_TRELLIS=2
      __X264_8x8DCT=1
      __X264_MBTREE=1
@@ -2107,12 +2070,13 @@ case "$x" in
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="veryfast"
-	 #SVTAV1_PRESET="faster"
-	 #SVTAV1_ENABLE_QM=0
+	 # Change bitrate limitation.
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=15
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=45		# Make more escalation quantasation to be smaller.
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=35	 # Make more escalation quantasation to be smaller.
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="medium"
-	 #SVTAV1_ENABLE_QM=0
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
