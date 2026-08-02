@@ -1320,9 +1320,11 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
-   SVTAV1_VIDEO_QUANT=36.0
+   #SVTAV1_VIDEO_QUANT=37.0
+   SVTAV1_VIDEO_QUANT=40.0
    SVTAV1_VIDEO_MINQ=18
-   SVTAV1_VIDEO_MAXQ=47
+   #SVTAV1_VIDEO_MAXQ=50
+   SVTAV1_VIDEO_MAXQ=52
    
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -1716,7 +1718,9 @@ case "$x" in
 	      	 TARGET_BITRATE_KBIT=2500
 	      else
 	      	 TARGET_BITRATE_KBIT=1300    
+	      	 #TARGET_BITRATE_KBIT=2200    
 	      fi
+	      #TARGET_BITRATE_KBIT=-1
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
@@ -1742,7 +1746,8 @@ case "$x" in
 	 SVTAV1_PRESET="faster"
      else
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="faster"
+	 #SVTAV1_PRESET="faster"
+	 SVTAV1_PRESET="medium"
      fi
      
      __X264_BLURAY_COMPAT=1
