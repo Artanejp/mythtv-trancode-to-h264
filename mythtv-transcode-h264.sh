@@ -1289,8 +1289,8 @@ case "$x" in
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
    SVTAV1_VIDEO_QUANT=33.0
-   SVTAV1_VIDEO_MINQ=12
-   SVTAV1_VIDEO_MAXQ=46
+   SVTAV1_VIDEO_MINQ=18
+   SVTAV1_VIDEO_MAXQ=44
    
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.80
@@ -1597,9 +1597,9 @@ case "$x" in
 	      SVTAV1_TUNE="anime_grain"
 	      SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1400
+	      	 TARGET_BITRATE_KBIT=1700
 	      else
-	      	 TARGET_BITRATE_KBIT=750    
+	      	 TARGET_BITRATE_KBIT=950    
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
@@ -1618,7 +1618,7 @@ case "$x" in
      __X264_TRELLIS=2
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
-     SVTAV1_AQ_STRENGTH=1.15
+     SVTAV1_AQ_STRENGTH=1.2
      SVTAV1_PRESET="fast"
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
