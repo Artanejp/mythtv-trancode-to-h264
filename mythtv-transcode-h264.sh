@@ -116,7 +116,7 @@ typeset -i SVTAV1_QUANT_OVERSHOOT_PERCENT	# svtav1-params:overshoot-pct (25)
 typeset -i SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT	# svtav1-params:mbr-overshoot-pct (50) 
 SVTAV1_QUANT_UNDERSHOOT_PERCENT=40	# or 95 (radical) , 15 (relax), 25 (default)
 SVTAV1_QUANT_OVERSHOOT_PERCENT=75	# or 95 (radical) , 65 (little radical), 25 (default)
-SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=50	# or 85 (radical)
+SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=70	# or 85 (radical)
 
 typeset -i TARGET_BITRATE_KBIT
 TARGET_BITRATE_KBIT=-1
@@ -1325,9 +1325,9 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
-   SVTAV1_VIDEO_QUANT=37.0
+   SVTAV1_VIDEO_QUANT=38.0
    SVTAV1_VIDEO_MINQ=18
-   SVTAV1_VIDEO_MAXQ=53
+   SVTAV1_VIDEO_MAXQ=48
    
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -1603,16 +1603,18 @@ case "$x" in
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
-	      SVTAV1_TUNE="anime_grain"
-	      SVTAV1_DISABLE_TEMPORAL_FILTERING=1
+	      #SVTAV1_TUNE="anime_grain"
+	      SVTAV1_TUNE="anime"
+	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1700
+	      	 TARGET_BITRATE_KBIT=1300
 	      else
-	      	 TARGET_BITRATE_KBIT=950    
+	      	 TARGET_BITRATE_KBIT=750   
 	      fi
 	else      
 	      # ACT AS AVERAGE bitrate.
-	      SVTAV1_TUNE="anime_grain"
+	      #SVTAV1_TUNE="anime_grain"
+	      SVTAV1_TUNE="anime"
 	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
 	      	 TARGET_BITRATE_KBIT=1600
@@ -1627,8 +1629,12 @@ case "$x" in
      __X264_TRELLIS=2
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
+     
      SVTAV1_AQ_STRENGTH=1.2
-     SVTAV1_PRESET="fast"
+     #SVTAV1_PRESET="fast"
+     SVTAV1_PRESET="medium"
+     SVTAV1_QP_SCALE_COMPRESS=2     
+     
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
      else
@@ -1705,22 +1711,29 @@ case "$x" in
    ;;
    LIVE_HD_MID )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=1
+         # For 60fps, VBR seems to be better than CRF. 
+         if [ $USE_60FPS -ne 0 ] ; then
+	     IS_CRF=0
+	 else
+	     IS_CRF=1
+	 fi
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2800
+	      	 TARGET_BITRATE_KBIT=2450
 	      else
-	      	 TARGET_BITRATE_KBIT=1600    
+	      	 TARGET_BITRATE_KBIT=1250    
 	      fi
 	      #TARGET_BITRATE_KBIT=-1
 	else      
+	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      SVTAV1_TUNE=NO_GRAIN
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2400
+	      	 TARGET_BITRATE_KBIT=2550
 	      else
 	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
@@ -1731,12 +1744,13 @@ case "$x" in
      SVTAV1_AQ_STRENGTH=1.5
      SVTAV1_QP_SCALE_COMPRESS=2     
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
-     SVTAV1_PRESET="fast"
 
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
+	 SVTAV1_PRESET="faster"
      else
          X265_PRESET="veryfast"
+	 SVTAV1_PRESET="fast"
      fi
      
      __X264_BLURAY_COMPAT=1
