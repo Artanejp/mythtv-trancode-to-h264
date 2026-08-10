@@ -62,19 +62,31 @@ typeset -i AV1_ENABLE_QM
 AV1_ENABLE_QM=0
 
 typeset -i AV1_QM_MIN
-AV1_QM_MIN=8
-
 typeset -i AV1_QM_MAX
-AV1_QM_MAX=15
-
 typeset -i AV1_SHARPNESS
+AV1_QM_MIN=5
+AV1_QM_MAX=15
 AV1_SHARPNESS=-8
 
 typeset -i AV1_BOOST_DETAILS
-AV1_BOOST_DETAILS=1
+typeset -i SVTAV1_DETAIL_BOOST
+AV1_BOOST_DETAILS=-1    # Prior use this than SVTAV1_DETAIL_BOOST if AV1_BOOST_DETAILS >= 0 .
+SVTAV1_DETAIL_BOOST=1
 
-typeset -i SVTAV1_QP_SCALE_COMPRESS
-SVTAV1_QP_SCALE_COMPRESS=-1
+typeset -i AV1_QUANT_UNDERSHOOT_PERCENT	# svtav1-params:undershoot-pct (25) 
+typeset -i AV1_QUANT_OVERSHOOT_PERCENT	# svtav1-params:overshoot-pct (25) 
+typeset -i AV1_QUANT_MAX_OVERSHOOT_PERCENT	# svtav1-params:mbr-overshoot-pct (50) 
+AV1_QUANT_UNDERSHOOT_PERCENT=40	# or 95 (radical) , 15 (relax), 25 (default)
+AV1_QUANT_OVERSHOOT_PERCENT=75	# or 95 (radical) , 65 (little radical), 25 (default)
+AV1_QUANT_MAX_OVERSHOOT_PERCENT=50	# or 85 (radical)
+
+typeset -i TARGET_BITRATE_KBIT
+TARGET_BITRATE_KBIT=-1
+
+
+typeset -i AV1_QP_SCALE_COMPRESS
+AV1_QP_SCALE_COMPRESS=-1
+
 
 VIDEO_STREAM="0:0"
 #VBV_VALUE=3000
@@ -1393,22 +1405,22 @@ case "${__VCODEC_ENCODER}" in
 		__VCODEC_DISP_PARAMS="crf=${CRF_VALUE}"
 	fi
 	
-	if [ ${SVTAV1_QP_SCALE_COMPRESS} -ge 0 ] ; then
-	    if [ ${SVTAV1_QP_SCALE_COMPRESS} -gt 3 ]; then
-	        SVTAV1_QP_SCALE_COMPRESS=3
+	if [ ${AV1_QP_SCALE_COMPRESS} -ge 0 ] ; then
+	    if [ ${AV1_QP_SCALE_COMPRESS} -gt 3 ]; then
+	        AV1_QP_SCALE_COMPRESS=3
 	    fi
-	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qp-scale-compress-strength=${SVTAV1_QP_SCALE_COMPRESS}"
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:qp-scale-compress-strength=${AV1_QP_SCALE_COMPRESS}"
         fi
 	if [ ${TARGET_BITRATE_KBIT} -gt 0 ] ; then
 		if [ ${__IS_CRF} -eq 0 ] ; then
 		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
-		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=15:overshoot-pct=65"
-		    #__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:overshoot-pct=90"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=${AV1_QUANT_UNDERSHOOT_PERCENT}"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:overshoot-pct=${AV1_QUANT_OVERSHOOT_PERCENT}"
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:target_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		else
 		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr=${TARGET_BITRATE_KBIT}"
-		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=40:mbr-overshoot-pct=70"
-		    #__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=95:mbr-overshoot-pct=90"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=${AV1_QUANT_UNDERSHOOT_PERCENT}"
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:mbr-overshoot-pct=${AV1_QUANT_MAX_OVERSHOOT_PERCENT}"
 		    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:maximum_bitrate=${TARGET_BITRATE_KBIT}kbit"
 		fi
 	fi
@@ -1556,8 +1568,14 @@ case "${__VCODEC_ENCODER}" in
 	    fi
 
 	fi
-	if [ ${AV1_BOOST_DETAILS} -ne 0 ] ; then
-	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	if [ ${AV1_BOOST_DETAILS} -lt 0 ] ; then
+	    if [ ${SVTAV1_DETAIL_BOOST} -ne 0 ] ; then
+	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	    fi
+        else
+	    if [ ${AV1_BOOST_DETAILS} -ne 0 ] ; then
+	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	    fi
 	fi
 	if [ "__n__${_T_TUNE_VALUE}" != "__n__" ] ; then
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
