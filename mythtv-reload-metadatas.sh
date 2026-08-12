@@ -69,9 +69,21 @@ AV1_QM_MAX=15
 AV1_SHARPNESS=-8
 
 typeset -i AV1_BOOST_DETAILS
+
 typeset -i SVTAV1_DETAIL_BOOST
+typeset -i SVTAV1_VARIANCE_OCTILE         # --variance-octile
+typeset -i SVTAV1_VARIANCE_BOOST_CURVE    # --variance-boost-curve
+typeset -i SVTAV1_VARIANCE_BOOST_STRENGTH # --variance-boost-strength
+
 AV1_BOOST_DETAILS=-1    # Prior use this than SVTAV1_DETAIL_BOOST if AV1_BOOST_DETAILS >= 0 .
+
 SVTAV1_DETAIL_BOOST=1
+SVTAV1_VARIANCE_OCTILE=-1
+SVTAV1_VARIANCE_BOOST_CURVE=-1
+SVTAV1_VARIANCE_BOOST_STRENGTH=-1
+
+
+
 
 typeset -i AV1_QUANT_UNDERSHOOT_PERCENT	# svtav1-params:undershoot-pct (25) 
 typeset -i AV1_QUANT_OVERSHOOT_PERCENT	# svtav1-params:overshoot-pct (25) 
@@ -1568,13 +1580,39 @@ case "${__VCODEC_ENCODER}" in
 	    fi
 
 	fi
+	typeset -i __IS_DETAIL_BOOST
+	__IS_DETAIL_BOOST=0
 	if [ ${AV1_BOOST_DETAILS} -lt 0 ] ; then
 	    if [ ${SVTAV1_DETAIL_BOOST} -ne 0 ] ; then
-	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+		__IS_DETAIL_BOOST=1
 	    fi
         else
 	    if [ ${AV1_BOOST_DETAILS} -ne 0 ] ; then
-	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+		__IS_DETAIL_BOOST=1
+	    fi
+	fi
+	if [ ${__IS_DETAIL_BOOST} -ne 0 ] ; then
+	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	    if [ ${SVTAV1_VARIANCE_BOOST_CURVE} -ge 0 ] ; then
+	        if [ ${SVTAV1_VARIANCE_BOOST_CURVE} -gt 2 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-curve=2"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-curve=${SVTAV1_VARIANCE_BOOST_CURVE}"
+		fi
+	    fi
+	    if [ ${SVTAV1_VARIANCE_BOOST_STRENGTH} -ge 1 ] ; then
+	        if [ ${SVTAV1_VARIANCE_BOOST_STRENGTH} -gt 4 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-strength=4"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-strength=${SVTAV1_VARIANCE_BOOST_STRENGTH}"
+		fi
+	    fi
+	    if [ ${SVTAV1_VARIANCE_OCTILE} -ge 1 ] ; then
+	        if [ ${SVTAV1_VARIANCE_OCTILE} -gt 8 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-octile=8"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-octile=${SVTAV1_VARIANCE_OCTILE}"
+		fi
 	    fi
 	fi
 	if [ "__n__${_T_TUNE_VALUE}" != "__n__" ] ; then
