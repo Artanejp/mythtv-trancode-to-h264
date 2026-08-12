@@ -1738,7 +1738,7 @@ case "$x" in
 	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2400
+	      	 TARGET_BITRATE_KBIT=2250
 	      else
 	      	 TARGET_BITRATE_KBIT=1250    
 	      fi
@@ -1748,7 +1748,7 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2450
+	      	 TARGET_BITRATE_KBIT=2350
 	      else
 	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
@@ -1756,7 +1756,7 @@ case "$x" in
      else
 	 IS_CRF=1
      fi
-     SVTAV1_AQ_STRENGTH=1.5
+     SVTAV1_AQ_STRENGTH=1.4
      SVTAV1_QP_SCALE_COMPRESS=1     
      
 
@@ -1769,12 +1769,11 @@ case "$x" in
      SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
      SVTAV1_VARIANCE_BOOST_CURVE=1          # Boost low to middle contrast.
      
+     SVTAV1_PRESET="faster"
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
-	 SVTAV1_PRESET="faster"
      else
          X265_PRESET="veryfast"
-	 SVTAV1_PRESET="fast"
      fi
      
      __X264_BLURAY_COMPAT=1
