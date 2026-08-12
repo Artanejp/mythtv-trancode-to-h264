@@ -109,7 +109,14 @@ SVTAV1_QM_MIN=3
 SVTAV1_QM_MAX=15
 
 typeset -i SVTAV1_DETAIL_BOOST
+typeset -i SVTAV1_VARIANCE_OCTILE         # --variance-octile
+typeset -i SVTAV1_VARIANCE_BOOST_CURVE    # --variance-boost-curve
+typeset -i SVTAV1_VARIANCE_BOOST_STRENGTH # --variance-boost-strength
+
 SVTAV1_DETAIL_BOOST=1
+SVTAV1_VARIANCE_OCTILE=-1
+SVTAV1_VARIANCE_BOOST_CURVE=-1
+SVTAV1_VARIANCE_BOOST_STRENGTH=-1
 
 typeset -i SVTAV1_QUANT_UNDERSHOOT_PERCENT	# svtav1-params:undershoot-pct (25) 
 typeset -i SVTAV1_QUANT_OVERSHOOT_PERCENT	# svtav1-params:overshoot-pct (25) 
@@ -1288,9 +1295,9 @@ case "$x" in
    VIDEO_QUANT=22.0
    VIDEO_MINQ=13
    VIDEO_MAXQ=30
-   SVTAV1_VIDEO_QUANT=33.0
-   SVTAV1_VIDEO_MINQ=18
-   SVTAV1_VIDEO_MAXQ=44
+   SVTAV1_VIDEO_QUANT=35.0
+   SVTAV1_VIDEO_MINQ=16
+   SVTAV1_VIDEO_MAXQ=46
    
    VIDEO_AQSTRENGTH=0.36
    VIDEO_QCOMP=0.80
@@ -1325,9 +1332,10 @@ case "$x" in
    VIDEO_QUANT=22.7
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
-   SVTAV1_VIDEO_QUANT=38.0
-   SVTAV1_VIDEO_MINQ=18
-   SVTAV1_VIDEO_MAXQ=48
+   
+   SVTAV1_VIDEO_QUANT=37.5
+   SVTAV1_VIDEO_MINQ=17
+   SVTAV1_VIDEO_MAXQ=50
    
    VIDEO_AQSTRENGTH=0.48
    VIDEO_QCOMP=0.70
@@ -1464,7 +1472,7 @@ case "$x" in
    VIDEO_MAXQ=40
    SVTAV1_VIDEO_QUANT=37.0
    SVTAV1_VIDEO_MINQ=18
-   SVTAV1_VIDEO_MAXQ=48  # Make lowest quality beauty.
+   SVTAV1_VIDEO_MAXQ=50  # Make lowest quality beauty.
    
    VIDEO_AQSTRENGTH=1.10
    VIDEO_QCOMP=0.40
@@ -1599,7 +1607,7 @@ case "$x" in
 
    ANIME_HIGH )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=1
+	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
@@ -1614,10 +1622,10 @@ case "$x" in
 	else      
 	      # ACT AS AVERAGE bitrate.
 	      #SVTAV1_TUNE="anime_grain"
-	      SVTAV1_TUNE="anime"
+	      SVTAV1_TUNE="NOGRAIN"
 	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1600
+	      	 TARGET_BITRATE_KBIT=1450
 	      else
 	      	 TARGET_BITRATE_KBIT=800    
 	      fi
@@ -1630,10 +1638,18 @@ case "$x" in
      VIDEO_REF_FRAMES=5
      __X264_8x8DCT=1
      
-     SVTAV1_AQ_STRENGTH=1.2
-     #SVTAV1_PRESET="fast"
-     SVTAV1_PRESET="medium"
+     SVTAV1_AQ_STRENGTH=1.3
+     SVTAV1_PRESET="fast"
+     #SVTAV1_PRESET="medium"
      SVTAV1_QP_SCALE_COMPRESS=2     
+     
+     SVTAV1_QUANT_UNDERSHOOT_PERCENT=45    # 40 -> 45
+     SVTAV1_QUANT_OVERSHOOT_PERCENT=65     # NOT CRF 75 -> 65
+     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=60  # CRF : 70 -> 60
+     
+     #SVTAV1_VARIANCE_BOOST_STRENGTH=2       # 2 -> 2
+     SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
+     SVTAV1_VARIANCE_BOOST_CURVE=1
      
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
@@ -1715,15 +1731,14 @@ case "$x" in
          if [ $USE_60FPS -ne 0 ] ; then
 	     IS_CRF=0
 	 else
-	     IS_CRF=1
+	     IS_CRF=0
 	 fi
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
-	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
-	      #SVTAV1_TUNE=NO_GRAIN
+	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	      SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2450
+	      	 TARGET_BITRATE_KBIT=2400
 	      else
 	      	 TARGET_BITRATE_KBIT=1250    
 	      fi
@@ -1733,7 +1748,7 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2550
+	      	 TARGET_BITRATE_KBIT=2450
 	      else
 	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
@@ -1742,9 +1757,18 @@ case "$x" in
 	 IS_CRF=1
      fi
      SVTAV1_AQ_STRENGTH=1.5
-     SVTAV1_QP_SCALE_COMPRESS=2     
-     SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
+     SVTAV1_QP_SCALE_COMPRESS=1     
+     
 
+     SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
+     SVTAV1_QUANT_UNDERSHOOT_PERCENT=30    # 40 -> 30
+     SVTAV1_QUANT_OVERSHOOT_PERCENT=80     # NOT CRF 75 -> 80
+     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=80 # CRF : 70 -> 80
+     
+     SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
+     SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
+     SVTAV1_VARIANCE_BOOST_CURVE=1          # Boost low to middle contrast.
+     
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="faster"
@@ -2086,7 +2110,7 @@ case "$x" in
    ;;
    LIVE_MID | LIVE_MID_FAST )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
-	 IS_CRF=1
+	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
 	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
@@ -2103,7 +2127,7 @@ case "$x" in
 	      if [ $USE_60FPS -ne 0 ] ; then
 	      	 TARGET_BITRATE_KBIT=1200
 	      else
-	      	 TARGET_BITRATE_KBIT=600    
+	      	 TARGET_BITRATE_KBIT=650    
 	      fi
 	 fi
      else
@@ -2117,23 +2141,37 @@ case "$x" in
      #TARGET_BITRATE_KBIT=900     
      if test "__n__${x}" = "__n__LIVE_MID_FAST" ; then
          X265_PRESET="superfast"
-	 SVTAV1_PRESET="veryfast"
+	 #SVTAV1_PRESET="veryfast"
+	 SVTAV1_PRESET="10"  # veryfast (9) < 10 < superfast (11)
 	 # Change bitrate limitation.
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=15
-	 SVTAV1_QUANT_OVERSHOOT_PERCENT=45		# Make more escalation quantasation to be smaller.
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=35	 # Make more escalation quantasation to be smaller.
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=45     # 40 -> 45
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=65	# 75 -> 65
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=60	# 70 -> 60
+	 
+	 SVTAV1_DETAIL_BOOST=1
+	 SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
+	 SVTAV1_VARIANCE_OCTILE=7               # 6 -> 7
+	 SVTAV1_VARIANCE_BOOST_CURVE=1         # 0 -> 1
+	 
+	 SVTAV1_QP_SCALE_COMPRESS=1
      else
          X265_PRESET="veryfast"
+	 
 	 SVTAV1_PRESET="medium"
+	 SVTAV1_QP_SCALE_COMPRESS=2
+	 
+         SVTAV1_DETAIL_BOOST=1
+	 SVTAV1_VARIANCE_BOOST_STRENGTH=3      # 2 -> 3
+	 SVTAV1_VARIANCE_OCTILE=5              # 6 -> 5
+	 SVTAV1_VARIANCE_BOOST_CURVE=2         # 0 -> 2
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
      X265_AQ_MODE=3
 
-     SVTAV1_DETAIL_BOOST=1
      SVTAV1_AQ_STRENGTH=1.5
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=3
-     SVTAV1_QP_SCALE_COMPRESS=0
+
      
      HWENC_PARAM="-qp 27 -quality 4"
      FFMPEG_ENC=1
@@ -2987,6 +3025,27 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
 	if [ ${SVTAV1_DETAIL_BOOST} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-variance-boost=1"
+	    if [ ${SVTAV1_VARIANCE_BOOST_CURVE} -ge 0 ] ; then
+	        if [ ${SVTAV1_VARIANCE_BOOST_CURVE} -gt 2 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-curve=2"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-curve=${SVTAV1_VARIANCE_BOOST_CURVE}"
+		fi
+	    fi
+	    if [ ${SVTAV1_VARIANCE_BOOST_STRENGTH} -ge 1 ] ; then
+	        if [ ${SVTAV1_VARIANCE_BOOST_STRENGTH} -gt 4 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-strength=4"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-boost-strength=${SVTAV1_VARIANCE_BOOST_STRENGTH}"
+		fi
+	    fi
+	    if [ ${SVTAV1_VARIANCE_OCTILE} -ge 1 ] ; then
+	        if [ ${SVTAV1_VARIANCE_OCTILE} -gt 8 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-octile=8"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:variance-octile=${SVTAV1_VARIANCE_OCTILE}"
+		fi
+	    fi
 	fi
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
