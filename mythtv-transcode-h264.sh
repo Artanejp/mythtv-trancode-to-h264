@@ -1738,7 +1738,7 @@ case "$x" in
 	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2250
+	      	 TARGET_BITRATE_KBIT=2350
 	      else
 	      	 TARGET_BITRATE_KBIT=1250    
 	      fi
@@ -1748,7 +1748,7 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2350
+	      	 TARGET_BITRATE_KBIT=2450
 	      else
 	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
@@ -1758,12 +1758,8 @@ case "$x" in
      fi
      SVTAV1_AQ_STRENGTH=1.4
      SVTAV1_QP_SCALE_COMPRESS=1     
-     
 
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
-     SVTAV1_QUANT_UNDERSHOOT_PERCENT=30    # 40 -> 30
-     SVTAV1_QUANT_OVERSHOOT_PERCENT=80     # NOT CRF 75 -> 80
-     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=80 # CRF : 70 -> 80
      
      SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
      SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
@@ -1772,8 +1768,16 @@ case "$x" in
      SVTAV1_PRESET="faster"
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=50    # 40 -> 50
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=70     # NOT CRF 75 -> 70
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=65 # CRF : 70 -> 65
+	 
+	 SVTAV1_VIDEO_MAXQ=52                  # MAXQ: 50 -> 52
      else
          X265_PRESET="veryfast"
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=30    # 40 -> 30
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=80     # NOT CRF 75 -> 80
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=80 # CRF : 70 -> 80
      fi
      
      __X264_BLURAY_COMPAT=1
