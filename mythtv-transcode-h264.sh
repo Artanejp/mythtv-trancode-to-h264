@@ -43,6 +43,33 @@ FILTER_THREADS=8
 FILTER_COMPLEX_THREADS=8
 IS_CRF=1
 
+declare -a ARG_PP_MUXER
+unset ARG_PP_MUXER[@]
+
+## Around Muxing queue
+# Max packets queue is 256k packets. 
+ARG_PP_MUXER+=(-max_muxing_queue_size)
+ARG_PP_MUXER+=(262144)
+# Subtitle data muxing subtitle
+#ARG_PP_MUXER+=(-muxing_queue_data_threshold:s)
+#ARG_PP_MUXER+=(128)
+# Audio data muxing threshold to 64kbytes 
+ARG_PP_MUXER+=(-muxing_queue_data_threshold:a)
+ARG_PP_MUXER+=(65536)
+# Video data muxing threshold to 10Mbytes 
+ARG_PP_MUXER+=(-muxing_queue_data_threshold:v)
+ARG_PP_MUXER+=(10485760)
+
+## for MKV
+# Reserve index space to 1MB.
+ARG_PP_MUXER+=(-reserve_index_space)
+ARG_PP_MUXER+=(1048576)
+
+ARG_PP_MUXER+=(-cues_to_front)
+ARG_PP_MUXER+=(true)
+ARG_PP_MUXER+=(-allow_raw_vfw)
+ARG_PP_MUXER+=(true)
+
 #### For quantization ( crf / qp )
 VIDEO_QUANT=22
 VIDEO_MINQ=14
@@ -207,6 +234,8 @@ FFPROBE_CMD="/usr/bin/ffprobe"
 #FFMPEG_CMD="/usr/local/bin/ffmpeg-arib"
 #FFMPEG_SUBTXT_CMD="/usr/local/bin/ffmpeg-arib"
 FFMPEG_SUBTXT_CMD="${FFMPEG_CMD}"
+
+
 
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
@@ -2553,7 +2582,10 @@ if test $VIDEO_FILTERCHAIN_NOCROP -eq 0 ; then
 fi
 echo "Filter chain = $VIDEO_FILTERCHAIN" 
 
-DECODE_APPEND="-resync_size 5242880"
+#DECODE_APPEND="-resync_size 5242880"
+DECODE_APPEND="-resync_size 65536"
+# Thread queue size to 10MPackets
+DECODE_APPEND="${DECODE_APPEND} -thread_queue_size 10485760"
 
 declare -a  ARG_DECODE_GENERAL_FLAGS
 unset ARG_DECODE_GENERAL_FLAGS[@]
@@ -2649,7 +2681,6 @@ echo ${ARG_DECODE_SUB_FLAGS[@]}
 #ARG_DECODE_SUB_FLAGS+=(0)
 
 
-
 case "$HWACCEL_DEC" in
     "VDPAU" | "vdpau" )
 	DECODE_APPEND="${DECODE_APPEND} -hwaccel vdpau"
@@ -2720,12 +2751,25 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
        -y $TEMPDIR/${__SUB_FILE_NAME}
 
 
+
+# SET TIMESTAMP for video encoding.
+#if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
+#    ARG_ENCODE_GENERAL_FLAGS+=(-fflags)
+#    ARG_ENCODE_GENERAL_FLAGS+=(+discardcorrupt)
+#    ARG_ENCODE_GENERAL_FLAGS+=(-err_detect)
+#    ARG_ENCODE_GENERAL_FLAGS+=(+compliant)
+#fi
+ARG_ENCODE_GENERAL_FLAGS+=(-copyts)
+ARG_ENCODE_GENERAL_FLAGS+=(-start_at_zero)
+
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(language=jpn)
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(real_encoder=aac)
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(DESCRIPTION=主音声)
+ARG_METADATA+=(-metadata:s:a:0)
+ARG_METADATA+=(title=主音声)
 
 # ADD METADATA around AUDIO, if additional track exists.
 
@@ -3097,7 +3141,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	    ARG_METADATA+=(-metadata:s:V:0)
 	    ARG_METADATA+=(vcodec_params_any="${__VCODEC_DISP_PARAMS}")
 	fi
-	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]}  -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	#echo \
 	    $EXECUTE_PREFIX_COMMANDS \
 		    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
@@ -3117,6 +3161,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		    ${__APPEND_ARGS_POST[@]} \
 		    -threads ${ENCTHREADS} \
 		    ${_AUDIO_ARGS[@]} \
+		    ${ARG_PP_MUXER[@]} \
 		    "${ARG_METADATA[@]}" \
 		    -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		    -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
@@ -3194,7 +3239,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
 
-	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
@@ -3213,6 +3258,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		      ${FFMPEG_X265_PARAMS} \
 		      -threads ${ENCTHREADS} \
 		      ${_AUDIO_ARGS[@]} \
+		      ${ARG_PP_MUXER[@]} \
 		      "${ARG_METADATA[@]}" \
 		      -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		      -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
@@ -3231,7 +3277,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS  \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	          $DECODE_APPEND \
@@ -3249,6 +3295,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
 		  ${_AUDIO_ARGS[@]} \
+		  ${ARG_PP_MUXER[@]} \
 		  "${ARG_METADATA[@]}" \
 		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
@@ -3316,7 +3363,7 @@ elif    test $HWENC -ne 0; then
 	ARG_METADATA+=(-metadata:s:v:0)
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	              $DECODE_APPEND \
@@ -3335,6 +3382,7 @@ elif    test $HWENC -ne 0; then
 		       -threads:1 8 \
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
+		       ${ARG_PP_MUXER[@]} \
 		       "${ARG_METADATA[@]}" \
 		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
@@ -3378,7 +3426,7 @@ elif    test $HWENC -ne 0; then
 	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
 
-	logging "${_AUDIO_ARGS[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
@@ -3399,6 +3447,7 @@ elif    test $HWENC -ne 0; then
 		       -threads:1 4 \
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
+		       ${ARG_PP_MUXER[@]} \
 		       "${ARG_METADATA[@]}" \
 		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
 		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
