@@ -13,6 +13,42 @@ IN_METALIST="$2"
 shift
 shift
 
+declare -a ARG_INPUT_PP
+unset ARG_INPUT_PP[@]
+
+# Queue size to 10MPackets.
+ARG_INPUT_PP+=(-thread_queue_size)
+ARG_INPUT_PP+=(10485760)
+
+declare -a MUXER_OPTIONS
+unset MUXER_OPTIONS[@]
+## Around Muxing queue
+# Max packets queue is 256k packets. 
+MUXER_OPTIONS+=(-max_muxing_queue_size)
+MUXER_OPTIONS+=(262144)
+# 100bytes
+MUXER_OPTIONS+=(-muxing_queue_data_threshold:t)
+MUXER_OPTIONS+=(100)
+
+# Audio data muxing threshold to 64kbytes 
+MUXER_OPTIONS+=(-muxing_queue_data_threshold:a)
+MUXER_OPTIONS+=(65536)
+# Video data muxing threshold to 10Mbytes
+MUXER_OPTIONS+=(-muxing_queue_data_threshold:v)
+MUXER_OPTIONS+=(10485760)
+
+
+## for MKV
+# Reserve index space to 1MB.
+MUXER_OPTIONS+=(-reserve_index_space)
+MUXER_OPTIONS+=(1048576)
+
+MUXER_OPTIONS+=(-cues_to_front)
+MUXER_OPTIONS+=(true)
+MUXER_OPTIONS+=(-allow_raw_vfw)
+MUXER_OPTIONS+=(true)
+
+
 declare -a ARG_METADATA
 unset ARG_METADATA[@]
 
@@ -144,12 +180,15 @@ check_and_add_metadata "${IN_METALIST}" DESCRIPTION
 
 
 
-${FFMPEG} -i "${IN_VIDEO}" \
+${FFMPEG} \
+          ${ARG_INPUT_PP[@]} \
+          -i "${IN_VIDEO}" \
           "${ARG_JSON[@]}" \
           -c copy  \
 	  -map_metadata:g 0 \
 	  -map_chapters 0 \
 	  "${ARG_METADATA[@]}" \
 	  -cluster_time_limit ${CLTIME} \
+	  ${MUXER_OPTIONS[@]} \
 	  $@ \
 	  -y tmp.mkv
