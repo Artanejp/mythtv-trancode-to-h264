@@ -4,6 +4,13 @@ BASEFILE="$1"
 
 declare -a ARG_METADATA
 
+declare -a INPUT_READING_PARAMETERS
+unset INPUT_READING_PARAMETERS[@]
+
+# Set thread queue size to 10MPackets.
+INPUT_READING_PARAMETERS+=(-thread_queue_size)
+INPUT_READING_PARAMETERS+=(10485760)
+
 NUMA_NODES=""
 POOL_THREADS=5
 FRAME_THREADS=5
@@ -1182,10 +1189,14 @@ if [ -x "${IONICE_CMD}" ] ; then
 fi
 BASEFILE3=`echo "${BASEFILE}" | sed -f "${TEMPDIR}/__tmpscript13" `
 if [ ${DUMP_SUB_FROM_SOURCE} -ne 0 ] ; then
-   $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info  -aribb24-skip-ruby-text false \
-						-fix_sub_duration -i "${BASEFILE}"  \
-       -c:s ass -f ass \
-       -y "${TEMPDIR}/v1tmp.ass"
+   $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} \
+                            -loglevel info  \
+                            -aribb24-skip-ruby-text false \
+			    -fix_sub_duration \
+			    ${INPUT_READING_PARAMETERS[@]} \
+			    -i "${BASEFILE}"  \
+			    -c:s ass -f ass \
+			    -y "${TEMPDIR}/v1tmp.ass"
    
     if [ -s "${TEMPDIR}/v1tmp.ass" ] ; then
 		__tmp_sb="${TEMPDIR}/v1tmp.ass"
@@ -2084,6 +2095,33 @@ for _xx in "${FFMPEG_APPEND_ARGS_POST[@]}" ; do
 #    fi
 done
 
+## Around Muxing queue
+# Max packets queue is 256k packets. 
+MUXER_OPTIONS+=(-max_muxing_queue_size)
+MUXER_OPTIONS+=(262144)
+# 100bytes
+#MUXER_OPTIONS+=(-muxing_queue_data_threshold:t)
+#MUXER_OPTIONS+=(100)
+
+# Audio data muxing threshold to 64kbytes 
+MUXER_OPTIONS+=(-muxing_queue_data_threshold:a)
+MUXER_OPTIONS+=(65536)
+# Video data muxing threshold to 10Mbytes
+MUXER_OPTIONS+=(-muxing_queue_data_threshold:v)
+MUXER_OPTIONS+=(10485760)
+
+
+## for MKV
+# Reserve index space to 1MB.
+MUXER_OPTIONS+=(-reserve_index_space)
+MUXER_OPTIONS+=(1048576)
+
+MUXER_OPTIONS+=(-cues_to_front)
+MUXER_OPTIONS+=(true)
+MUXER_OPTIONS+=(-allow_raw_vfw)
+MUXER_OPTIONS+=(true)
+
+
 #echo \
 #echo ${ARG_METADATA[@]}
 #echo
@@ -2115,7 +2153,10 @@ if [ "__xxx__${ARG_TITLE}" != "__xxx__" ] ; then
 fi
 
 #echo \
-${__EXECUTE_COMMANDS}  -fix_sub_duration -i "${BASEFILE}" \
+${__EXECUTE_COMMANDS}  \
+                 ${INPUT_READING_PARAMETERS[@]} \
+                 -fix_sub_duration \
+                 -i "${BASEFILE}" \
 		 ${__APPEND_FILES_SUBTITLES} \
 		 ${__APPEND_ARGS_PRE[@]} \
 		 ${ARG_COPYMAP} \
