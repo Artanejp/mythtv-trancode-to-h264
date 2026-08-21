@@ -7,9 +7,9 @@ declare -a ARG_METADATA
 declare -a INPUT_READING_PARAMETERS
 unset INPUT_READING_PARAMETERS[@]
 
-# Set thread queue size to 10MPackets.
+# Set thread queue size to 1MPackets.
 INPUT_READING_PARAMETERS+=(-thread_queue_size)
-INPUT_READING_PARAMETERS+=(10485760)
+INPUT_READING_PARAMETERS+=(1048576)
 
 NUMA_NODES=""
 POOL_THREADS=5
@@ -172,6 +172,7 @@ unset FFMPEG_APPEND_ARGS_PRE[@]
 
 declare -a FFMPEG_APPEND_ARGS_POST
 unset FFMPEG_APPEND_ARGS_POST[@]
+
 
 if [ -e /etc/mythtv/mythtv-transcode-x264 ]; then
    . /etc/mythtv/mythtv-transcode-x264
@@ -1148,9 +1149,9 @@ __AWK_STREAMDESC="
 		   sub_count++;
               } else if(match(_ARG_TYPE[i], \"Attachment_PIC\") != 0) {
 	           printf(\"-map:v %s -c:%d copy  \", _ARG_STREAM[i], i - 1);
-              } else if(match(_ARG_TYPE[i], \"Attachment\") != 0) {
+              }  else if(match(_ARG_TYPE[i], \"Attachment\") != 0) {
 	           printf(\"-map:t %s -c:t copy  \", _ARG_STREAM[i]);
-              }
+              } 
 	   }
 	}
 	"
@@ -2102,6 +2103,8 @@ MUXER_OPTIONS+=(262144)
 # 100bytes
 #MUXER_OPTIONS+=(-muxing_queue_data_threshold:t)
 #MUXER_OPTIONS+=(100)
+#MUXER_OPTIONS+=(-muxing_queue_data_threshold:s)
+#MUXER_OPTIONS+=(10)
 
 # Audio data muxing threshold to 64kbytes 
 MUXER_OPTIONS+=(-muxing_queue_data_threshold:a)
