@@ -2759,8 +2759,8 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
 #    ARG_ENCODE_GENERAL_FLAGS+=(-err_detect)
 #    ARG_ENCODE_GENERAL_FLAGS+=(+compliant)
 #fi
-ARG_ENCODE_GENERAL_FLAGS+=(-copyts)
-ARG_ENCODE_GENERAL_FLAGS+=(-start_at_zero)
+#ARG_ENCODE_GENERAL_FLAGS+=(-copyts)
+#ARG_ENCODE_GENERAL_FLAGS+=(-start_at_zero)
 
 ARG_METADATA+=(-metadata:s:a:0)
 ARG_METADATA+=(language=jpn)
