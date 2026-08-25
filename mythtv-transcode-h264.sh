@@ -46,6 +46,12 @@ IS_CRF=1
 declare -a ARG_PP_MUXER
 unset ARG_PP_MUXER[@]
 
+declare -a ARG_PP_MUXER_V
+unset ARG_PP_MUXER_V[@]
+
+declare -a ARG_PP_MUXER_A
+unset ARG_PP_MUXER_A[@]
+
 ## Around Muxing queue
 # Max packets queue is 256k packets. 
 ARG_PP_MUXER+=(-max_muxing_queue_size)
@@ -54,21 +60,27 @@ ARG_PP_MUXER+=(262144)
 #ARG_PP_MUXER+=(-muxing_queue_data_threshold:s)
 #ARG_PP_MUXER+=(128)
 # Audio data muxing threshold to 64kbytes 
-ARG_PP_MUXER+=(-muxing_queue_data_threshold:a)
-ARG_PP_MUXER+=(65536)
+ARG_PP_MUXER_A+=(-muxing_queue_data_threshold:a)
+ARG_PP_MUXER_A+=(65536)
 # Video data muxing threshold to 10Mbytes 
-ARG_PP_MUXER+=(-muxing_queue_data_threshold:v)
-ARG_PP_MUXER+=(10485760)
+ARG_PP_MUXER_V+=(-muxing_queue_data_threshold:v)
+ARG_PP_MUXER_V+=(10485760)
 
 ## for MKV
 # Reserve index space to 1MB.
-ARG_PP_MUXER+=(-reserve_index_space)
-ARG_PP_MUXER+=(1048576)
+declare -a ARG_PP_MUXER_MKV
+unset ARG_PP_MUXER_MKV[@]
 
-ARG_PP_MUXER+=(-cues_to_front)
-ARG_PP_MUXER+=(true)
-ARG_PP_MUXER+=(-allow_raw_vfw)
-ARG_PP_MUXER+=(true)
+typeset -i MKV_CLUSTER_MS
+MKV_CLUSTER_MS=150
+
+ARG_PP_MUXER_MKV+=(-reserve_index_space)
+ARG_PP_MUXER_MKV+=(1048576)
+
+ARG_PP_MUXER_MKV+=(-cues_to_front)
+ARG_PP_MUXER_MKV+=(true)
+ARG_PP_MUXER_MKV+=(-allow_raw_vfw)
+ARG_PP_MUXER_MKV+=(true)
 
 #### For quantization ( crf / qp )
 VIDEO_QUANT=22
@@ -244,6 +256,14 @@ fi
 
 if [ -e $HOME/.mythtv-transcode-x264 ]; then
    . $HOME/.mythtv-transcode-x264
+fi
+
+if [ ${MKV_CLUSTER_MS} -gt 0 ] ; then
+    if [ ${MKV_CLUSTER_MS} -ge 1000 ] ; then
+        MKV_CLUSTER_MS=1000
+    fi
+    ARG_PP_MUXER_MKV+=(-cluster_time_limit)
+    ARG_PP_MUXER_MKV+=(${MKV_CLUSTER_MS})
 fi
 
 #echo $DATABASEUSER $DATABASEPASSWORD
@@ -840,6 +860,8 @@ echo "${__tmpv1}"
 
 declare -a  ARG_METADATA
 unset ARG_METADATA[@]
+declare -a  ARG_METADATA_STREAMS
+unset ARG_METADATA_STREAMS[@]
 
 ARG_DESC=""
 ARG_SUBTITLE=""
@@ -1200,11 +1222,14 @@ X_FFPROBE_STREAM=`${FFPROBE_CMD} -i "$DIRNAME2/$SRC2" 2>&1 | grep Stream`
 declare -a __STREAMS
 declare -a _AUDIO_ARGS
 declare -a _VIDEO_ARGS
+declare -a _AUDIO_ARGS_FINAL_MUX
+declare -a _AUDIO_STREAMS_FINAL_MUX
 
 readarray __STREAMS <<< ${X_FFPROBE_STREAM}
 declare -a __TMP_X
 
-_AUDIO_STREAMS=1
+#_AUDIO_STREAMS=1
+_AUDIO_STREAMS=0
 _VIDEO_STREAMS=0
 
 ## Check stream(s)
@@ -1259,6 +1284,10 @@ for _x in "${__STREAMS[@]}" ; do
 	       _AUDIO_ARGS+=("${AUDIOBITRATE}k")
 	       ;;
 	esac
+	_AUDIO_STREAMS_FINAL_MUX+=(-map:a:${_AUDIO_STREAMS})
+	_AUDIO_STREAMS_FINAL_MUX+=("1:${_AUDIO_STREAMS}")
+	_AUDIO_ARGS_FINAL_MUX+=(-c:a:${_AUDIO_STREAMS})
+	_AUDIO_ARGS_FINAL_MUX+=(copy)
 	let _AUDIO_STREAMS++
     fi
 done
@@ -1269,14 +1298,6 @@ __AUDIO_ARGS=`echo ${_AUDIO_ARGS[@]}`
 
 if test $NOENCODE -eq 0; then
 
-
-# convert audio track to aac
-AUDIOTMP="$TEMPDIR/a1tmp.raw"
-mkfifo $AUDIOTMP
-
-# first video pass
-VIDEOTMP="$TEMPDIR/v1tmp.y4m"
-mkfifo $VIDEOTMP
 
 # if set encode mode ($ENCMODE), override defaults.
 
@@ -2602,6 +2623,12 @@ unset ARG_DECODE_SUB_SKIP_FLAGS[@]
 declare -a  ARG_ENCODE_GENERAL_FLAGS
 unset ARG_ENCODE_GENERAL_FLAGS[@]
 
+declare -a  ARG_ENCODE_GENERAL_FLAGS_A
+unset ARG_ENCODE_GENERAL_FLAGS_A[@]
+
+declare -a  ARG_ENCODE_GENERAL_FLAGS_V
+unset ARG_ENCODE_GENERAL_FLAGS_V[@]
+
 declare -a ARG_ENCODE_SUB_FLAGS
 unset ARG_ENCODE_SUB_FLAGS[@]
 
@@ -2611,24 +2638,24 @@ unset ARG_ENCODE_SUB_CODEC_FLAGS[@]
 declare -a ARG_ENCODE_SUB_DELAY_FLAGS
 unset ARG_ENCODE_SUB_DELAY_FLAGS[@]
 
-declare -a ARG_ENCODE_STREAMS
-unset ARG_ENCODE_STREAMS[@]
+declare -a ARG_ENCODE_STREAMS_A
+unset ARG_ENCODE_STREAMS_A[@]
+
+declare -a ARG_ENCODE_STREAMS_V
+unset ARG_ENCODE_STREAMS_V[@]
 
 declare -a ARG_ENCODE_VIDEO_ARGS
 unset ARG_ENCODE_VIDEO_ARGS[@]
-
-declare -a ARG_MUX_SUB_STREAM
-unset ARG_MUX_SUB_STREAM[@]
 
 declare -a ARG_MUX_SUB_TXT2
 unset ARG_MUX_SUB_TXT2[@]
 
 
 # Basic STREAM
-ARG_ENCODE_STREAMS+=(-map:v)
-ARG_ENCODE_STREAMS+=(0:0)
-ARG_ENCODE_STREAMS+=(-map:a)
-ARG_ENCODE_STREAMS+=(0:1)
+ARG_ENCODE_STREAMS_V+=(-map:v)
+ARG_ENCODE_STREAMS_V+=(0:0)
+ARG_ENCODE_STREAMS_A+=(-map:a)
+ARG_ENCODE_STREAMS_A+=(0:1)
 
 
 # MUX
@@ -2713,6 +2740,13 @@ case "$HWACCEL_DEC" in
       ;;
 esac
 
+typeset -i RESULT_ENC_AUDIO
+typeset -i RESULT_ENC_VIDEO
+typeset -i RESULT_ENC_SUB
+
+RESULT_ENC_AUDIO=0
+RESULT_ENC_VIDEO=0
+RESULT_ENC_SUB=0
 
 echo ${VIDEO_FILTERCHAIN_HWACCEL}
 #FFMPEG_X264_PARAM=${FFMPEG_X264_PARAM}:threads=${ENCTHREADS}  
@@ -2751,25 +2785,27 @@ $EXECUTE_PREFIX_COMMANDS ${FFMPEG_SUBTXT_CMD} -loglevel info \
        -y $TEMPDIR/${__SUB_FILE_NAME}
 
 
-
 # SET TIMESTAMP for video encoding.
-#if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
-#    ARG_ENCODE_GENERAL_FLAGS+=(-fflags)
-#    ARG_ENCODE_GENERAL_FLAGS+=(+discardcorrupt)
-#    ARG_ENCODE_GENERAL_FLAGS+=(-err_detect)
-#    ARG_ENCODE_GENERAL_FLAGS+=(+compliant)
-#fi
-#ARG_ENCODE_GENERAL_FLAGS+=(-copyts)
-#ARG_ENCODE_GENERAL_FLAGS+=(-start_at_zero)
+#ARG_ENCODE_GENERAL_FLAGS_V+=(-copyts)
+#ARG_ENCODE_GENERAL_FLAGS_V+=(-start_at_zero)
+ARG_ENCODE_GENERAL_FLAGS_V+=(-copytb)
+ARG_ENCODE_GENERAL_FLAGS_V+=(1)
+ARG_ENCODE_GENERAL_FLAGS_V+=(-start_at_zero)
 
-ARG_METADATA+=(-metadata:s:a:0)
-ARG_METADATA+=(language=jpn)
-ARG_METADATA+=(-metadata:s:a:0)
-ARG_METADATA+=(real_encoder=aac)
-ARG_METADATA+=(-metadata:s:a:0)
-ARG_METADATA+=(DESCRIPTION=主音声)
-ARG_METADATA+=(-metadata:s:a:0)
-ARG_METADATA+=(title=主音声)
+# SET TIMESTAMP for audio encoding.
+##ARG_ENCODE_GENERAL_FLAGS+=(-copyts)
+ARG_ENCODE_GENERAL_FLAGS_A+=(-copytb)
+ARG_ENCODE_GENERAL_FLAGS_A+=(1)
+ARG_ENCODE_GENERAL_FLAGS_A+=(-start_at_zero)
+
+ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+ARG_METADATA_STREAMS+=(language=jpn)
+ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+ARG_METADATA_STREAMS+=(real_encoder=aac)
+ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+ARG_METADATA_STREAMS+=(DESCRIPTION=主音声)
+ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+ARG_METADATA_STREAMS+=(title=主音声)
 
 # ADD METADATA around AUDIO, if additional track exists.
 
@@ -2811,6 +2847,42 @@ DISPLAY_FILTERCHAIN="${VIDEO_FILTERCHAIN_HWACCEL}"
 
 
 if [ $FFMPEG_ENC -ne 0 ]; then
+    # 1 : Encode Audio
+    logging "Encode AUDIO : ${ARG_DECODE_GENERAL_FLAGS[@]} ${DECODE_APPEND} ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} "
+    logging "   -> -c:a aac  ${ARG_ENCODE_GENERAL_FLAGS_A[@]} ${ARG_ENCODE_GENERAL_FLAGS[@]} "
+    logging "       ${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_PP_MUXER_A[@]}"
+    __AUDIO_ENCODE_START_DATE=`date --rfc-3339=ns`
+    
+    $EXECUTE_PREFIX_COMMANDS \
+	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+            $DECODE_APPEND \
+	    ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+	    -i "$DIRNAME2/$SRC2" \
+	    ${ARG_ENCODE_GENERAL_FLAGS_A[@]} \
+	    ${ARG_ENCODE_GENERAL_FLAGS[@]} \
+	    ${ARG_ENCODE_STREAMS_A[@]} \
+	    -c:a aac \
+	    ${_AUDIO_ARGS[@]} \
+	    ${ARG_PP_MUXER[@]} \
+	    ${ARG_PP_MUXER_A[@]} \
+	    -y $TEMPDIR/a1tmp.m4a
+	    
+	    RESULT_ENC_AUDIO=$?
+	    __AUDIO_ENCODE_END_DATE=`date --rfc-3339=ns`
+	    
+	    if [ ${RESULT_ENC_AUDIO} -ne 0 ] ; then
+	        logging "Error: Error on decoding AUDIO."
+		if [ $IGNORE_DECODE_ERRORS -ne 0 ] ; then
+		    logging "WARNING: ERROR on encoding, but try to make encoding; ERROR = ${RESULT_ENC_AUDIO}"
+		else
+		    cd ../..
+		    rm -rf $TEMPDIR
+		    logging "ERROR ${RESULT_ENC_AUDIO}"
+		    exit 2
+		fi
+	    fi
+
+    # 2 : Encode video
     if [ ${USE_SVTAV1} -ne 0 ] ; then
 	declare -a __APPEND_ARGS_PRE
 	unset __APPEND_ARGS_PRE[@]
@@ -3126,48 +3198,55 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
 	fi    
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}(${SVTAV1_PRESET})"
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(real_encoder=libsvtav1)
-
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(real_encoder=libsvtav1)
+	
 	if [ "__xx__" != "__xx__${VIDEO_FILTERCHAIN_HWACCEL}" ] ; then
-	    ARG_METADATA+=(-metadata:s:v:0)
-	    ARG_METADATA+=(filterchains="${VIDEO_FILTERCHAIN_HWACCEL}")
+	    ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	    ARG_METADATA_STREAMS+=(filterchains="${VIDEO_FILTERCHAIN_HWACCEL}")
 	fi
 	if [ "__xx__" != "__xx__${__VCODEC_PARAMS}" ] ; then
-	    ARG_METADATA+=(-metadata:s:V:0)
-	    ARG_METADATA+=(vcodec_params="${__VCODEC_PARAMS}")
+	    ARG_METADATA_STREAMS+=(-metadata:s:V:0)
+	    ARG_METADATA_STREAMS+=(vcodec_params="${__VCODEC_PARAMS}")
 	fi
 	if [ "__xx__" != "__xx__${__VCODEC_DISP_PARAMS}" ] ; then
-	    ARG_METADATA+=(-metadata:s:V:0)
-	    ARG_METADATA+=(vcodec_params_any="${__VCODEC_DISP_PARAMS}")
+	    ARG_METADATA_STREAMS+=(-metadata:s:V:0)
+	    ARG_METADATA_STREAMS+=(vcodec_params_any="${__VCODEC_DISP_PARAMS}")
 	fi
-	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]}  -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "Encoding Video : "
+	logging "  ${ARG_ENCODE_GENERAL_FLAGS_V[@]} ${ARG_ENCODE_GENERAL_FLAGS[@]} ${ARG_ENCODE_STREAMS_V[@]} "
+	logging "  ${FRAMERATE} -aspect ${VIDEO_ASPECT} -vf ${VIDEO_FILTERCHAIN_HWACCEL}"
+	logging "  -> -c:v libvsvtav1 ${ARG_PP_MUXER_V[@]} -filter_complex_threads ${FILTER_COMPLEX_THREADS} "
+	logging "      -filter_threads ${FILTER_THREADS}  ${SVTAV1_HEAD_VALUES[@]} ${__APPEND_ARGS_PRE[@]} "
+	logging "      -svtav1-params ${__VCODEC_PARAMS}  ${__APPEND_ARGS_POST[@]} "
+	logging "      -threads ${ENCTHREADS} ${ARG_PP_MUXER[@]} ${ARG_PP_MUXER_V[@]} "
+	
+	__VIDEO_ENCODE_START_DATE=`date --rfc-3339=ns`
 	#echo \
-	    $EXECUTE_PREFIX_COMMANDS \
-		    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
-	            $DECODE_APPEND \
-		    ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
-		    -i "$DIRNAME2/$SRC2" \
-		    ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		    ${ARG_ENCODE_STREAMS[@]} \
-		    ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
-		    -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
-		    -c:v libsvtav1 \
-		    -c:a aac \
-		    -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
-		    ${SVTAV1_HEAD_VALUES[@]} \
-		    ${__APPEND_ARGS_PRE[@]} \
-		    -svtav1-params "${__VCODEC_PARAMS}" \
-		    ${__APPEND_ARGS_POST[@]} \
-		    -threads ${ENCTHREADS} \
-		    ${_AUDIO_ARGS[@]} \
-		    ${ARG_PP_MUXER[@]} \
-		    "${ARG_METADATA[@]}" \
-		    -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		    -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		    -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		    -y $TEMPDIR/v1tmp.mkv
+	$EXECUTE_PREFIX_COMMANDS \
+	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
+	    $DECODE_APPEND \
+	    ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
+	    -i "$DIRNAME2/$SRC2" \
+	    ${ARG_ENCODE_GENERAL_FLAGS_V[@]} \
+	    ${ARG_ENCODE_GENERAL_FLAGS[@]} \
+	    ${ARG_ENCODE_STREAMS_V[@]} \
+	    ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
+	    -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
+	    -c:v libsvtav1 \
+	    -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
+	    ${SVTAV1_HEAD_VALUES[@]} \
+	    ${__APPEND_ARGS_PRE[@]} \
+	    -svtav1-params "${__VCODEC_PARAMS}" \
+	    ${__APPEND_ARGS_POST[@]} \
+	    -threads ${ENCTHREADS} \
+	    ${ARG_PP_MUXER[@]} \
+	    ${ARG_PP_MUXER_V[@]} \
+	    -y $TEMPDIR/v1tmp.mp4
+		    
+	RESULT_ENC_VIDEO=$?
 	    #exit -1
+	__VIDEO_ENCODE_END_DATE=`date --rfc-3339=ns`
 	    
     elif [ ${USE_X265} -ne 0 ]; then
     
@@ -3220,71 +3299,80 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	    FFMPEG_X265_PARAMS="-x265-params ${X265_PARAMS}"
 	fi
 
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(real_encoder=libx265)
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(real_encoder=libx265)
 
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:profile=${X265_PROFILE}"
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:preset=${X265_PRESET}"
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${__QUANT_TYPE}=${VIDEO_QUANT}"
 	DISPLAY_ENCODER_PARAMS="${DISPLAY_ENCODER_PARAMS}:${X265_PARAMS}"
 	
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_threads="${DISPLAY_SINK_PARAM}")
 	
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
 
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(filterchains="${DISPLAY_FILTERCHAIN}")
 #		      -af aresample=async=1 \
 #		      -af aresample=async=1:first_pts=0 \
 
-	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "Encoding Video : "
+	logging "  ${ARG_ENCODE_GENERAL_FLAGS_V[@]} ${ARG_ENCODE_GENERAL_FLAGS[@]} ${ARG_ENCODE_STREAMS_V[@]} "
+	logging "  ${FRAMERATE} -aspect ${VIDEO_ASPECT} -vf ${VIDEO_FILTERCHAIN_HWACCEL}"
+	logging "  -> -c:v libx265 ${ARG_PP_MUXER_V[@]} -filter_complex_threads ${FILTER_COMPLEX_THREADS} "
+	logging "     -filter_threads ${FILTER_THREADS}  ${SVTAV1_HEAD_VALUES[@]} ${__APPEND_ARGS_PRE[@]} "
+	logging "     ${FFMPEG_X265_HEAD[@]} ${FFMPEG_X265_FRAMES1} ${FFMPEG_X265_AQ} "
+	logging "     ${FFMPEG_X265_PARAMS} -threads ${ENCTHREADS} "
+
+	__VIDEO_ENCODE_START_DATE=`date --rfc-3339=ns`
+	
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
 		       ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		       -i "$DIRNAME2/$SRC2" \
+		       ${ARG_ENCODE_GENERAL_FLAGS_V[@]} \
 		       ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-		       ${ARG_ENCODE_STREAMS[@]} \
+		       ${ARG_ENCODE_STREAMS_V[@]} \
 		       ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		       -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		       -c:v libx265 \
-		       -c:a aac \
 		       -filter_complex_threads ${FILTER_COMPLEX_THREADS} -filter_threads ${FILTER_THREADS} \
 		      ${FFMPEG_X265_HEAD[@]} \
 		      ${FFMPEG_X265_FRAMES1} \
 		      ${FFMPEG_X265_AQ} \
 		      ${FFMPEG_X265_PARAMS} \
 		      -threads ${ENCTHREADS} \
-		      ${_AUDIO_ARGS[@]} \
 		      ${ARG_PP_MUXER[@]} \
-		      "${ARG_METADATA[@]}" \
-		      -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		      -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		      -y $TEMPDIR/v1tmp.mkv
+		      ${ARG_PP_MUXER_V[@]} \	
+		      -y $TEMPDIR/v1tmp.mp4
 	
+	RESULT_ENC_VIDEO=$?
+	__VIDEO_ENCODE_END_DATE=`date --rfc-3339=ns`
+
     else
 	
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(real_encoder=libx264)
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_params="profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(real_encoder=libx264)
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_params="profile=${X264_PROFILE}:${FFMPEG_X264_PARAM}")
 
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+
+	__VIDEO_ENCODE_START_DATE=`date --rfc-3339=ns`
 	$EXECUTE_PREFIX_COMMANDS  \
 	    ${FFMPEG_CMD} -loglevel info ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	          $DECODE_APPEND \
 		  ${ARG_DECODE_GENERAL_SKIP_FLAGS[@]} \
 		  -i "$DIRNAME2/$SRC2" \
 		  ${ARG_ENCODE_GENERAL_FLAGS[@]} \
-	          ${ARG_ENCODE_STREAMS[@]} \
+	          ${ARG_ENCODE_STREAMS_V[@]} \
 	          ${FRAMERATE} -aspect ${VIDEO_ASPECT} \
 		  -vf ${VIDEO_FILTERCHAIN_HWACCEL} \
 		  -c:v libx264 \
@@ -3294,16 +3382,16 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		  ${FFMPEG_X264_AQ[@]} \
 		  -x264-params ${FFMPEG_X264_PARAM} \
 		  -threads ${ENCTHREADS} \
-		  ${_AUDIO_ARGS[@]} \
 		  ${ARG_PP_MUXER[@]} \
-		  "${ARG_METADATA[@]}" \
-		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-      		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		  -y $TEMPDIR/v1tmp.mkv 
+		  -y $TEMPDIR/v1tmp.mp4 
+		  
+		  RESULT_ENC_VIDEO=$?
+		  __VIDEO_ENCODE_END_DATE=`date --rfc-3339=ns`
+
 	fi
     
     #    -filter_complex_threads 4 -filter_threads 4 \
+	
 elif    test $HWENC -ne 0; then
 	DISPLAY_FILTERCHAIN="filter_complex:${DISPLAY_FILTERCHAIN}"
 	
@@ -3354,16 +3442,18 @@ elif    test $HWENC -ne 0; then
 	DISPLAY_ENCODER_PARAMS="profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}"
 
 
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(real_encoder=h264_vaapi)
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(real_encoder=h264_vaapi)
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_params="${DISPLAY_ENCODER_PARAMS}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
-	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} ${ARG_METADATA_STREAMS[@]}-metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	
+	__VIDEO_ENCODE_START_DATE=`date --rfc-3339=ns`
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD} ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	              $DECODE_APPEND \
@@ -3383,14 +3473,13 @@ elif    test $HWENC -ne 0; then
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
 		       ${ARG_PP_MUXER[@]} \
-		       "${ARG_METADATA[@]}" \
-		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		       -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		       -y $TEMPDIR/v1tmp.mkv  \
+		       -y $TEMPDIR/v1tmp.mp4  \
 	    
 		       #    -c:v hevc_vaapi \
-			   
+		       
+		       RESULT_ENC_VIDEO=$?
+	__VIDEO_ENCODE_END_DATE=`date --rfc-3339=ns`
+
     else
 	DISPLAY_FFMPEG_ENCODER="-metadata:s:v:0 real_encoder=hevc_vaapi"
         HWENC_PARAM=""
@@ -3416,17 +3505,18 @@ elif    test $HWENC -ne 0; then
 	DISPLAY_HWENC_PARAM=`echo "${HWENC_PARAM}" | gawk "${__HWENC_AWK}"`
 	DISPLAY_SINK_PARAM="${DISPLAY_SINK_PARAM}:threads(0)=4:threads(1)=4"
 	
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(real_encoder=hevc_vaapi)
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_params="profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}")
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(encode_threads="${DISPLAY_SINK_PARAM}")
-	ARG_METADATA+=(-metadata:s:v:0)
-	ARG_METADATA+=(filterchains="${DISPLAY_FILTERCHAIN}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(real_encoder=hevc_vaapi)
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_params="profile=${X265_PROFILE}:${DISPLAY_HWENC_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(encode_threads="${DISPLAY_SINK_PARAM}")
+	ARG_METADATA_STREAMS+=(-metadata:s:v:0)
+	ARG_METADATA_STREAMS+=(filterchains="${DISPLAY_FILTERCHAIN}")
 	
 
-	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	logging "${_AUDIO_ARGS[@]} ${ARG_PP_MUXER[@]} ${ARG_METADATA[@]} ${ARG_METADATA_STREAMS[@]} -metadata:g decoder_opts=”`cat $TEMPDIR/general_decoder_opts.txt`” -metadata:s:v v_encoder_options=”`cat $TEMPDIR/v_encoder_options.txt`”"
+	__VIDEO_ENCODE_START_DATE=`date --rfc-3339=ns`
 	$EXECUTE_PREFIX_COMMANDS \
 	    ${FFMPEG_CMD}  ${ARG_DECODE_GENERAL_FLAGS[@]} \
 	               $DECODE_APPEND \
@@ -3448,59 +3538,32 @@ elif    test $HWENC -ne 0; then
 		       ${FRAMERATE} \
 		       ${_AUDIO_ARGS[@]} \
 		       ${ARG_PP_MUXER[@]} \
-		       "${ARG_METADATA[@]}" \
-		       -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
-		       -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
-		      -metadata:g enc_start="${__ENCODE_START_DATE}" \
-		       -y $TEMPDIR/v1tmp.mkv 
-
+		       -y $TEMPDIR/v1tmp.mp4 
+		       
+		       RESULT_ENC_VIDEO=$?
+	__VIDEO_ENCODE_END_DATE=`date --rfc-3339=ns`
 	
  #    -c:v hevc_vaapi \
     fi
 fi
 
-#DEC_VIDEO_PID=$!
-
-#if test $HWENC -eq 0; then 
-#wait $DEC_AUDIO_PID
-#fi
-#RESULT_DEC_AUDIO=$?
-
-#wait $ENC_AUDIO_PID
-#RESULT_ENC_AUDIO=$?
-
-#wait $DEC_VIDEO_PID
-RESULT_DEC_VIDEO=$?
-
-
-if test $HWENC -eq 0; then 
-wait $ENC_VIDEO_PID
-RESULT_ENC_VIDEO=$?
 fi
-fi
+
+__ENCODE_END_DATE=`date --rfc-3339=ns`
 
 #exit 1
-# Demux files to one video
+# Mux files to one video
 ERRFLAGS=0
-#if test $HWENC -eq 0; then
-#if test $RESULT_DEC_AUDIO -ne 0 ; then
-#  logging "Error: Error on decoding AUDIO."
-#  ERRFLAGS=1
-#fi
-#fi
-#if test $RESULT_ENC_AUDIO -ne 0 ; then
-#  echo "Error: Error on encoding AUDIO."
-#  ERRFLAGS=1
-#fi
-if test $RESULT_DEC_VIDEO -ne 0 ; then
-  logging "Error: Error on decoding AUDIO."
+
+if [ ${RESULT_ENC_VIDEO} -ne 0 ] ; then
+  logging "Error: Error on encoding VIDEO."
   ERRFLAGS=1
 fi
 
 if test $FFMPEG_ENC -eq 0; then
 if test $HWENC -eq 0; then 
 if test $RESULT_ENC_VIDEO -ne 0 ; then
-  logging "Error: Error on encoding AUDIO."
+  logging "Error: Error on encoding VIDEO."
   ERRFLAGS=1
 fi
 fi
@@ -3518,8 +3581,6 @@ if test $ERRFLAGS -ne 0; then
 fi
 
 if test -s "$TEMPDIR/${__SUB_FILE_NAME}" ; then
-    ARG_MUX_SUB_STREAM+=(-map:s)
-    ARG_MUX_SUB_STREAM+=(1:0)
     
     ARG_MUX_SUB_TXT2+=(-c:s)
     ARG_MUX_SUB_TXT2+=(copy)
@@ -3534,19 +3595,60 @@ if test -s "$TEMPDIR/${__SUB_FILE_NAME}" ; then
     #    ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=${__TMPS_X}" 
     #	#ARG_SUBTXT2="${ARG_SUBTXT2} -metadata:s:s:0 decoder_options_for_subscripts=\"${__TMPS_DECODER_SUB}\"" 
     #fi
+    
+    ####
+    # ToDo: Merge multiple audio streams.
     $EXECUTE_PREFIX_COMMANDS \
-    ${FFMPEG_CMD} -i $TEMPDIR/v1tmp.mkv \
+        ${FFMPEG_CMD} \
+                  -i $TEMPDIR/v1tmp.mp4 \
+                  -i $TEMPDIR/a1tmp.m4a \
                   ${ARG_ENCODE_SUB_DELAY_FLAGS[@]} \
 		  ${ARG_ENCODE_SUB_CODEC_FLAGS[@]}  \
                   -i $TEMPDIR/${__SUB_FILE_NAME} \
-		  ${ARG_ENCODE_STREAMS[@]} \
+		  -map:v 0:0 \
+		  ${_AUDIO_STREAMS_FINAL_MUX[@]} \
+		  -map:s 2:0 \
+		  -c:v copy \
+		  ${_AUDIO_ARGS_FINAL_MUX[@]} \
+		  ${ARG_PP_MUXER[@]}\
+		  ${ARG_PP_MUXER_MKV[@]}\
 		  ${ARG_MUX_SUB_STREAM[@]} \
 		  ${ARG_ENCODE_SUB_TXT2[@]} \
 		  ${ARG_MUX_SUB_TXT2[@]} \
+		  "${ARG_METADATA[@]}" \
+		  "${ARG_METADATA_STREAMS[@]}" \
+		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
+		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
+		  -metadata:s:v enc_start="${__VIDEO_ENCODE_START_DATE}" \
+		  -metadata:s:v enc_end="${__VIDEO_ENCODE_END_DATE}" \
+		  -metadata:s:a:0 enc_start="${__AUDIO_ENCODE_START_DATE}" \
+		  -metadata:s:a:0 enc_end="${__AUDIO_ENCODE_END_DATE}" \
 		  -metadata:s:s:0 decoder_options_for_subscripts="`cat $TEMPDIR/decoder_sub_str.txt`" \
 		  -y $TEMPDIR/v2tmp.mkv
 else
-    mv $TEMPDIR/v1tmp.mkv $TEMPDIR/v2tmp.mkv
+    ####
+    # ToDo: Merge multiple audio streams.
+    $EXECUTE_PREFIX_COMMANDS \
+         ${FFMPEG_CMD} \
+                  -i $TEMPDIR/v1tmp.mp4 \
+                  -i $TEMPDIR/a1tmp.m4a \
+		  -map:v 0:0 \
+		  ${_AUDIO_STREAMS_FINAL_MUX[@]} \
+		  -c:v copy \
+		  ${_AUDIO_ARGS_FINAL_MUX[@]} \
+		  ${ARG_PP_MUXER[@]}\
+		  ${ARG_PP_MUXER_MKV[@]}\
+		  "${ARG_METADATA[@]}" \
+		  "${ARG_METADATA_STREAMS[@]}" \
+		  -metadata:g decoder_opts="`cat $TEMPDIR/general_decoder_opts.txt`" \
+		  -metadata:s:v v_encoder_options="`cat $TEMPDIR/v_encoder_options.txt`" \
+		  -metadata:g enc_start="${__ENCODE_START_DATE}" \
+		  -metadata:s:v enc_start="${__VIDEO_ENCODE_START_DATE}" \
+		  -metadata:s:v enc_end="${__VIDEO_ENCODE_END_DATE}" \
+		  -metadata:s:a:0 enc_start="${__AUDIO_ENCODE_START_DATE}" \
+		  -metadata:s:a:0 enc_end="${__AUDIO_ENCODE_END_DATE}" \
+		  -y $TEMPDIR/v2tmp.mkv
 fi   
 
 touch "$DIRNAME/test$BASENAME"
@@ -3563,12 +3665,12 @@ else
 fi
 
 RESULT_DEMUX=$?
-#/if test $RESULT_DEMUX -ne 0; then
-#  echo "Errror on DEMUXing."
-#  cd ../..
-#  rm -rf $TEMPDIR
-#  exit 3
-#fi
+if test $RESULT_DEMUX -ne 0; then
+  echo "Errror on DEMUXing."
+  cd ../..
+  rm -rf $TEMPDIR
+  exit 3
+fi
 
 
 
