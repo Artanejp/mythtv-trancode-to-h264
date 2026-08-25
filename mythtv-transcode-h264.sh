@@ -1228,6 +1228,16 @@ declare -a _AUDIO_STREAMS_FINAL_MUX
 readarray __STREAMS <<< ${X_FFPROBE_STREAM}
 declare -a __TMP_X
 
+declare -a ARG_ENCODE_STREAMS_A
+unset ARG_ENCODE_STREAMS_A[@]
+
+declare -a ARG_ENCODE_STREAMS_V
+unset ARG_ENCODE_STREAMS_V[@]
+
+declare -a ARG_ENCODE_VIDEO_ARGS
+unset ARG_ENCODE_VIDEO_ARGS[@]
+
+
 #_AUDIO_STREAMS=1
 _AUDIO_STREAMS=0
 _VIDEO_STREAMS=0
@@ -1260,6 +1270,8 @@ for _x in "${__STREAMS[@]}" ; do
     if [ "__x__${__IS_AUDIO}" != "__x__" ] ; then
         readarray -d "," __TMP_X <<< ${__IS_AUDIO}
 	__TMP_AUDIO_CH=`echo ${__TMP_X[2]}`
+	__TMP_SRC_AUDIO_STREAM_NUM=`echo ${_x} | sed 's/Stream #//' | sed 's/\[.*$//'`
+	echo ${__SRC_AUDIO_STREAM_NUM}
 	case "$__TMP_AUDIO_CH" in
 	    "5.1," )
 	       _AUDIO_ARGS+=(-c:a:$_AUDIO_STREAMS)
@@ -1284,13 +1296,32 @@ for _x in "${__STREAMS[@]}" ; do
 	       _AUDIO_ARGS+=("${AUDIOBITRATE}k")
 	       ;;
 	esac
-	_AUDIO_STREAMS_FINAL_MUX+=(-map:a:${_AUDIO_STREAMS})
-	_AUDIO_STREAMS_FINAL_MUX+=("1:${_AUDIO_STREAMS}")
+	ARG_ENCODE_STREAMS_A+=(-map:a:${_AUDIO_STREAMS})
+	ARG_ENCODE_STREAMS_A+=(${__TMP_SRC_AUDIO_STREAM_NUM})
+	_AUDIO_STREAMS_FINAL_MUX+=(-map:a)
+	_AUDIO_STREAMS_FINAL_MUX+=(1:${_AUDIO_STREAMS})
 	_AUDIO_ARGS_FINAL_MUX+=(-c:a:${_AUDIO_STREAMS})
 	_AUDIO_ARGS_FINAL_MUX+=(copy)
+	
+	if [ ${_AUDIO_STREAMS} -gt 0 ] ; then
+	    ARG_METADATA_STREAMS+=(-metadata:s:a:${_AUDIO_STREAMS})
+	    ARG_METADATA_STREAMS+=(DESCRIPTION="副音声 #${_AUDIO_STREAMS}")
+	    ARG_METADATA_STREAMS+=(-metadata:s:a:${_AUDIO_STREAMS})
+	    ARG_METADATA_STREAMS+=(title="副音声 #${_AUDIO_STREAMS}")
+        else
+	    ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+	    ARG_METADATA_STREAMS+=(language=jpn)
+	    ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+	    ARG_METADATA_STREAMS+=(DESCRIPTION=主音声)
+	    ARG_METADATA_STREAMS+=(-metadata:s:a:0)
+	    ARG_METADATA_STREAMS+=(title=主音声)
+	fi
+	ARG_METADATA_STREAMS+=(-metadata:s:a:${_AUDIO_STREAMS})
+	ARG_METADATA_STREAMS+=(real_encoder=aac)
 	let _AUDIO_STREAMS++
     fi
 done
+
 _AUDIO_ARGS+=(-af)
 _AUDIO_ARGS+=(aresample=async=1:min_hard_comp=0.1:first_pts=0)
 
@@ -2638,15 +2669,6 @@ unset ARG_ENCODE_SUB_CODEC_FLAGS[@]
 declare -a ARG_ENCODE_SUB_DELAY_FLAGS
 unset ARG_ENCODE_SUB_DELAY_FLAGS[@]
 
-declare -a ARG_ENCODE_STREAMS_A
-unset ARG_ENCODE_STREAMS_A[@]
-
-declare -a ARG_ENCODE_STREAMS_V
-unset ARG_ENCODE_STREAMS_V[@]
-
-declare -a ARG_ENCODE_VIDEO_ARGS
-unset ARG_ENCODE_VIDEO_ARGS[@]
-
 declare -a ARG_MUX_SUB_TXT2
 unset ARG_MUX_SUB_TXT2[@]
 
@@ -2654,8 +2676,6 @@ unset ARG_MUX_SUB_TXT2[@]
 # Basic STREAM
 ARG_ENCODE_STREAMS_V+=(-map:v)
 ARG_ENCODE_STREAMS_V+=(0:0)
-ARG_ENCODE_STREAMS_A+=(-map:a)
-ARG_ENCODE_STREAMS_A+=(0:1)
 
 
 # MUX
@@ -2798,14 +2818,6 @@ ARG_ENCODE_GENERAL_FLAGS_A+=(-copytb)
 ARG_ENCODE_GENERAL_FLAGS_A+=(1)
 ARG_ENCODE_GENERAL_FLAGS_A+=(-start_at_zero)
 
-ARG_METADATA_STREAMS+=(-metadata:s:a:0)
-ARG_METADATA_STREAMS+=(language=jpn)
-ARG_METADATA_STREAMS+=(-metadata:s:a:0)
-ARG_METADATA_STREAMS+=(real_encoder=aac)
-ARG_METADATA_STREAMS+=(-metadata:s:a:0)
-ARG_METADATA_STREAMS+=(DESCRIPTION=主音声)
-ARG_METADATA_STREAMS+=(-metadata:s:a:0)
-ARG_METADATA_STREAMS+=(title=主音声)
 
 # ADD METADATA around AUDIO, if additional track exists.
 
