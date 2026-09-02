@@ -1318,6 +1318,8 @@ for _x in "${__STREAMS[@]}" ; do
 	fi
 	ARG_METADATA_STREAMS+=(-metadata:s:a:${_AUDIO_STREAMS})
 	ARG_METADATA_STREAMS+=(real_encoder=aac)
+	# ONLY MAIN SOUND (WORKAROUND) 2026-09-02.
+	break
 	let _AUDIO_STREAMS++
     fi
 done
