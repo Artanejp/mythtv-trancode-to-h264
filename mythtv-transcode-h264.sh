@@ -1058,8 +1058,8 @@ fi
 if [ -z "${BASENAME}" ] ; then
    # At least, must replace '/' with '／'. - 20261011 K.O
    #__ARG_TITLE2=`echo "${__N_TITLE}" | awk -F/ "{print $NF}" | sed -e 's/\"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e "s/;/；/g" | sed -e 's/\&/＆/g' | sed -e 's/\\/＼/g' `
-   #__ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e 's/;/；/g' | sed -e 's/&/＆/g' | sed -e 's/\\/＼/g' `
-   __ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/\//／/g' | sed -e "s/'/’/g" | sed -e 's/&/＆/g' | sed -e 's/\\/\\\\/g' `
+   __ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | | sed -e 's/&/＆/g' `
+   #__ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/\//／/g' | sed -e "s/'/’/g" | sed -e 's/&/＆/g' | sed -e 's/\\/\\\\/g' `
    BASENAME="${__ARG_TITLE2}_${I_CHANID}_${ARG_STARTTIME}.mkv"
 fi
   logging "TRY TO ENCODE SRC:DIR=${DIRNAME2} NAME=${SRC} TO DST:DIR=${DIRNAME} NAME=${BASENAME}" 
