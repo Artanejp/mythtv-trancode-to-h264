@@ -300,6 +300,31 @@ function logging() {
    echo ${__str}
 }
 
+function calc_any() {
+    __str="$@"
+    echo `calc "${__str}" | tr -d "[:space:]"`
+}
+
+function calc_add() {
+    __a1="$1"
+    __a2="$2"
+    echo `calc ${__a1} + ${__a2} | tr -d "[:space:]"`
+}
+
+function calc_mul() {
+    __a1="$1"
+    __a2="$2"
+    echo `calc ${__a1} "*" ${__a2} | tr -d "[:space:]"`
+}
+
+function conv_megabytes() {
+    echo `calc "$1 * 1024 * 1024" | tr -d "[:space:]"`
+}
+
+function conv_to_int() {
+    echo `calc "int( $@ )" | tr -d "[:space:]"`
+}
+
 logging "$@"
 
 USE_HDR=${USE_HDR_DEFAULT}
@@ -730,66 +755,39 @@ TEMPDIR=`mktemp -d`
 
 function change_arg_nonpath() {
     # $1 = str
-    __tmpv1="$1"
+    __tmpv1="$@"
     logging "${__tmpv1}"
 #    if [ -n "${__tmpv1}" ] ; then
 cat <<EOF >${TEMPDIR}/__tmpscript0
 s/\"/”/g
 s/&/＆/g
-s/\&/＆/g
-s/'/’/g
+s/"'"/’/g
 s/!/！/g
 s/?/？/g
 s/\#/＃/g
 s/\//／/g
 s/=/＝/g
 s/ /　/g
-s/"\\"/＼/g
 s/\;/；/g
 s/)/）/g
 s/(/（/g
 s/\[/［/g
-s/"\"/＼/g
+s/\\/＼/g
 s/\]/］/g
 s/</＜/g
 s/>/＞/g
-s/"\n"/_/g
+s/\r/\\\r/g
+s/\n/\\\n/g
+s/\v/\\\v/g
+s/\a/ /g
+s/\b/ /g
+s/\f/ /g
 EOF
-__tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed -f ${TEMPDIR}/__tmpscript0`
+__tmpv1=`echo "${__tmpv1}" | awk -F/ "{print $NF}" | sed -f ${TEMPDIR}/__tmpscript0`
 echo "${__tmpv1}"
 #rm ${TEMPDIR}/__tmpscript0
 }
 
-# Not substitude slash.
-function change_arg_nonpath2() {
-    # $1 = str
-    __tmpv1="$1"
-    logging "${__tmpv1}"
-#    if [ -n "${__tmpv1}" ] ; then
-cat <<EOF >${TEMPDIR}/__tmpscript02
-s/\"/”/g
-s/&/ ＆/g
-s/'/’/g
-s/!/！/g
-s/?/？/g
-s/\#/＃/g
-s/=/＝/g
-s/[[:blank:]]/　/g
-s/"\\"/＼/g
-s/\;/；/g
-s/)/）/g
-s/(/（/g
-s/\[/［/g
-s/"\"/＼/g
-s/\]/］/g
-s/</＜/g
-s/>/＞/g
-s/"\n"/_/g
-EOF
-__tmpv1=`echo "${__tmpv1}" | awk -F/ '{print $NF}' | sed -f ${TEMPDIR}/__tmpscript02`
-echo "${__tmpv1}"
-#rm ${TEMPDIR}/__tmpscript02
-}
 
 #"
 function change_arg_file() {
@@ -972,12 +970,6 @@ fi
 if [ -e "$TEMPDIR/recid.txt" ] ; then
     __N_RECID=`cat "$TEMPDIR/recid.txt"`
 fi
-#    logging ${__N_TITLE}
-#    if [ -n "${__N_TITLE}" ] ; then
-#      change_arg_file "$TEMPDIR/title.txt"
-#ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-#ARG_METADATA+=(-metadata:g)
-#ARG_METADATA+=(real_title="${ARG_TITLE}")
 if [ __xxx__"${__N_TITLE}" != __xxx__ ] ; then
     #ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
     #ARG_METADATA+=(-metadata:g)
@@ -987,8 +979,6 @@ if [ __xxx__"${__N_TITLE}" != __xxx__ ] ; then
     ARG_METADATA+=(-metadata:g)
     ARG_METADATA+=("real_title=${__N_TITLE}")
 fi
-#      logging ${ARG_TITLE}
-#    fi
 if [ -n "${__N_GENRE}" ] ; then
     ARG_GENRE=$(change_arg_file "$TEMPDIR/category.txt")
     ARG_METADATA+=(-metadata:g)
@@ -996,8 +986,6 @@ if [ -n "${__N_GENRE}" ] ; then
     #      logging ${ARG_GENRE}
 fi
 if [ -n "${__N_SUBTITLE}" ] ; then
-    #ARG_SUBTITLE=$(change_arg_file "$TEMPDIR/subtitle.txt")
-    #__TMPARG_TITLE="${ARG_TITLE}:${ARG_SUBTITLE}" 
     __N_SUBTITLE=`echo ${__N_SUBTITLE} | sed s/\"/”/g `
     __TMPARG_TITLE="${__N_TITLE}: ${__N_SUBTITLE}" 
 
@@ -1043,13 +1031,13 @@ fi
 
 
 logging "TITLE:"
-logging "${__N_TITLE}"
+logging " ${__N_TITLE}"
 logging "START:"
-logging "${ARG_STARTTIME}"
+logging " ${ARG_STARTTIME}"
 logging "SUBTITLE:"
-logging "${__N_SUBTITLE}"
-#logging "DESCRIPTION:"
-#logging "${ARG_DESC}"
+logging " ${__N_SUBTITLE}"
+logging "DESCRIPTION:"
+logging " ${ARG_DESC}"
 
 #if [ "__x__${ARG_DESC}" = "__x__" ] ; then
 #   ARG_DESC=" "
@@ -1060,17 +1048,19 @@ BASENAME=""
 if [ $N_DIRSET -ne 0 ] ; then
    DIRNAME2="${S_DIRSET}"
    DIRNAME="${S_DIRSET}"
-#   BASENAME=`change_arg_nonpath "${DST}"`
-#  BASENAME=`echo "${DST}" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed "s/'/’/g" | sed 's/"//g' `
 else
   DIRNAME2=`dirname "$SRC"`
   DIRNAME=`dirname "$DST"`
   #DIRNAME=`dirname "$SRC"`
   #BASENAME0=`basename "$DST"`
-  BASENAME=`echo "$DST" | awk -F/ '{print $NF}' | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
+  BASENAME=`echo "$DST" | awk -F/ "{print $NF}" | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
 fi
 if [ -z "${BASENAME}" ] ; then
-   BASENAME="${ARG_TITLE}_${I_CHANID}_${ARG_STARTTIME}.mkv"
+   # At least, must replace '/' with '／'. - 20261011 K.O
+   #__ARG_TITLE2=`echo "${__N_TITLE}" | awk -F/ "{print $NF}" | sed -e 's/\"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e "s/;/；/g" | sed -e 's/\&/＆/g' | sed -e 's/\\/＼/g' `
+   #__ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e 's/;/；/g' | sed -e 's/&/＆/g' | sed -e 's/\\/＼/g' `
+   __ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/\//／/g' | sed -e "s/'/’/g" | sed -e 's/&/＆/g' | sed -e 's/\\/\\\\/g' `
+   BASENAME="${__ARG_TITLE2}_${I_CHANID}_${ARG_STARTTIME}.mkv"
 fi
   logging "TRY TO ENCODE SRC:DIR=${DIRNAME2} NAME=${SRC} TO DST:DIR=${DIRNAME} NAME=${BASENAME}" 
 
@@ -1282,7 +1272,7 @@ for _x in "${__STREAMS[@]}" ; do
 	       _AUDIO_ARGS+=(6)
 	       _AUDIO_ARGS+=(-ab:$_AUDIO_STREAMS)
 	       typeset -i __TMP_ABITRATE
-	       __TMP_ABITRATE=`calc -d ${AUDIOBITRATE} * 3 | tr -d [:space:]`
+	       __TMP_ABITRATE=`calc_mul ${AUDIOBITRATE}  3`
 	       _AUDIO_ARGS+=("${__TMP_ABITRATE}k")
 	       ;;
            *)
@@ -1416,7 +1406,7 @@ case "$x" in
    VIDEO_MINQ=14
    VIDEO_MAXQ=35
    
-   SVTAV1_VIDEO_QUANT=37.5
+   SVTAV1_VIDEO_QUANT=36.5
    SVTAV1_VIDEO_MINQ=17
    SVTAV1_VIDEO_MAXQ=50
    
@@ -1693,7 +1683,7 @@ case "$x" in
 	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.25" | tr -d [:space:]`
+	      #SVTAV1_VIDEO_QUANT=`calc_mul "${SVTAV1_VIDEO_QUANT}" 1.25`
 	      #SVTAV1_TUNE="anime_grain"
 	      SVTAV1_TUNE="anime"
 	      #SVTAV1_DISABLE_TEMPORAL_FILTERING=1
@@ -1821,9 +1811,9 @@ case "$x" in
 	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2350
+	      	 TARGET_BITRATE_KBIT=2500
 	      else
-	      	 TARGET_BITRATE_KBIT=1250    
+	      	 TARGET_BITRATE_KBIT=1300    
 	      fi
 	      #TARGET_BITRATE_KBIT=-1
 	else      
@@ -1831,16 +1821,15 @@ case "$x" in
 	      SVTAV1_TUNE=NO_GRAIN
 	      # ACT AS AVERAGE bitrate.
 	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2450
+	      	 TARGET_BITRATE_KBIT=2050
 	      else
-	      	 TARGET_BITRATE_KBIT=1300    
+	      	 TARGET_BITRATE_KBIT=1200    
 	      fi
 	 fi
      else
 	 IS_CRF=1
      fi
-     SVTAV1_AQ_STRENGTH=1.4
-     SVTAV1_QP_SCALE_COMPRESS=1     
+     SVTAV1_AQ_STRENGTH=1.3
 
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
      
@@ -1848,19 +1837,24 @@ case "$x" in
      SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
      SVTAV1_VARIANCE_BOOST_CURVE=1          # Boost low to middle contrast.
      
-     SVTAV1_PRESET="faster"
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=50    # 40 -> 50
-	 SVTAV1_QUANT_OVERSHOOT_PERCENT=70     # NOT CRF 75 -> 70
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=65 # CRF : 70 -> 65
-	 
-	 SVTAV1_VIDEO_MAXQ=52                  # MAXQ: 50 -> 52
+	 SVTAV1_PRESET="veryfast"
+	 SVTAV1_VARIANCE_BOOST_STRENGTH=2      # 2 -> 2
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=90    # 40 -> 90
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=67     # NOT CRF 75 -> 67
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=67 # CRF : 70 -> 67
+	 SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 3` # MAXQ: +3
+	 SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: +1
+	 SVTAV1_QP_SCALE_COMPRESS=1     
      else
          X265_PRESET="veryfast"
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=30    # 40 -> 30
-	 SVTAV1_QUANT_OVERSHOOT_PERCENT=80     # NOT CRF 75 -> 80
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=80 # CRF : 70 -> 80
+	 SVTAV1_PRESET="faster"
+	 SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=40    # 40 -> 40
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=85     # NOT CRF 75 -> 85
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=85 # CRF : 70 -> 85
+	 SVTAV1_QP_SCALE_COMPRESS=2     
      fi
      
      __X264_BLURAY_COMPAT=1
@@ -2013,7 +2007,7 @@ case "$x" in
 	 IS_CRF=1
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      #SVTAV1_VIDEO_QUANT=`calc_mul ${SVTAV1_VIDEO_QUANT} 1.1`
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
@@ -2199,7 +2193,7 @@ case "$x" in
 	 IS_CRF=0
 	 if [ ${IS_CRF} -ne 0 ] ; then
 	      # ACT AS LIMITER.
-	      #SVTAV1_VIDEO_QUANT=`calc -d "${SVTAV1_VIDEO_QUANT} * 1.1" | tr -d [:space:]`
+	      #SVTAV1_VIDEO_QUANT=`calc_mul ${SVTAV1_VIDEO_QUANT} 1.1`
 	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
 	      #SVTAV1_TUNE=NO_GRAIN
 	      if [ $USE_60FPS -ne 0 ] ; then
@@ -2343,7 +2337,7 @@ case "$x" in
      
      X265_PRESET="ultrafast"
      SVTAV1_PRESET="ultrafast"
-     SVTAV1_AQ_STRENGTH="`calc -d ${VIDEO_AQSTRENGTH}+0.5 | tr -d [:space:]`"
+     SVTAV1_AQ_STRENGTH=`calc_add "${VIDEO_AQSTRENGTH}" 0.5`
    ;;
    LIVE_LOW_HW )
      IS_CRF=0
@@ -2698,7 +2692,7 @@ if [ ${IS_DROP_ERROR_FRAMES} -ne 0 ] ; then
     ARG_DECODE_GENERAL_FLAGS+=(1)
 fi
 if [ ${PREFETCH_MB} -gt 0 ] ; then
-    __XXXTMPS=`calc -d "1024 * 1024 * ${PREFETCH_MB}"`
+    __XXXTMPS=`conv_megabytes ${PREFETCH_MB}`
     if [ "___xxx___${__XXXTMPS}" != "___xxx___" ] ; then
 	ARG_ENCODE_GENERAL_FLAGS+=(-read_ahead_limit)
         ARG_ENCODE_GENERAL_FLAGS+=(${__XXXTMPS})
@@ -2975,7 +2969,8 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	if [ "__xxx__${SVTAV1_VIDEO_QUANT}" != "__xxx__" ] ; then
 	    SVTAV1_QUANT_VALUE=${SVTAV1_VIDEO_QUANT}
 	else
-	    SVTAV1_QUANT_VALUE=`calc -d "(${VIDEO_QUANT} * 1.5) + 2.0" | tr -d [:space:]`
+	    SVTAV1_QUANT_VALUE=`calc_mul ${VIDEO_QUANT}  1.5`
+	    SVTAV1_QUANT_VALUE=`calc_add ${SVTAV1_QUANT_VALUE} 2.0`
 	fi
 	#echo ${SVTAV1_QUANT_VALUE}
 	#exit 0
@@ -3047,22 +3042,23 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__CRF_MAX=-1
 	
 	typeset -i __QP_INT
-	__QP_INT=`calc -d "int( ${SVTAV1_QUANT_VALUE} )" | tr -d [:space:]`
+	__QP_INT=`conv_to_int ${SVTAV1_QUANT_VALUE}`
 
 	if [ ${SVTAV1_VIDEO_MINQ} -ge 0 ] ; then
 	    __CRF_MIN=${SVTAV1_VIDEO_MINQ}
 	elif [ "__n__${VIDEO_MINQ}" != "__n__" ] ; then
-	    __CRF_MIN=`calc -d "int( ${VIDEO_MINQ} * 0.90 )" | tr -d [:space:]`
+	    __CRF_MIN=`conv_to_int "${VIDEO_MINQ} * 0.90"`
 	    if [ ${__CRF_MIN} -ge ${__QP_INT} ] ; then
-		__CRF_MIN=`calc -d ${__QP_INT} - 2 | tr -d [:space:]`
+	        __CRF_MIN=`calc_add ${__QP_INT} -2`
+		#__CRF_MIN=`calc -d ${__QP_INT} - 2 | tr -d [:space:]`
 	    fi
 	fi
 	if [ ${SVTAV1_VIDEO_MAXQ} -ge 0 ] ; then
 	    __CRF_MAX=${SVTAV1_VIDEO_MAXQ}
 	elif [ "__n__${VIDEO_MAXQ}" != "__n__" ] ; then
-	    __CRF_MAX=`calc -d "int( ${VIDEO_MAXQ} * 1.2 + 1.5 )" | tr -d [:space:]`
+	    __CRF_MAX=`conv_to_int "${VIDEO_MAXQ} * 1.2 + 1.5"`
 	    if [ ${__CRF_MAX} -le ${__QP_INT} ] ; then
-		__CRF_MAX=`calc -d ${__QP_INT} + 4 | tr -d [:space:]`
+		__CRF_MAX=`calc_add ${__QP_INT} 4`
 	    fi
 	fi
 	if [ ${__CRF_MIN} -ge 0 ] ; then
@@ -3079,7 +3075,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		    __TMP_I=${__CRF_MIN}
 		    __CRF_MIN=${__CRF_MAX}
 		    __CRF_MAX=${__TMP_I}
-		    #__CRF_MIN=`calc -d "${__CRF_MAX} - 1" | tr -d [:space:]`
+		    #__CRF_MIN=`calc_add ${__CRF_MAX} -1`
 		fi
 		if [ ${__CRF_MIN} -lt 0 ] ; then
 		    __CRF_MIN=0
