@@ -866,9 +866,6 @@ ARG_SUBTITLE=""
 ARG_EPISODE=""
 ARG_ONAIR=""
 
-__N_TITLE=""
-
-
 
 printf "" > "$TEMPDIR/desc.txt"
 if [ -n "${VIDEO_DESC}" ] ; then
@@ -946,6 +943,11 @@ if test $N_QUERY_ID -gt 0 ; then
 echo "SELECT recordedid from recorded where chanid=${__N_CHANID} and starttime=\"${__N_STARTTIME}\" ;" > "$TEMPDIR/getrecid.query.sql"
 mysql -B -N  --user=$DATABASEUSER --password=$DATABASEPASSWORD mythconverg < "$TEMPDIR/getrecid.query.sql" > "$TEMPDIR/recid.txt" 
 
+else
+# Not using DB
+  if [ "___xxx___${DST}" != "___xxx___" ] ; then
+      basename "${DST}" | tr -d '\n' | tr -d '\r' | sed -E 's/\.mkv$//' | sed -E 's/\.mp4$//' > "$TEMPDIR/title.txt" 
+  fi
 fi
 
 __N_DESC=""
@@ -970,10 +972,9 @@ fi
 if [ -e "$TEMPDIR/recid.txt" ] ; then
     __N_RECID=`cat "$TEMPDIR/recid.txt"`
 fi
+
+
 if [ __xxx__"${__N_TITLE}" != __xxx__ ] ; then
-    #ARG_TITLE=$(change_arg_file "$TEMPDIR/title.txt")
-    #ARG_METADATA+=(-metadata:g)
-    #ARG_METADATA+=(real_title="${ARG_TITLE}")
     __N_TITLE=`echo ${__N_TITLE} | sed s/\"/”/g `
     ARG_TITLE="${__N_TITLE}"
     ARG_METADATA+=(-metadata:g)
@@ -987,8 +988,11 @@ if [ -n "${__N_GENRE}" ] ; then
 fi
 if [ -n "${__N_SUBTITLE}" ] ; then
     __N_SUBTITLE=`echo ${__N_SUBTITLE} | sed s/\"/”/g `
-    __TMPARG_TITLE="${__N_TITLE}: ${__N_SUBTITLE}" 
-
+    if [ ___xxx___"${__N_TITLE}" != ___xxx___ ] ; then
+        __TMPARG_TITLE="${__N_TITLE}: ${__N_SUBTITLE}" 
+    else
+        __TMPARG_TITLE=": ${__N_SUBTITLE}" 
+    fi    
     ARG_METADATA+=(-metadata:g)
     ARG_METADATA+=("title=${__TMPARG_TITLE}")
     ARG_METADATA+=(-metadata:g)
@@ -1031,13 +1035,13 @@ fi
 
 
 logging "TITLE:"
-logging " ${__N_TITLE}"
+logging "${__N_TITLE}"
 logging "START:"
-logging " ${ARG_STARTTIME}"
+logging "${ARG_STARTTIME}"
 logging "SUBTITLE:"
-logging " ${__N_SUBTITLE}"
+logging "${__N_SUBTITLE}"
 logging "DESCRIPTION:"
-logging " ${ARG_DESC}"
+logging "${ARG_DESC}"
 
 #if [ "__x__${ARG_DESC}" = "__x__" ] ; then
 #   ARG_DESC=" "
@@ -1053,12 +1057,16 @@ else
   DIRNAME=`dirname "$DST"`
   #DIRNAME=`dirname "$SRC"`
   #BASENAME0=`basename "$DST"`
-  BASENAME=`echo "$DST" | awk -F/ "{print $NF}" | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
+  #BASENAME=`basename "$DST" | awk -F/ "{print $NF}" | sed 's/!/！/g' | sed 's/ /_/g' | sed 's/://g' | sed 's/?/？/g' | sed s/"'"/’/g `
+  BASENAME=`basename "${DST}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e 's/&/＆/g' `
+  BASENAME=`echo "${BASENAME}" | sed -e 's/\034/＼/g' `
+  BASENAME=`echo "${BASENAME}" | sed -e 's/!/\\!/g' | sed -e 's/;/；/g' | sed -e 's/?/\\?/g' | sed -e 's/\n//g' | sed -e 's/\r//g' `
+  BASENAME=`echo "${BASENAME}" | sed -e 's/\a/ /g' | sed -e 's/\b//g' | sed -e 's/\f/ /g' | sed -e 's/\v/ /g' | sed -e 's/?/\\?/g'`
 fi
 if [ -z "${BASENAME}" ] ; then
    # At least, must replace '/' with '／'. - 20261011 K.O
    #__ARG_TITLE2=`echo "${__N_TITLE}" | awk -F/ "{print $NF}" | sed -e 's/\"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e "s/;/；/g" | sed -e 's/\&/＆/g' | sed -e 's/\\/＼/g' `
-   __ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | | sed -e 's/&/＆/g' `
+   __ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/:/：/g' | sed -e "s/'/’/g" | sed -e 's/\//／/g' | sed -e 's/&/＆/g' `
    #__ARG_TITLE2=`echo "${__N_TITLE}" | sed -e 's/"/”/g' | sed -e 's/\//／/g' | sed -e "s/'/’/g" | sed -e 's/&/＆/g' | sed -e 's/\\/\\\\/g' `
    BASENAME="${__ARG_TITLE2}_${I_CHANID}_${ARG_STARTTIME}.mkv"
 fi
@@ -1157,7 +1165,7 @@ rm "$DIRNAME/test$BASENAME"
 
 
 BASENAME2=`echo "$SRC" | awk -F/ '{print $NF}'`
-logging "`printf "BASENAME=%s STARTTIME=%s" ${BASENAME} ${I_STARTTIME}`"
+logging "`printf "BASENAME=\"${BASENAME}\" STARTTIME=%s" ${I_STARTTIME}`"
 
 # play nice with other processes
 EXECUTE_PREFIX_COMMANDS=""
@@ -1487,7 +1495,7 @@ case "$x" in
    
    SVTAV1_VIDEO_QUANT=33.0
    SVTAV1_VIDEO_MINQ=15
-   SVTAV1_VIDEO_MAXQ=44
+   SVTAV1_VIDEO_MAXQ=48
 
    #X264_BITRATE=3500
    VIDEO_FILTERCHAIN0="crop=out_w=640:out_h=480:y=480:keep_aspect=1,"
