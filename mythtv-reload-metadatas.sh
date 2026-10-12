@@ -71,9 +71,14 @@ AV1_ENABLE_QM=0
 typeset -i AV1_QM_MIN
 typeset -i AV1_QM_MAX
 typeset -i AV1_SHARPNESS
+typeset -i AV1_GRAIN_DENOISE
+typeset -i AV1_GRAIN_STRENGTH
+
 AV1_QM_MIN=5
 AV1_QM_MAX=15
 AV1_SHARPNESS=-8
+AV1_GRAIN_DENOISE=0
+AV1_GRAIN_STRENGTH=0
 
 typeset -i AV1_BOOST_DETAILS
 
@@ -1528,28 +1533,63 @@ case "${__VCODEC_ENCODER}" in
 	esac
 	PRESET_ARG="-preset ${_N_PRESET_VALUE}"
 	
+	typeset -i __GRAIN_VALUE
+	typeset -i __GRAIN_DENOISE_VALUE
+	
 	__GRAIN_VALUE=0
+	__GRAIN_DENOISE_VALUE=0
 	_T_TUNE_VALUE="`echo ${TUNE_VALUE} | tr '[:lower:]' '[:upper:]'`" 
 	case "${_T_TUNE_VALUE}" in
 	    "GRAIN" )
-		__GRAIN_VALUE=15
+	        if [ ${AV1_GRAIN_STRENGTH} -gt 0 ] ; then
+		    __GRAIN_VALUE=${AV1_GRAIN_STRENGTH}
+		else
+		    __GRAIN_VALUE=12
+		fi
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scm=0:scd=0"
 		;;
 	    "ANIMATION" | "ANIME" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
-	    "ANIMATION_GRAIN" | "ANIME_GRAIN" )
-		__GRAIN_VALUE=7
+	    "ANIMATION_GRAIN" | "ANIME_GRAIN" | "ANIME-GRAIN" )
+	        if [ ${AV1_GRAIN_STRENGTH} -gt 0 ] ; then
+		    __GRAIN_VALUE=${AV1_GRAIN_STRENGTH}
+		else
+		    __GRAIN_VALUE=7
+		fi
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
-	    "NOGRAIN" | "NO_GRAIN" )
+	    "NOGRAIN" | "NO_GRAIN" | "NO-GRAIN" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
-	    "NOGRAIN-MS-SSIM" | "NO_GRAIN_MS_SSIM" )
+	    "NOGRAIN-MS-SSIM" | "NO_GRAIN_MS_SSIM" | "MS_SSIM" | "MS-SSIM" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=${RC_MODE}:scd=1:scm=2"
 		;;
+	    "GRAIN-MS-SSIM" | "GRAIN_MS_SSIM" )
+	        if [ ${AV1_GRAIN_STRENGTH} -gt 0 ] ; then
+		    __GRAIN_VALUE=${AV1_GRAIN_STRENGTH}
+		else
+		    __GRAIN_VALUE=12
+		fi
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=${RC_MODE}:scd=1:scm=2"
+		;;
+	    "VMAF_NOGRAIN" | "VMAF-NO-GRAIN" | "VMAF" )
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=${RC_MODE}:scd=1:scm=2"
+		;;
+	    "VMAF_GRAIN" | "VMAF-GRAIN" )
+	        if [ ${AV1_GRAIN_STRENGTH} -gt 0 ] ; then
+		    __GRAIN_VALUE=${AV1_GRAIN_STRENGTH}
+		else
+		    __GRAIN_VALUE=12
+		fi
+		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=${RC_MODE}:scd=1:scm=2"
+		;;
 	    "MIDGRAIN" | "MID_GRAIN" )
-		__GRAIN_VALUE=6
+	        if [ ${AV1_GRAIN_STRENGTH} -gt 0 ] ; then
+		    __GRAIN_VALUE=${AV1_GRAIN_STRENGTH}
+		else
+		    __GRAIN_VALUE=6
+		fi
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${RC_MODE}:scd=1:scm=2"
 		;;
 	    * )
@@ -1559,8 +1599,20 @@ case "${__VCODEC_ENCODER}" in
 	if [ "___xxx___${__SVTAV1_CODEC_QPVAL}" != "___xxx___" ] ; then
 	     __VCODEC_PARAMS="${__VCODEC_PARAMS}:${__SVTAV1_CODEC_QPVAL}"
 	fi
-	
+	if [ ${__GRAIN_VALUE} -lt 0 ] ; then
+	    __GRAIN_VALUE=0
+	elif [ ${__GRAIN_VALUE} -gt 15 ] ; then
+	    __GRAIN_VALUE=15
+	fi
 	__VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain=${__GRAIN_VALUE}"
+	if [ ${__GRAIN_VALUE} -gt 0 ] ; then
+	    if [ ${AV1_GRAIN_DENOISE} -ne 0 ] ; then
+	        __GRAIN_DENOISE_VALUE=1
+	    fi
+	    if [ ${__GRAIN_DENOISE_VALUE} -ne 0 ] ; then
+	        __VCODEC_PARAMS="${__VCODEC_PARAMS}:film-grain-denoise=1"
+	    fi
+	fi
     
 	if [ ${SVTAV1_DISABLE_TEMPORAL_FILTERING} -ne 0 ] ; then
 	    __VCODEC_PARAMS="${__VCODEC_PARAMS}:enable-tf=0:enable-tf-kf=0"
@@ -1631,6 +1683,7 @@ case "${__VCODEC_ENCODER}" in
 	    __VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:tune_type=${_T_TUNE_VALUE}"
 	fi    
 	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:preset=${_N_PRESET_VALUE}(${PRESET_VALUE})"
+	__VCODEC_DISP_PARAMS="${__VCODEC_DISP_PARAMS}:grain_strength=${__GRAIN_VALUE}:grain_denoise=${__GRAIN_DENOISE_VALUE}"
 	;;
     "librav1e" )
 	## See https://www.free-codecs.com/guides/how_do_i_use_rav1e_and_ffmpeg_to_create_high_quality_videos.htm .
