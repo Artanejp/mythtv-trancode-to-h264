@@ -124,6 +124,12 @@ USE_SVTAV1=0
 SVTAV1_PRESET="faster"
 SVTAV1_TUNE="nograin"
 
+typeset -i AV1_USE_VMAF
+typeset -i AV1_USE_MS_SSIM
+AV1_USE_VMAF=1
+AV1_USE_MS_SSIM=0
+
+
 typeset -i SVTAV1_AQ_MODE
 SVTAV1_AQ_MODE=2
 typeset -i SVTAV1_RC_MODE
@@ -147,11 +153,11 @@ SVTAV1_ENABLE_QM=1
 SVTAV1_QM_MIN=3
 SVTAV1_QM_MAX=15
 
+
 typeset -i SVTAV1_DETAIL_BOOST
 typeset -i SVTAV1_VARIANCE_OCTILE         # --variance-octile
 typeset -i SVTAV1_VARIANCE_BOOST_CURVE    # --variance-boost-curve
 typeset -i SVTAV1_VARIANCE_BOOST_STRENGTH # --variance-boost-strength
-
 SVTAV1_DETAIL_BOOST=1
 SVTAV1_VARIANCE_OCTILE=-1
 SVTAV1_VARIANCE_BOOST_CURVE=-1
@@ -1774,10 +1780,18 @@ case "$x" in
      IS_HWENC_USE_HEVC=0
    ;;
    LIVE_HD_HIGH )
+      if [ ${USE_SVTAV1} -ne 0 ] ; then
+         IS_CRF=0
+         #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	 SVTAV1_TUNE=NO_GRAIN
+     else
+         IS_CRF=1
+     fi
      #X264_DIRECT="--direct auto --aq-mode 3"
      #X264_BFRAMES="--bframes 6 --b-bias -2 --b-adapt 2 --psy-rd 0.5:0.2"
      #X264_PRESETS="--profile:v ${X264_PROFILE} --keyint 300 --min-keyint 24 --scenecut 40 --trellis 2"
      #X264_ENCPRESET="--preset slow --ref 6 --8x8dct --partitions all"
+     
      __X264_BLURAY_COMPAT=1
      
      __X264_AQ_MODE=3
@@ -1786,7 +1800,52 @@ case "$x" in
      __X264_8x8DCT=1
      __X264_MBTREE=1
      __X264_PSY_RD="0.8:0.4"
-     SVTAV1_AQ_STRENGTH=1.2
+     
+     #SVTAV1_AQ_STRENGTH=1.2
+     SVTAV1_AQ_STRENGTH=1.5
+     SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
+     SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
+     SVTAV1_VARIANCE_BOOST_CURVE=1          # Boost low to middle contrast.
+     SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 4
+     
+     if [ $USE_60FPS -ne 0 ] ; then
+         X265_PRESET="veryfast"
+	 SVTAV1_PRESET="faster"
+	 if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	     TARGET_BITRATE_KBIT=3300
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=55    # 40 -> 55
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=75     # NOT CRF 75 -> 75
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=75 # CRF : 70 -> 75
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 2` # QUANT: + 1.0
+	 else
+	     TARGET_BITRATE_KBIT=3600
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=50     # 40 -> 75
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=67      # NOT CRF 75 -> 67
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=67 # CRF : 70 -> 67
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: +1
+	 fi
+	 SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 4` # MAXQ: + 3
+	 SVTAV1_QP_SCALE_COMPRESS=3     
+     else
+         X265_PRESET="faster"
+	 SVTAV1_PRESET="medium"
+	 if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	     TARGET_BITRATE_KBIT=1600
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=55    # 40 -> 55
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=65     # NOT CRF 75 -> 65
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=65 # CRF : 70 -> 65
+	     #SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: + 1.0
+	     SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 3` # MAXQ: + 3
+	 else
+	     TARGET_BITRATE_KBIT=2000
+	     SVTAV1_VARIANCE_BOOST_STRENGTH=3      # 2 -> 1 -> 3
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=75    # 40 -> 75
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=85     # NOT CRF 75 -> 85
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=85 # CRF : 70 -> 85
+	     SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 2` # MAXQ: + 2
+	 fi
+	 SVTAV1_QP_SCALE_COMPRESS=2
+     fi
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="medium"
@@ -1807,62 +1866,55 @@ case "$x" in
      
    ;;
    LIVE_HD_MID )
-     if [ ${USE_SVTAV1} -ne 0 ] ; then
-         # For 60fps, VBR seems to be better than CRF. 
-         if [ $USE_60FPS -ne 0 ] ; then
-	     IS_CRF=0
-	 else
-	     IS_CRF=0
-	 fi
-	 if [ ${IS_CRF} -ne 0 ] ; then
-	      # ACT AS LIMITER.
-	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
-	      SVTAV1_TUNE=NO_GRAIN
-	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2500
-	      else
-	      	 TARGET_BITRATE_KBIT=1300    
-	      fi
-	      #TARGET_BITRATE_KBIT=-1
-	else      
-	      #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
-	      SVTAV1_TUNE=NO_GRAIN
-	      # ACT AS AVERAGE bitrate.
-	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=2050
-	      else
-	      	 TARGET_BITRATE_KBIT=1200    
-	      fi
-	 fi
+      if [ ${USE_SVTAV1} -ne 0 ] ; then
+         IS_CRF=0
+         #SVTAV1_TUNE=NO_GRAIN_MS_SSIM
+	 SVTAV1_TUNE=NO_GRAIN
      else
-	 IS_CRF=1
+         IS_CRF=1
      fi
      SVTAV1_AQ_STRENGTH=1.3
-
      SVTAV1_TEMPORAL_FILTERING_STRENGTH=1
-     
-     SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
      SVTAV1_VARIANCE_OCTILE=5               # 6 -> 5
      SVTAV1_VARIANCE_BOOST_CURVE=1          # Boost low to middle contrast.
+     SVTAV1_VARIANCE_BOOST_STRENGTH=1       # 2 -> 1
      
      if [ $USE_60FPS -ne 0 ] ; then
          X265_PRESET="superfast"
 	 SVTAV1_PRESET="veryfast"
-	 SVTAV1_VARIANCE_BOOST_STRENGTH=2      # 2 -> 2
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=90    # 40 -> 90
-	 SVTAV1_QUANT_OVERSHOOT_PERCENT=67     # NOT CRF 75 -> 67
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=67 # CRF : 70 -> 67
-	 SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 3` # MAXQ: +3
-	 SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: +1
+	 if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	     TARGET_BITRATE_KBIT=1750
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=80    # 40 -> 80
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=55     # NOT CRF 75 -> 55
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=55 # CRF : 70 -> 55
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 2` # QUANT: + 2.0
+	 else
+	     TARGET_BITRATE_KBIT=2050
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=75     # 40 -> 75
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=67      # NOT CRF 75 -> 67
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=67 # CRF : 70 -> 67
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: +1
+	 fi
+	 SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 3` # MAXQ: + 3
 	 SVTAV1_QP_SCALE_COMPRESS=1     
      else
          X265_PRESET="veryfast"
 	 SVTAV1_PRESET="faster"
-	 SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=40    # 40 -> 40
-	 SVTAV1_QUANT_OVERSHOOT_PERCENT=85     # NOT CRF 75 -> 85
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=85 # CRF : 70 -> 85
-	 SVTAV1_QP_SCALE_COMPRESS=2     
+	 if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	     TARGET_BITRATE_KBIT=1050
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=80    # 40 -> 80
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=55     # NOT CRF 75 -> 55
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=55 # CRF : 70 -> 55
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: + 1.0
+	     SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 2` # MAXQ: + 2
+	 else
+	     TARGET_BITRATE_KBIT=1200
+	     SVTAV1_VARIANCE_BOOST_STRENGTH=3      # 2 -> 1 -> 3
+	     SVTAV1_QUANT_UNDERSHOOT_PERCENT=75    # 40 -> 75
+	     SVTAV1_QUANT_OVERSHOOT_PERCENT=85     # NOT CRF 75 -> 85
+	     SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=85 # CRF : 70 -> 85
+	 fi
+	 SVTAV1_QP_SCALE_COMPRESS=2
      fi
      
      __X264_BLURAY_COMPAT=1
@@ -2199,24 +2251,13 @@ case "$x" in
    LIVE_MID | LIVE_MID_FAST )
      if [ ${USE_SVTAV1} -ne 0 ] ; then
 	 IS_CRF=0
-	 if [ ${IS_CRF} -ne 0 ] ; then
-	      # ACT AS LIMITER.
-	      #SVTAV1_VIDEO_QUANT=`calc_mul ${SVTAV1_VIDEO_QUANT} 1.1`
-	      SVTAV1_TUNE=NO_GRAIN_MS_SSIM
-	      #SVTAV1_TUNE=NO_GRAIN
-	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=950
-	      else
-	      	  TARGET_BITRATE_KBIT=500
-	      fi
-	      #TARGET_BITRATE_KBIT=-1
-	else      
-	      # ACT AS AVERAGE bitrate.
-	      if [ $USE_60FPS -ne 0 ] ; then
-	      	 TARGET_BITRATE_KBIT=1200
-	      else
-	      	 TARGET_BITRATE_KBIT=650    
-	      fi
+	 # ACT AS AVERAGE bitrate.
+	 if [ $USE_60FPS -ne 0 ] ; then
+	     TARGET_BITRATE_KBIT=1200
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1` # QUANT: + 1.0
+	     SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 2` # MAXQ: + 2
+	 else
+	     TARGET_BITRATE_KBIT=650    
 	 fi
      else
 	 IS_CRF=1
@@ -2232,26 +2273,40 @@ case "$x" in
 	 #SVTAV1_PRESET="veryfast"
 	 SVTAV1_PRESET="10"  # veryfast (9) < 10 < superfast (11)
 	 # Change bitrate limitation.
-	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=45     # 40 -> 45
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=95     # 40 -> 95
 	 SVTAV1_QUANT_OVERSHOOT_PERCENT=65	# 75 -> 65
-	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=60	# 70 -> 60
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=65	# 70 -> 65
 	 
 	 SVTAV1_DETAIL_BOOST=1
-	 SVTAV1_VARIANCE_BOOST_STRENGTH=3       # 2 -> 3
+	 #SVTAV1_DETAIL_BOOST=0                  # Fast: Detail Boost Off.
+	 SVTAV1_VARIANCE_BOOST_STRENGTH=1       # 2 -> 1
 	 SVTAV1_VARIANCE_OCTILE=7               # 6 -> 7
-	 SVTAV1_VARIANCE_BOOST_CURVE=1         # 0 -> 1
-	 
+	 SVTAV1_VARIANCE_BOOST_CURVE=2         # 0 -> 2
 	 SVTAV1_QP_SCALE_COMPRESS=1
+	 SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} 2` # MAXQ: + 2
+	 if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	     SVTAV1_VIDEO_QUANT=`calc_add ${SVTAV1_VIDEO_QUANT} 1.5` # QUANT: + 1.5
+	     if [ $USE_60FPS -ne 0 ] ; then
+	         TARGET_BITRATE_KBIT=`calc_add ${TARGET_BITRATE_KBIT} -100` # Bitrate -100
+	     else
+	         TARGET_BITRATE_KBIT=`calc_add ${TARGET_BITRATE_KBIT} -50`  # Bitrate -50
+	     fi
+	 fi
      else
          X265_PRESET="veryfast"
-	 
-	 SVTAV1_PRESET="medium"
-	 SVTAV1_QP_SCALE_COMPRESS=2
-	 
+	 #SVTAV1_PRESET="medium"
+	 SVTAV1_PRESET="faster"
          SVTAV1_DETAIL_BOOST=1
 	 SVTAV1_VARIANCE_BOOST_STRENGTH=3      # 2 -> 3
 	 SVTAV1_VARIANCE_OCTILE=5              # 6 -> 5
 	 SVTAV1_VARIANCE_BOOST_CURVE=2         # 0 -> 2
+	 SVTAV1_QP_SCALE_COMPRESS=2
+	 SVTAV1_QUANT_UNDERSHOOT_PERCENT=80     # 40 -> 80
+	 SVTAV1_QUANT_OVERSHOOT_PERCENT=55	# 75 -> 55
+	 SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=55	# 70 -> 55
+	 #if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	 #    SVTAV1_VIDEO_MAXQ=`calc_add ${SVTAV1_VIDEO_MAXQ} -1` # MAXQ: - 1
+	 #fi
      fi
      X265_AQ_STRENGTH=${VIDEO_AQSTRENGTH}
      X265_QP_ADAPTATION_RANGE=1.50
@@ -2982,7 +3037,14 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	fi
 	#echo ${SVTAV1_QUANT_VALUE}
 	#exit 0
-	if [ ${IS_CRF} -eq 0 ] ; then
+	typeset -i __IS_CRF_TRUE
+	__IS_CRF_TRUE=${IS_CRF}
+	if [ ${AV1_USE_VMAF} -ne 0 ] ; then
+	    __IS_CRF_TRUE=1
+	elif [ ${AV1_USE_MS_SSIM} -ne 0 ] ; then
+	    __IS_CRF_TRUE=1
+	fi
+	if [ ${__IS_CRF_TRUE} -eq 0 ] ; then
 	    SVTAV1_HEAD_VALUES+=(-qp)
 	    __VCODEC_DISP_PARAMS="qp="
 	else
@@ -3021,7 +3083,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	    elif [ ${SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT} -gt 100 ] ; then
 		SVTAV1_QUANT_MAX_OVERSHOOT_PERCENT=${__DEFAULT_MAX_OVERSHOOT}
 	    fi
-	    if [ ${IS_CRF} -eq 0 ] ; then
+	    if [ ${__IS_CRF_TRUE} -eq 0 ] ; then
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tbr=${TARGET_BITRATE_KBIT}"
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:undershoot-pct=${SVTAV1_QUANT_UNDERSHOOT_PERCENT}"
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:overshoot-pct=${SVTAV1_QUANT_OVERSHOOT_PERCENT}"
@@ -3042,7 +3104,7 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	__IS_SET_CRF_MIN=0
 	__IS_SET_CRF_MAX=0
 	__CRF_MIN=-1
-	if [ ${IS_CRF} -ne 0 ] ; then
+	if [ ${__IS_CRF_TRUE} -ne 0 ] ; then
 	    __CRF_LIMIT=70
 	else
 	    __CRF_LIMIT=63
@@ -3131,17 +3193,35 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 	case "${_T_TUNE_VALUE}" in
 	    "GRAIN" )
 		__GRAIN_VALUE=15
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scm=0:scd=0"
+		if [ ${AV1_USE_VMAF} -ne 0 ] ; then 
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=0:scm=2:scd=1"
+		elif [ ${AV1_USE_MS_SSIM} -ne 0 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=0:scm=2:scd=1"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scm=0:scd=0"
+		fi
 		;;
 	    "ANIMATION" | "ANIME" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
 		;;
 	    "ANIMATION_GRAIN" | "ANIME_GRAIN" )
 		__GRAIN_VALUE=15
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:scd=1:scm=3"
+		if [ ${AV1_USE_VMAF} -ne 0 ] ; then 
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=0:scm=3:scd=1"
+		elif [ ${AV1_USE_MS_SSIM} -ne 0 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=0:scm=3:scd=1"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:rc=${SVTAV1_RC_MODE}:scm=3:scd=1"
+		fi
 		;;
 	    "NOGRAIN" | "NO_GRAIN" )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scd=1:scm=2"
+		if [ ${AV1_USE_VMAF} -ne 0 ] ; then 
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=0:scm=2:scd=1"
+		elif [ ${AV1_USE_MS_SSIM} -ne 0 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=0:scm=2:scd=1"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=2:rc=${SVTAV1_RC_MODE}:scm=2:scd=1"
+		fi
 		;;
 	    "NOGRAIN-MS-SSIM" | "NO_GRAIN_MS_SSIM" )
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=${SVTAV1_RC_MODE}:scd=1:scm=2"
@@ -3151,7 +3231,13 @@ if [ $FFMPEG_ENC -ne 0 ]; then
 		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scd=1:scm=2"
 		;;
 	    * )
-		__VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scd=1:scm=0"
+		if [ ${AV1_USE_VMAF} -ne 0 ] ; then 
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=5:rc=0:scm=0:scd=1"
+		elif [ ${AV1_USE_MS_SSIM} -ne 0 ] ; then
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=4:rc=0:scm=0:scd=1"
+		else
+		    __VCODEC_PARAMS="${__VCODEC_PARAMS}:tune=0:rc=${SVTAV1_RC_MODE}:scd=1:scm=0"
+		fi
 		;;
 	esac
 	
