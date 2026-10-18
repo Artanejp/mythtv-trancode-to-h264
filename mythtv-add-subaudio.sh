@@ -133,7 +133,7 @@ fi
 ${SOX_CMD} ${__WAVLIST} "${TEMPDIR}/tmp.wav"
 
 if [ -e "${TEMPDIR}/tmp.wav" ] ; then
-   ${FAAC_CMD} -w -b 192 --overwrite "${TEMPDIR}/tmp.wav"
+   ${FAAC_CMD} -b 192 --overwrite "${TEMPDIR}/tmp.wav"
    if [ -e "${TEMPDIR}/tmp.m4a" ] ; then
       ${FFMPEG_CMD} -i "${TARGETFILE}" \
                     -i "${TEMPDIR}/tmp.m4a" \
